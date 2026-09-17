@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BrokerError } from '../src/errors.js';
-import { buildTokenomicsDashboard, rowsFromTables, tokenomicsWindow } from '../src/tokenomics.js';
+import { buildTokenomicsDashboard, rowsFromTables, tokenomicsDashboardQuery, tokenomicsWindow } from '../src/tokenomics.js';
 const config = {
     tokenomicsCurrency: 'USD',
     tokenomicsRateCard: [{
@@ -48,5 +48,16 @@ test('rejects arbitrary dashboard windows', () => {
     assert.equal(tokenomicsWindow(null), 30);
     assert.equal(tokenomicsWindow('7'), 7);
     assert.throws(() => tokenomicsWindow('365'), (error) => error instanceof BrokerError && error.code === 'invalid_window');
+});
+test('correlates token rows only to configured gateway requests', () => {
+    const query = tokenomicsDashboardQuery({
+        tokenomicsApiIds: ['fabric-lakehouse-obo', 'fabric-data-agent-obo'],
+        tokenomicsProjectId: 'parts',
+        tokenomicsTeamId: 'planning',
+        tokenomicsCostCenter: 'cc-205',
+    });
+    assert.match(query, /let ApiIds = dynamic\(\["fabric-lakehouse-obo","fabric-data-agent-obo"\]\)/);
+    assert.match(query, /Tokens\s+\| join kind=inner \(Requests/);
+    assert.doesNotMatch(query, /Tokens\s+\| join kind=leftouter \(Requests/);
 });
 //# sourceMappingURL=tokenomics.test.js.map

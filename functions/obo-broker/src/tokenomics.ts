@@ -161,7 +161,7 @@ export function buildTokenomicsDashboard(rows: QueryRow[], config: BrokerConfig,
   };
 }
 
-function dashboardQuery(config: BrokerConfig): string {
+export function tokenomicsDashboardQuery(config: BrokerConfig): string {
   const apiIds = JSON.stringify(config.tokenomicsApiIds);
   const projectId = config.tokenomicsProjectId;
   const teamId = config.tokenomicsTeamId;
@@ -207,7 +207,7 @@ let Tokens = materialize(
 );
 let TokenContext = materialize(
   Tokens
-  | join kind=leftouter (Requests | project CorrelationId, ApiId, OperationId, UserIdHash, ApplicationId, ProjectId, TeamId, CostCenter) on CorrelationId
+  | join kind=inner (Requests | project CorrelationId, ApiId, OperationId, UserIdHash, ApplicationId, ProjectId, TeamId, CostCenter) on CorrelationId
   | extend ApiId=coalesce(ApiId, 'unattributed'), OperationId=coalesce(OperationId, 'unattributed'),
       UserIdHash=coalesce(UserIdHash, 'unattributed'), ApplicationId=coalesce(ApplicationId, 'unattributed'),
       ProjectId=coalesce(ProjectId, '${projectId}'), TeamId=coalesce(TeamId, '${teamId}'), CostCenter=coalesce(CostCenter, '${costCenter}')
@@ -263,7 +263,7 @@ export function createTokenomicsQuery(config: BrokerConfig, client?: LogsQueryPo
   return async (days: TokenomicsWindow): Promise<TokenomicsDashboard> => {
     const result = await queryClient.queryWorkspace(
       config.logAnalyticsWorkspaceId,
-      dashboardQuery(config),
+      tokenomicsDashboardQuery(config),
       { duration: `P${days}D` },
       { serverTimeoutInSeconds: 45 },
     );

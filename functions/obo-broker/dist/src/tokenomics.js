@@ -104,7 +104,7 @@ export function buildTokenomicsDashboard(rows, config, days, queryStatus) {
         },
     };
 }
-function dashboardQuery(config) {
+export function tokenomicsDashboardQuery(config) {
     const apiIds = JSON.stringify(config.tokenomicsApiIds);
     const projectId = config.tokenomicsProjectId;
     const teamId = config.tokenomicsTeamId;
@@ -150,7 +150,7 @@ let Tokens = materialize(
 );
 let TokenContext = materialize(
   Tokens
-  | join kind=leftouter (Requests | project CorrelationId, ApiId, OperationId, UserIdHash, ApplicationId, ProjectId, TeamId, CostCenter) on CorrelationId
+  | join kind=inner (Requests | project CorrelationId, ApiId, OperationId, UserIdHash, ApplicationId, ProjectId, TeamId, CostCenter) on CorrelationId
   | extend ApiId=coalesce(ApiId, 'unattributed'), OperationId=coalesce(OperationId, 'unattributed'),
       UserIdHash=coalesce(UserIdHash, 'unattributed'), ApplicationId=coalesce(ApplicationId, 'unattributed'),
       ProjectId=coalesce(ProjectId, '${projectId}'), TeamId=coalesce(TeamId, '${teamId}'), CostCenter=coalesce(CostCenter, '${costCenter}')
@@ -203,7 +203,7 @@ union
 export function createTokenomicsQuery(config, client) {
     const queryClient = client ?? new LogsQueryClient(new ManagedIdentityCredential(config.managedIdentityClientId));
     return async (days) => {
-        const result = await queryClient.queryWorkspace(config.logAnalyticsWorkspaceId, dashboardQuery(config), { duration: `P${days}D` }, { serverTimeoutInSeconds: 45 });
+        const result = await queryClient.queryWorkspace(config.logAnalyticsWorkspaceId, tokenomicsDashboardQuery(config), { duration: `P${days}D` }, { serverTimeoutInSeconds: 45 });
         const complete = result.status === LogsQueryResultStatus.Success;
         const tables = complete ? result.tables : result.partialTables;
         if (!tables.length)

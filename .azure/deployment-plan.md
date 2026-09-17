@@ -1,6 +1,6 @@
 # Fabric Lakehouse and Data Agent OBO
 
-Status: Approved
+Status: Validated
 
 ## Active Scope
 
@@ -103,6 +103,44 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 	its tool returns a live permission-trimmed result.
 
 ## Active Validation Proof
+
+2026-09-17 tokenomics and responsive UI validation (current):
+
+- `pwsh scripts/validate.ps1 -DeploymentReady -IncludeParity -SkipTerraformInit`
+	passed the configuration contract, broker build and tests, UI production build and
+	Vitest tests, production dependency audits, APIM OpenAPI/policy parsing, Bicep build
+	and lint, all Terraform parity modules, PowerShell syntax, portable ZIP, fail-closed
+	what-if, and agent-package safety tests. Broker and UI production dependencies reported
+	zero known vulnerabilities. After the shared-workspace isolation correction,
+	`npm test --prefix functions/obo-broker` passed all 11 tests.
+- Angular 21, Ionic 7 LTS, MSAL browser, and Chart.js build successfully. Playwright
+	verified web (1440x1000), tablet (1024x900), and phone (390x844) layouts with the
+	expected sidebar/icon-rail/bottom-tab navigation, zero horizontal overflow, no tested
+	text overflow, nonblank chart canvases, and working phone view switching. The checked-in
+	runtime configuration remains explicitly in demo mode; a live build requires generated
+	SPA identity metadata and never embeds a credential.
+- Azure CLI authentication matched tenant `12a4b86b-e64c-43f9-af05-d9130a72dfd2`
+	and subscription `cf824570-a8ba-497a-a184-0a52f1830aa9`. Microsoft Graph `/me`
+	resolved `admin@caldova37587778.onmicrosoft.com` to configured allowed object ID
+	`715bb744-31d0-4f76-ac85-7193bcf5a4eb`.
+- Fresh fail-closed previews contain broker base `Create=25, Ignore=83, NoChange=2`,
+	broker app `Create=31, Ignore=83, NoChange=2`, and APIM `Create=38`. The first APIM
+	preview correctly stopped because it proposed modifying the existing shared
+	`diagnostics/azuremonitor` resource and removing query-parameter masking. The template
+	was corrected to leave that resource unmanaged; the final APIM preview is additive only.
+	All final previews contain zero Modify, Delete, Deploy, Unsupported, or unknown changes.
+- Explicit ARM `validate` returned success for broker base, broker app shape, and the
+	subscription-scoped APIM stack using the fresh generated parameter files.
+- Azure Policy validation resolved three inherited Defender initiatives and all 11
+	constituent policies. Every effective action is `DeployIfNotExists`; there are zero
+	Deny effects. Static RBAC review confirms the new Log Analytics Reader role is scoped
+	only to the dedicated broker workspace and is identical in Bicep and Terraform.
+- APIM exports `GatewayLogs`, `GatewayLlmLogs`, and metrics to the dedicated workspace
+	through an additive `fabric-tokenomics` diagnostic setting. Dashboard KQL inner-joins
+	LLM rows to this repository's configured API correlations, preventing unrelated APIs on
+	the shared APIM service from entering allocation results. The live rate card is empty by
+	default, so the UI reports usage without claiming cost until negotiated or market rates
+	are explicitly configured.
 
 The 2026-09-16 dual-tenant validation below is retained as historical evidence only. It
 does not authorize deployment after the target moved to the single-tenant Caldova
@@ -212,26 +250,27 @@ configuration.
 	resolution, deployment, connector/agent publication, delegated and denied-user tests,
 	and remaining screenshots are not yet complete and are not claimed by this proof.
 
-- [ ] All validation checks pass (single-tenant Caldova Fabric OBO)
-	- [ ] 1. Core Validation (CLI, tenant-bound auth, build, ARM validation, and what-if)
-	- [ ] 2. Bicep linting
-	- [ ] 3. Azure Policy Validation
-	- [ ] Repository deployment-ready validation with Bicep/Terraform parity
+- [x] All validation checks pass (single-tenant Caldova Fabric OBO)
+	- [x] 1. Core Validation (CLI, tenant-bound auth, build, ARM validation, and what-if)
+	- [x] 2. Bicep linting
+	- [x] 3. Azure Policy Validation
+	- [x] Repository deployment-ready validation with Bicep/Terraform parity
 
 ## Role Assignment Verification
 
-- Status: Verified on 2026-09-17 in both `bicep/broker` and
+- Status: Verified on 2026-09-17 after the tokenomics changes in both `bicep/broker` and
 	`terraform/broker`.
 - Broker user-assigned identity: Storage Blob Data Owner and Storage Table Data
 	Contributor on its dedicated storage account; Key Vault Secrets User on its dedicated
-	vault. These support identity-based Functions host/package storage and the versionless
-	OBO secret reference.
+	vault; Log Analytics Reader on its dedicated workspace. These support identity-based
+	Functions host/package storage, the versionless OBO secret reference, and read-only
+	tokenomics queries against APIM and broker telemetry.
 - Current deployer: Storage Blob Data Contributor on the dedicated storage account and
 	Key Vault Secrets Officer on the dedicated vault for package upload and direct secret
 	creation during deployment.
 - APIM system identity: no broad Azure RBAC. The identity provisioner assigns only the
 	`Fabric.Broker.Invoke` Entra application role on the dedicated broker API.
-- Scope: every Azure role is resource-scoped; no resource-group or subscription-wide role
+- Scope: every Azure role is storage-account, vault, or workspace scoped; no resource-group or subscription-wide role
 	is introduced. Bicep and Terraform use the same role definition IDs and scopes.
 - Issues: none. No Queue role, generic Contributor, generic Owner, or duplicate storage
 	role is granted to the broker identity.

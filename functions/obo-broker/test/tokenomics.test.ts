@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import type { LogsTable } from '@azure/monitor-query-logs';
 import type { BrokerConfig } from '../src/config.js';
 import { BrokerError } from '../src/errors.js';
-import { buildTokenomicsDashboard, rowsFromTables, tokenomicsWindow } from '../src/tokenomics.js';
+import { buildTokenomicsDashboard, rowsFromTables, tokenomicsDashboardQuery, tokenomicsWindow } from '../src/tokenomics.js';
 
 const config = {
   tokenomicsCurrency: 'USD',
@@ -53,4 +53,16 @@ test('rejects arbitrary dashboard windows', () => {
   assert.equal(tokenomicsWindow(null), 30);
   assert.equal(tokenomicsWindow('7'), 7);
   assert.throws(() => tokenomicsWindow('365'), (error: unknown) => error instanceof BrokerError && error.code === 'invalid_window');
+});
+
+test('correlates token rows only to configured gateway requests', () => {
+  const query = tokenomicsDashboardQuery({
+    tokenomicsApiIds: ['fabric-lakehouse-obo', 'fabric-data-agent-obo'],
+    tokenomicsProjectId: 'parts',
+    tokenomicsTeamId: 'planning',
+    tokenomicsCostCenter: 'cc-205',
+  } as BrokerConfig);
+  assert.match(query, /let ApiIds = dynamic\(\["fabric-lakehouse-obo","fabric-data-agent-obo"\]\)/);
+  assert.match(query, /Tokens\s+\| join kind=inner \(Requests/);
+  assert.doesNotMatch(query, /Tokens\s+\| join kind=leftouter \(Requests/);
 });
