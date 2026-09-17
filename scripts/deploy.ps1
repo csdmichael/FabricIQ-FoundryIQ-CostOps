@@ -10,6 +10,7 @@ param(
     [string] $ResourceApiObjectId,
     [string] $LakehouseConnectorObjectId,
     [string] $DataAgentConnectorObjectId,
+    [string] $DashboardClientObjectId,
     [string] $BrokerApiObjectId,
     [string] $CurrentDeployerPrincipalId,
     [string] $UploadIpAddress,
@@ -203,6 +204,7 @@ function Assert-LiveIdentityMetadata {
             $expectedName = if ($connector.kind -eq 'lakehouse') { [string]$config.identity.lakehouseConnectorDisplayName } else { [string]$config.identity.dataAgentConnectorDisplayName }
             Assert-LiveApplicationPair -Token $resourceToken -Metadata $connector -ExpectedDisplayName $expectedName -Label "$($connector.kind) connector"
         }
+        Assert-LiveApplicationPair -Token $resourceToken -Metadata $Identity.dashboardClient -ExpectedDisplayName ([string]$config.identity.dashboardClientDisplayName) -Label 'Dashboard SPA'
         Assert-LiveApplicationPair -Token $callerToken -Metadata $Identity.brokerApi -ExpectedDisplayName ([string]$config.identity.brokerApiDisplayName) -Label 'Broker API'
         $apimPrincipal = Get-GraphObject -Token $callerToken -Path "servicePrincipals/$($Identity.apimPrincipalId)?`$select=id"
         if ($apimPrincipal.id -ne $script:LiveApimPrincipalId) {
@@ -229,6 +231,7 @@ function Get-IdentityMetadata {
                 [pscustomobject]@{ kind = 'lakehouse'; clientId = '44444444-4444-4444-8444-444444444444' },
                 [pscustomobject]@{ kind = 'dataAgent'; clientId = '55555555-5555-4555-8555-555555555555' }
             )
+            dashboardClient = [pscustomobject]@{ clientId = '77777777-7777-4777-8777-777777777777' }
             allowedUserObjectIds = @('66666666-6666-4666-8666-666666666666')
         }
     }
@@ -248,6 +251,7 @@ function Get-IdentityMetadata {
     $null = Assert-FabricGuid -Value $identity.brokerApi.clientId -Name 'identity.brokerApi.clientId'
     $null = Assert-FabricGuid -Value $identity.apimPrincipalId -Name 'identity.apimPrincipalId'
     $null = Assert-FabricGuidList -Values @($identity.connectors.clientId) -Name 'identity.connectors.clientId'
+    $null = Assert-FabricGuid -Value $identity.dashboardClient.clientId -Name 'identity.dashboardClient.clientId'
     $null = Assert-FabricGuidList -Values @($identity.allowedUserObjectIds) -Name 'identity.allowedUserObjectIds'
     if ($identity.apimPrincipalId -ne $script:LiveApimPrincipalId) {
         throw 'Identity metadata APIM principal does not match the configured live APIM managed identity.'
@@ -261,7 +265,7 @@ function Get-BrokerParameters {
     $connectorClientIds = [object[]]@()
     $allowedUserObjectIds = [object[]]@()
     if ($DeployFunction) {
-        $connectorClientIds = [object[]]@($Identity.connectors.clientId)
+        $connectorClientIds = [object[]]@($Identity.connectors.clientId) + [object[]]@($Identity.dashboardClient.clientId)
         $allowedUserObjectIds = [object[]]@($Identity.allowedUserObjectIds)
     }
     return @{
@@ -300,6 +304,17 @@ function Get-BrokerParameters {
         sqlRequestTimeoutMs = [int]$config.broker.sqlRequestTimeoutMs
         maxRows = [int]$config.broker.maxRows
         maxStatementLength = [int]$config.broker.maxStatementLength
+        tokenomicsApimApiIds = @(
+            [string]$config.apim.lakehouseApiId
+            [string]$config.apim.dataAgentApiId
+            "$($config.apim.lakehouseApiId)-mcp"
+            "$($config.apim.dataAgentApiId)-mcp"
+        )
+        tokenomicsProjectId = [string]$config.tokenomics.projectId
+        tokenomicsTeamId = [string]$config.tokenomics.teamId
+        tokenomicsCostCenter = [string]$config.tokenomics.costCenter
+        tokenomicsCurrency = [string]$config.tokenomics.currency
+        tokenomicsRateCardJson = ConvertTo-Json -InputObject @($config.tokenomics.rateCard) -Depth 10 -Compress
         tags = $config.tags
     }
 }
@@ -435,7 +450,7 @@ if (Test-Step 'identity') {
             InviteConfiguredAdmin = [bool]$InviteConfiguredAdmin
             RemoveStaleGrants = [bool]$RemoveStaleGrants
         }
-        foreach ($adoptionParameter in 'ResourceApiObjectId', 'LakehouseConnectorObjectId', 'DataAgentConnectorObjectId', 'BrokerApiObjectId') {
+        foreach ($adoptionParameter in 'ResourceApiObjectId', 'LakehouseConnectorObjectId', 'DataAgentConnectorObjectId', 'DashboardClientObjectId', 'BrokerApiObjectId') {
             $adoptionValue = Get-Variable -Name $adoptionParameter -ValueOnly
             if (-not [string]::IsNullOrWhiteSpace([string]$adoptionValue)) {
                 $identityParameters[$adoptionParameter] = $adoptionValue
@@ -534,15 +549,19 @@ if (Test-Step 'broker-app') {
 
 if (Test-Step 'apim') {
     $identity = Get-IdentityMetadata
+    $effectiveApplicationInsightsName = if ([string]::IsNullOrWhiteSpace($ApplicationInsightsName)) { "appi-$($config.broker.appName)" } else { $ApplicationInsightsName }
+    $effectiveApplicationInsightsResourceGroupName = if ([string]::IsNullOrWhiteSpace($ApplicationInsightsResourceGroupName)) { [string]$config.azure.resourceGroup } else { $ApplicationInsightsResourceGroupName }
+    $logAnalyticsWorkspaceId = "/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.OperationalInsights/workspaces/log-$($config.broker.appName)"
     $apimParameterPath = Join-Path $parameterDirectory 'apim.parameters.json'
     Write-ArmParameters -Path $apimParameterPath -Values @{
         resourceApiClientId = [string]$identity.resourceApi.clientId
-        connectorClientIds = @($identity.connectors.clientId)
+        connectorClientIds = @($identity.connectors.clientId) + @($identity.dashboardClient.clientId)
         allowedUserObjectIds = @($identity.allowedUserObjectIds)
         brokerAudience = [string]$identity.brokerApi.clientId
         brokerPrivateUrl = "https://$($config.broker.appName).azurewebsites.net"
-        applicationInsightsName = $ApplicationInsightsName
-        applicationInsightsResourceGroupName = $ApplicationInsightsResourceGroupName
+        applicationInsightsName = $effectiveApplicationInsightsName
+        applicationInsightsResourceGroupName = $effectiveApplicationInsightsResourceGroupName
+        logAnalyticsWorkspaceId = $logAnalyticsWorkspaceId
     }
     $null = Assert-FabricAzureContext -SubscriptionId ([string]$config.apim.subscriptionId) -TenantId ([string]$config.apim.tenantId)
     Invoke-SubscriptionDeployment -Name "$deploymentPrefix-apim" -TemplateFile (Join-Path $fabricRoot 'bicep/apim/main.bicep') -ParametersFile $apimParameterPath | Out-Null

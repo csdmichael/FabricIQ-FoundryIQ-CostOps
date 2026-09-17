@@ -32,6 +32,9 @@ param applicationInsightsName string = ''
 @description('Resource group of the existing Application Insights component.')
 param applicationInsightsResourceGroupName string = ''
 
+@description('Existing Log Analytics workspace resource ID for APIM gateway and LLM token diagnostics.')
+param logAnalyticsWorkspaceId string = ''
+
 var effectiveApplicationInsightsResourceGroupName = empty(applicationInsightsResourceGroupName) ? apimConfig.resourceGroup : applicationInsightsResourceGroupName
 
 module apimStack './stack.bicep' = {
@@ -59,9 +62,13 @@ module apimStack './stack.bicep' = {
     dataAgentApiPath: apimConfig.dataAgentApiPath
     dataAgentMcpDisplayName: apimConfig.dataAgentMcpDisplayName
     dataAgentMcpPath: apimConfig.dataAgentMcpPath
+    tokenomicsApiId: apimConfig.tokenomicsApiId
+    tokenomicsApiPath: apimConfig.tokenomicsApiPath
     productId: apimConfig.productId
+    uiAllowedOrigin: config.ui.allowedOrigin
     applicationInsightsName: applicationInsightsName
     applicationInsightsResourceGroupName: effectiveApplicationInsightsResourceGroupName
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
   }
 }
 
@@ -70,3 +77,4 @@ output lakehouseApiUrl string = '${apimConfig.gatewayUrl}/${apimConfig.lakehouse
 output dataAgentApiUrl string = '${apimConfig.gatewayUrl}/${apimConfig.dataAgentApiPath}'
 output lakehouseMcpUrl string = '${apimConfig.gatewayUrl}/${apimConfig.lakehouseMcpPath}/mcp'
 output dataAgentMcpUrl string = '${apimConfig.gatewayUrl}/${apimConfig.dataAgentMcpPath}/mcp'
+output tokenomicsApiUrl string = '${apimConfig.gatewayUrl}/${apimConfig.tokenomicsApiPath}'

@@ -25,6 +25,7 @@ locals {
   key_vault_secrets_user_role_id        = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/4633458b-17de-408a-b874-0445c86b69e6"
   key_vault_secrets_officer_role_id     = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/b86a8fe4-44ce-4948-aee5-eccb2c155cd7"
   storage_blob_data_contributor_role_id = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"
+  log_analytics_reader_role_id          = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/73c42c96-874c-492b-b04d-ab87d138a893"
 
   storage_role_definition_ids = {
     blob_data_owner        = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
@@ -244,6 +245,14 @@ resource "azurerm_role_assignment" "deployer_storage_blob_data_contributor" {
   principal_id       = var.current_deployer_principal_id
 }
 
+resource "azurerm_role_assignment" "identity_log_analytics_reader" {
+  name               = uuidv5(local.arm_guid_namespace, "${azurerm_log_analytics_workspace.broker.id}-${azurerm_user_assigned_identity.broker.id}-${local.log_analytics_reader_role_id}")
+  scope              = azurerm_log_analytics_workspace.broker.id
+  role_definition_id = local.log_analytics_reader_role_id
+  principal_id       = azurerm_user_assigned_identity.broker.principal_id
+  principal_type     = "ServicePrincipal"
+}
+
 resource "azurerm_private_dns_zone" "web" {
   name                = local.web_private_dns_zone_name
   resource_group_name = data.azurerm_resource_group.broker.name
@@ -390,6 +399,14 @@ resource "azurerm_linux_function_app" "broker" {
     SQL_REQUEST_TIMEOUT_MS                       = tostring(local.config.broker.sqlRequestTimeoutMs)
     MAX_ROWS                                     = tostring(local.config.broker.maxRows)
     MAX_STATEMENT_LENGTH                         = tostring(local.config.broker.maxStatementLength)
+    MANAGED_IDENTITY_CLIENT_ID                   = azurerm_user_assigned_identity.broker.client_id
+    LOG_ANALYTICS_WORKSPACE_ID                   = azurerm_log_analytics_workspace.broker.workspace_id
+    TOKENOMICS_APIM_API_IDS                      = join(",", [local.config.apim.lakehouseApiId, local.config.apim.dataAgentApiId, "${local.config.apim.lakehouseApiId}-mcp", "${local.config.apim.dataAgentApiId}-mcp"])
+    TOKENOMICS_PROJECT_ID                        = local.config.tokenomics.projectId
+    TOKENOMICS_TEAM_ID                           = local.config.tokenomics.teamId
+    TOKENOMICS_COST_CENTER                       = local.config.tokenomics.costCenter
+    TOKENOMICS_CURRENCY                          = local.config.tokenomics.currency
+    TOKENOMICS_RATE_CARD_JSON                    = jsonencode(local.config.tokenomics.rateCard)
   }
 
   site_config {
@@ -441,6 +458,7 @@ resource "azurerm_linux_function_app" "broker" {
     azurerm_private_endpoint.table,
     azurerm_role_assignment.deployer_storage_blob_data_contributor,
     azurerm_role_assignment.identity_key_vault,
+    azurerm_role_assignment.identity_log_analytics_reader,
     azurerm_role_assignment.storage,
   ]
 }

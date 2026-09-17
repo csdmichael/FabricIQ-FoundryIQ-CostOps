@@ -39,7 +39,7 @@ if ($config.network.mode -eq 'single-tenant-shared-vnet' -and $config.network.ap
 if ($config.network.mode -eq 'single-tenant-existing-peering' -and $config.network.apimVnetResourceId -eq $config.network.brokerVnetResourceId) {
     throw 'single-tenant-existing-peering requires distinct APIM and broker VNets.'
 }
-foreach ($path in 'apim.location', 'apim.serviceName', 'apim.skuName', 'apim.publisherEmail', 'apim.publisherName', 'apim.publicNetworkAccess', 'network.apimSubnetName', 'network.apimSubnetPrefix', 'identity.allowedUserPrincipalName') {
+foreach ($path in 'apim.location', 'apim.serviceName', 'apim.skuName', 'apim.publisherEmail', 'apim.publisherName', 'apim.publicNetworkAccess', 'apim.tokenomicsApiId', 'apim.tokenomicsApiPath', 'network.apimSubnetName', 'network.apimSubnetPrefix', 'identity.allowedUserPrincipalName', 'identity.dashboardClientDisplayName', 'tokenomics.projectId', 'tokenomics.teamId', 'tokenomics.costCenter', 'tokenomics.currency', 'ui.allowedOrigin', 'ui.environment') {
     $null = Get-FabricConfigValue -Config $config -Path $path
 }
 if ($config.apim.publicNetworkAccess -notin @('Enabled', 'Disabled')) {
@@ -56,6 +56,13 @@ if ($config.fabric.sqlEndpointHost -notmatch '^[a-z0-9-]+\.datawarehouse\.fabric
 }
 if ($config.apim.gatewayUrl -notmatch '^https://[a-z0-9-]+\.azure-api\.net/?$') {
     throw 'apim.gatewayUrl must be an HTTPS azure-api.net origin.'
+}
+if ($config.ui.allowedOrigin -notmatch '^https?://[^/]+$' -or @($config.ui.redirectUris).Count -lt 1 -or @($config.ui.redirectUris | Where-Object { $_ -ne $config.ui.allowedOrigin }).Count -gt 0) {
+    throw 'ui.allowedOrigin must be one origin and every ui.redirectUris entry must match it.'
+}
+if ($config.tokenomics.currency -notmatch '^[A-Z]{3}$' -or $config.tokenomics.projectId -notmatch '^[A-Za-z0-9._-]{1,64}$' -or
+    $config.tokenomics.teamId -notmatch '^[A-Za-z0-9._-]{1,64}$' -or $config.tokenomics.costCenter -notmatch '^[A-Za-z0-9._-]{1,64}$') {
+    throw 'Tokenomics currency and allocation dimensions are invalid.'
 }
 foreach ($path in 'network.brokerVnetResourceId', 'network.brokerPrivateEndpointSubnetResourceId', 'network.brokerIntegrationSubnetResourceId', 'network.apimVnetResourceId') {
     $resourceId = [string](Get-FabricConfigValue -Config $config -Path $path)
@@ -76,6 +83,9 @@ try {
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('run', 'build', '--prefix', 'functions/obo-broker') -Description 'Broker build'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'functions/obo-broker') -Description 'Broker tests'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('audit', '--prefix', 'functions/obo-broker', '--omit=dev') -Description 'Broker production dependency audit'
+    Invoke-FabricNative -FilePath 'npm' -ArgumentList @('run', 'build', '--prefix', 'ui') -Description 'Tokenomics UI build'
+    Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'ui', '--', '--watch=false') -Description 'Tokenomics UI tests'
+    Invoke-FabricNative -FilePath 'npm' -ArgumentList @('audit', '--prefix', 'ui', '--omit=dev') -Description 'Tokenomics UI production dependency audit'
 
     foreach ($file in Get-ChildItem (Join-Path $repositoryRoot 'apim/openapi/*.json')) {
         $null = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json

@@ -30,6 +30,8 @@ locals {
   allowed_user_object_ids                  = [for value in var.allowed_user_object_ids : lower(trimspace(value))]
   application_insights_name                = trimspace(coalesce(var.application_insights_name, ""))
   diagnostics_enabled                      = local.application_insights_name != ""
+  log_analytics_workspace_id               = trimspace(coalesce(var.log_analytics_workspace_id, ""))
+  tokenomics_diagnostics_enabled           = local.log_analytics_workspace_id != ""
   application_insights_resource_group_name = trimspace(coalesce(var.application_insights_resource_group_name, "")) != "" ? trimspace(var.application_insights_resource_group_name) : local.apim_resource_group_name
 
   named_values = {
@@ -45,6 +47,7 @@ locals {
     fabric-obo-rate-limit-calls           = tostring(local.config.apim.rateLimitCalls)
     fabric-obo-rate-limit-renewal-seconds = tostring(local.config.apim.rateLimitRenewalSeconds)
     fabric-obo-request-timeout-seconds    = tostring(local.config.apim.requestTimeoutSeconds)
+    fabric-obo-ui-origin                  = local.config.ui.allowedOrigin
   }
 
   apis = {
@@ -61,6 +64,13 @@ locals {
       description  = "Fabric Data Agent queries using delegated OAuth through the private broker."
       path         = local.config.apim.dataAgentApiPath
       openapi_file = "${path.module}/../../apim/openapi/data-agent.json"
+    }
+    tokenomics = {
+      name         = local.config.apim.tokenomicsApiId
+      display_name = "Fabric Tokenomics"
+      description  = "Privacy-preserving APIM request, token, allocation, and cost analytics."
+      path         = local.config.apim.tokenomicsApiPath
+      openapi_file = "${path.module}/../../apim/openapi/tokenomics.json"
     }
   }
 
@@ -79,6 +89,11 @@ locals {
       api_key      = "data-agent"
       operation_id = "query"
       policy_file  = "data-agent-query-operation-policy.xml"
+    }
+    tokenomics-summary = {
+      api_key      = "tokenomics"
+      operation_id = "summary"
+      policy_file  = "tokenomics-summary-operation-policy.xml"
     }
   }
 
@@ -124,6 +139,8 @@ locals {
     local.config.apim.dataAgentApiPath,
     local.config.apim.dataAgentMcpDisplayName,
     local.config.apim.dataAgentMcpPath,
+    local.config.apim.tokenomicsApiId,
+    local.config.apim.tokenomicsApiPath,
     local.config.apim.productId,
   ]
 
@@ -437,6 +454,27 @@ resource "azapi_resource" "logger" {
       resourceId = data.azurerm_application_insights.this[0].id
       isBuffered = true
     }
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "tokenomics" {
+  count = local.tokenomics_diagnostics_enabled ? 1 : 0
+
+  name                           = "fabric-tokenomics"
+  target_resource_id             = local.apim_id
+  log_analytics_workspace_id     = local.log_analytics_workspace_id
+  log_analytics_destination_type = "Dedicated"
+
+  enabled_log {
+    category = "GatewayLogs"
+  }
+
+  enabled_log {
+    category = "GatewayLlmLogs"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
   }
 }
 

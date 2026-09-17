@@ -1,0 +1,8 @@
+{
+  "apiBaseUrl": "",
+  "tenantId": "",
+  "clientId": "",
+  "scope": "",
+  "demoMode": true,
+  "environment": "Demo"
+}

@@ -114,6 +114,25 @@ param maxRows int = 1000
 @maxValue(100000)
 param maxStatementLength int = 10000
 
+@description('APIM API IDs included in tokenomics aggregation. Dashboard self-traffic must be excluded.')
+@minLength(1)
+param tokenomicsApimApiIds array
+
+@description('Governed business project dimension for this deployment.')
+param tokenomicsProjectId string
+
+@description('Governed team dimension for this deployment.')
+param tokenomicsTeamId string
+
+@description('Governed cost-center dimension for this deployment.')
+param tokenomicsCostCenter string
+
+@description('ISO 4217 reporting currency for the tokenomics rate card.')
+param tokenomicsCurrency string = 'USD'
+
+@description('Effective-dated token rate card serialized as JSON. An empty array disables cost estimates without disabling usage telemetry.')
+param tokenomicsRateCardJson string = '[]'
+
 @minValue(30)
 @maxValue(730)
 param logRetentionDays int = 30
@@ -150,6 +169,7 @@ var storageRoleDefinitionIds = [
 ]
 var keyVaultSecretsUserRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
 var keyVaultSecretsOfficerRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
+var logAnalyticsReaderRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '73c42c96-874c-492b-b04d-ab87d138a893')
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' existing = {
   name: existingPlanName
@@ -325,6 +345,16 @@ resource deployerStorageBlobDataContributor 'Microsoft.Authorization/roleAssignm
   properties: {
     principalId: currentDeployerPrincipalId
     roleDefinitionId: storageBlobDataContributorRoleDefinitionId
+  }
+}
+
+resource identityLogAnalyticsReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: logAnalyticsWorkspace
+  name: guid(logAnalyticsWorkspace.id, brokerIdentity.id, logAnalyticsReaderRoleDefinitionId)
+  properties: {
+    principalId: brokerIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: logAnalyticsReaderRoleDefinitionId
   }
 }
 
@@ -656,6 +686,38 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = if (deployFunction) {
           name: 'MAX_STATEMENT_LENGTH'
           value: string(maxStatementLength)
         }
+        {
+          name: 'MANAGED_IDENTITY_CLIENT_ID'
+          value: brokerIdentity.properties.clientId
+        }
+        {
+          name: 'LOG_ANALYTICS_WORKSPACE_ID'
+          value: logAnalyticsWorkspace.properties.customerId
+        }
+        {
+          name: 'TOKENOMICS_APIM_API_IDS'
+          value: join(tokenomicsApimApiIds, ',')
+        }
+        {
+          name: 'TOKENOMICS_PROJECT_ID'
+          value: tokenomicsProjectId
+        }
+        {
+          name: 'TOKENOMICS_TEAM_ID'
+          value: tokenomicsTeamId
+        }
+        {
+          name: 'TOKENOMICS_COST_CENTER'
+          value: tokenomicsCostCenter
+        }
+        {
+          name: 'TOKENOMICS_CURRENCY'
+          value: tokenomicsCurrency
+        }
+        {
+          name: 'TOKENOMICS_RATE_CARD_JSON'
+          value: tokenomicsRateCardJson
+        }
       ]
       ftpsState: 'Disabled'
       http20Enabled: true
@@ -676,6 +738,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = if (deployFunction) {
     storageRoleAssignments
     deployerStorageBlobDataContributor
     identityKeyVaultSecretsUser
+    identityLogAnalyticsReader
     blobPrivateDnsVnetLink
     tablePrivateDnsVnetLink
     vaultPrivateDnsVnetLink
@@ -766,5 +829,7 @@ output deploymentContainerId string = deploymentContainer.id
 output packageBlobUrl string = deploymentPackageBlobUrl
 output applicationInsightsName string = applicationInsights.name
 output logAnalyticsWorkspaceName string = logAnalyticsWorkspace.name
+output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
+output logAnalyticsWorkspaceCustomerId string = logAnalyticsWorkspace.properties.customerId
 output userAssignedIdentityPrincipalId string = brokerIdentity.properties.principalId
 output userAssignedIdentityClientId string = brokerIdentity.properties.clientId

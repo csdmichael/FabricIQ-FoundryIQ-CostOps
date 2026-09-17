@@ -1,5 +1,15 @@
 export type DownstreamTarget = 'fabric' | 'powerbi';
 
+export interface TokenRate {
+  model: string;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  marketInputUsdPerMillion: number;
+  marketOutputUsdPerMillion: number;
+  negotiatedInputUsdPerMillion?: number;
+  negotiatedOutputUsdPerMillion?: number;
+}
+
 export interface BrokerConfig {
   resourceTenantId: string;
   callerTenantId: string;
@@ -23,6 +33,14 @@ export interface BrokerConfig {
   sqlRequestTimeoutMs: number;
   maxRows: number;
   maxStatementLength: number;
+  managedIdentityClientId: string;
+  logAnalyticsWorkspaceId: string;
+  tokenomicsApiIds: string[];
+  tokenomicsProjectId: string;
+  tokenomicsTeamId: string;
+  tokenomicsCostCenter: string;
+  tokenomicsCurrency: string;
+  tokenomicsRateCard: TokenRate[];
 }
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -44,6 +62,30 @@ export function loadConfig(environment: NodeJS.ProcessEnv): BrokerConfig {
     if (!values.length || values.some(value => !uuidPattern.test(value))) throw new Error(`Invalid ${name}`);
     return [...new Set(values.map(value => value.toLowerCase()))];
   };
+  const dimension = (name: string): string => {
+    const value = required(name);
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(value)) throw new Error(`Invalid ${name}`);
+    return value;
+  };
+  const tokenomicsApiIds = required('TOKENOMICS_APIM_API_IDS').split(',').map(value => value.trim()).filter(Boolean);
+  if (!tokenomicsApiIds.length || tokenomicsApiIds.some(value => !/^[A-Za-z0-9._-]{1,128}$/.test(value))) {
+    throw new Error('Invalid TOKENOMICS_APIM_API_IDS');
+  }
+  let tokenomicsRateCard: TokenRate[];
+  try {
+    const parsed = JSON.parse(required('TOKENOMICS_RATE_CARD_JSON')) as unknown;
+    if (!Array.isArray(parsed)) throw new Error();
+    tokenomicsRateCard = parsed as TokenRate[];
+  } catch {
+    throw new Error('Invalid TOKENOMICS_RATE_CARD_JSON');
+  }
+  const validRate = (rate: TokenRate): boolean => typeof rate === 'object' && rate !== null
+    && typeof rate.model === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(rate.model)
+    && typeof rate.effectiveFrom === 'string' && !Number.isNaN(Date.parse(rate.effectiveFrom))
+    && (rate.effectiveTo === undefined || (typeof rate.effectiveTo === 'string' && !Number.isNaN(Date.parse(rate.effectiveTo))))
+    && [rate.marketInputUsdPerMillion, rate.marketOutputUsdPerMillion].every(value => Number.isFinite(value) && value >= 0)
+    && [rate.negotiatedInputUsdPerMillion, rate.negotiatedOutputUsdPerMillion].every(value => value === undefined || (Number.isFinite(value) && value >= 0));
+  if (!tokenomicsRateCard.every(validRate)) throw new Error('Invalid TOKENOMICS_RATE_CARD_JSON');
 
   const config: BrokerConfig = {
     resourceTenantId: required('RESOURCE_TENANT_ID').toLowerCase(),
@@ -68,14 +110,24 @@ export function loadConfig(environment: NodeJS.ProcessEnv): BrokerConfig {
     sqlRequestTimeoutMs: positiveInteger('SQL_REQUEST_TIMEOUT_MS'),
     maxRows: positiveInteger('MAX_ROWS'),
     maxStatementLength: positiveInteger('MAX_STATEMENT_LENGTH'),
+    managedIdentityClientId: required('MANAGED_IDENTITY_CLIENT_ID').toLowerCase(),
+    logAnalyticsWorkspaceId: required('LOG_ANALYTICS_WORKSPACE_ID').toLowerCase(),
+    tokenomicsApiIds,
+    tokenomicsProjectId: dimension('TOKENOMICS_PROJECT_ID'),
+    tokenomicsTeamId: dimension('TOKENOMICS_TEAM_ID'),
+    tokenomicsCostCenter: dimension('TOKENOMICS_COST_CENTER'),
+    tokenomicsCurrency: required('TOKENOMICS_CURRENCY').toUpperCase(),
+    tokenomicsRateCard,
   };
 
   const uuidValues = [config.resourceTenantId, config.callerTenantId, config.apiClientId,
-    config.brokerAudience, config.apimPrincipalId, config.workspaceId, config.dataAgentId];
+    config.brokerAudience, config.apimPrincipalId, config.workspaceId, config.dataAgentId,
+    config.managedIdentityClientId, config.logAnalyticsWorkspaceId];
   if (uuidValues.some(value => !uuidPattern.test(value))
       || !sqlHostPattern.test(config.sqlEndpointHost)
       || config.fabricApiScope !== 'https://api.fabric.microsoft.com/.default'
       || config.powerBiApiScope !== 'https://analysis.windows.net/powerbi/api/.default'
+      || !/^[A-Z]{3}$/.test(config.tokenomicsCurrency)
       || config.lakehouseName.length > 128 || /[\r\n]/.test(config.lakehouseName)
       || config.maxRows > 10000 || config.maxStatementLength > 100000) {
     throw new Error('Invalid broker configuration');

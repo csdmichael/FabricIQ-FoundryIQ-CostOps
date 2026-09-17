@@ -71,3 +71,10 @@ variable "application_insights_resource_group_name" {
   default     = null
   nullable    = true
 }
+
+variable "log_analytics_workspace_id" {
+  description = "Optional existing Log Analytics workspace ARM resource ID for APIM gateway and LLM diagnostics."
+  type        = string
+  default     = null
+  nullable    = true
+}

@@ -21,6 +21,14 @@ const environment = {
     JWK_FETCH_TIMEOUT_MS: '5000', TOKEN_EXCHANGE_TIMEOUT_MS: '15000',
     SQL_CONNECT_TIMEOUT_MS: '30000', SQL_REQUEST_TIMEOUT_MS: '120000',
     MAX_ROWS: '1000', MAX_STATEMENT_LENGTH: '10000',
+    MANAGED_IDENTITY_CLIENT_ID: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    LOG_ANALYTICS_WORKSPACE_ID: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    TOKENOMICS_APIM_API_IDS: 'fabric-lakehouse-obo,fabric-data-agent-obo',
+    TOKENOMICS_PROJECT_ID: 'fabric-parts-shortages',
+    TOKENOMICS_TEAM_ID: 'unassigned',
+    TOKENOMICS_COST_CENTER: 'unassigned',
+    TOKENOMICS_CURRENCY: 'USD',
+    TOKENOMICS_RATE_CARD_JSON: '[]',
 };
 test('loads only the approved Fabric endpoints and scopes', () => {
     const config = loadConfig(environment);

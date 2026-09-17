@@ -1,0 +1,201 @@
+<ion-app>
+  <div class="app-frame">
+    <aside class="desktop-nav" aria-label="Primary navigation">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span><strong>CostOps</strong><small>AI tokenomics</small></span>
+      </div>
+      <nav>
+        <button type="button" [class.active]="activeView() === 'overview'" (click)="setView('overview')">
+          <ion-icon name="grid-outline"></ion-icon><span>Overview</span>
+        </button>
+        <button type="button" [class.active]="activeView() === 'allocation'" (click)="setView('allocation')">
+          <ion-icon name="people-outline"></ion-icon><span>Allocation</span>
+        </button>
+        <button type="button" [class.active]="activeView() === 'quality'" (click)="setView('quality')">
+          <ion-icon name="shield-checkmark-outline"></ion-icon><span>Controls</span>
+        </button>
+      </nav>
+      <div class="nav-foot">
+        <div class="environment-dot"></div>
+        <span><small>Environment</small><strong>{{ tokenomics.environment() }}</strong></span>
+      </div>
+    </aside>
+
+    <aside class="tablet-rail" aria-label="Tablet navigation">
+      <span class="brand-mark compact" aria-label="CostOps"><i></i><i></i><i></i><i></i></span>
+      <button type="button" title="Overview" [class.active]="activeView() === 'overview'" (click)="setView('overview')"><ion-icon name="grid-outline"></ion-icon></button>
+      <button type="button" title="Allocation" [class.active]="activeView() === 'allocation'" (click)="setView('allocation')"><ion-icon name="people-outline"></ion-icon></button>
+      <button type="button" title="Controls" [class.active]="activeView() === 'quality'" (click)="setView('quality')"><ion-icon name="shield-checkmark-outline"></ion-icon></button>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div class="phone-brand">
+          <span class="brand-mark compact" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <strong>CostOps</strong>
+        </div>
+        <div class="page-heading">
+          <p>AI ECONOMICS</p>
+          <h1>{{ activeView() === 'overview' ? 'Token command center' : activeView() === 'allocation' ? 'Cost allocation' : 'Telemetry controls' }}</h1>
+        </div>
+        <div class="top-actions">
+          <span class="source-chip" [class.live]="!tokenomics.demoMode()">
+            <span></span>{{ tokenomics.demoMode() ? 'Demo data' : 'Live telemetry' }}
+          </span>
+          <ion-button fill="clear" color="dark" title="Refresh dashboard" aria-label="Refresh dashboard" (click)="refresh()" [disabled]="loading()">
+            <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
+          </ion-button>
+          @if (!tokenomics.demoMode()) {
+            <ion-button fill="outline" color="dark" class="auth-button" (click)="toggleAuthentication()">
+              <ion-icon slot="start" [name]="auth.account() ? 'log-out-outline' : 'log-in-outline'"></ion-icon>
+              {{ auth.account() ? 'Sign out' : 'Sign in' }}
+            </ion-button>
+          }
+        </div>
+      </header>
+
+      <section class="control-strip" aria-label="Dashboard filters">
+        <div>
+          <span class="eyebrow">Observation window</span>
+          <ion-segment [value]="windowDays()" (ionChange)="selectWindow($event.detail.value)" mode="md">
+            <ion-segment-button [value]="1">24H</ion-segment-button>
+            <ion-segment-button [value]="7">7D</ion-segment-button>
+            <ion-segment-button [value]="30">30D</ion-segment-button>
+            <ion-segment-button [value]="90">90D</ion-segment-button>
+          </ion-segment>
+        </div>
+        <div class="updated-at"><span>Updated</span><strong>{{ lastUpdated() || 'Waiting' }}</strong></div>
+      </section>
+
+      @if (loading()) {
+        <section class="state-panel"><ion-spinner name="crescent"></ion-spinner><p>Loading governed usage telemetry</p></section>
+      } @else if (error()) {
+        <section class="state-panel error-state">
+          <ion-icon name="warning-outline"></ion-icon><h2>Telemetry unavailable</h2><p>{{ error() }}</p>
+          <ion-button color="dark" (click)="refresh()">Retry</ion-button>
+        </section>
+      } @else if (dashboard(); as data) {
+        <div class="dashboard-content">
+          <section class="overview-view" [class.phone-hidden]="activeView() !== 'overview'">
+            <div class="section-intro">
+              <div><span class="eyebrow">{{ windowDays() }} day portfolio</span><h2>Outcome economics at a glance</h2></div>
+              <p>{{ integer(data.summary.successfulRequests) }} successful governed requests</p>
+            </div>
+
+            <div class="kpi-grid">
+              <article class="kpi primary">
+                <div class="kpi-icon"><ion-icon name="analytics-outline"></ion-icon></div>
+                <span>Total tokens</span><strong>{{ compact(data.summary.totalTokens) }}</strong>
+                <small>{{ percent(data.summary.tokenCoveragePct) }} request coverage</small>
+              </article>
+              <article class="kpi green">
+                <div class="kpi-icon"><ion-icon name="wallet-outline"></ion-icon></div>
+                <span>Actual cost</span><strong>{{ money(data.summary.negotiatedCost) }}</strong>
+                <small>{{ data.dataQuality.pricing === 'negotiated' ? 'Negotiated rate card' : data.dataQuality.pricing }}</small>
+              </article>
+              <article class="kpi teal">
+                <div class="kpi-icon"><ion-icon name="cash-outline"></ion-icon></div>
+                <span>Savings</span><strong>{{ money(data.summary.savings) }}</strong>
+                <small>Against market benchmark</small>
+              </article>
+              <article class="kpi orange">
+                <div class="kpi-icon"><ion-icon name="speedometer-outline"></ion-icon></div>
+                <span>P95 latency</span><strong>{{ compact(data.summary.p95LatencyMs) }}<em> ms</em></strong>
+                <small>{{ percent(successRate()) }} request success</small>
+              </article>
+              <article class="kpi purple">
+                <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
+                <span>Cost / request</span><strong>{{ money(costPerRequest(), 2) }}</strong>
+                <small>{{ compact(data.summary.requests) }} gateway requests</small>
+              </article>
+            </div>
+
+            <div class="insight-grid">
+              <section class="chart-panel trend-panel">
+                <header><div><span class="eyebrow">Consumption</span><h3>Tokens and actual cost</h3></div><span class="panel-tag">{{ data.currency }}</span></header>
+                <app-tokenomics-chart mode="trend" [rows]="data.trend" [currency]="data.currency" label="Token volume and actual cost over time"></app-tokenomics-chart>
+              </section>
+              <section class="chart-panel allocation-panel">
+                <header><div><span class="eyebrow">Ownership</span><h3>Cost by team</h3></div><span class="panel-tag">Allocated</span></header>
+                <app-tokenomics-chart mode="allocation" [rows]="data.allocations" [currency]="data.currency" label="Allocated cost by team"></app-tokenomics-chart>
+              </section>
+            </div>
+
+            <section class="operations-band">
+              <header><div><span class="eyebrow">Gateway operations</span><h3>Reliability by API path</h3></div><ion-icon name="server-outline"></ion-icon></header>
+              <div class="operation-grid">
+                @for (operation of data.operations; track operation.ApiId + ':' + operation.OperationId) {
+                  <article>
+                    <div class="operation-title"><strong>{{ operation.OperationId }}</strong><span>{{ operation.ApiId }}</span></div>
+                    <div class="operation-metric"><strong>{{ percent(operationSuccess(operation)) }}</strong><span>success</span></div>
+                    <div class="meter"><span [style.width.%]="operationSuccess(operation)"></span></div>
+                    <footer><span>{{ compact(operation.Requests || 0) }} calls</span><span>{{ integer(operation.P95LatencyMs) }} ms P95</span></footer>
+                  </article>
+                }
+              </div>
+            </section>
+          </section>
+
+          <section class="allocation-view" [class.phone-hidden]="activeView() !== 'allocation'">
+            <div class="section-intro">
+              <div><span class="eyebrow">Showback ledger</span><h2>Who consumed, what it cost</h2></div>
+              <p>{{ percent(data.summary.pricingCoveragePct) }} pricing coverage</p>
+            </div>
+            <div class="allocation-table" role="table" aria-label="Cost allocation by application and business dimensions">
+              <div class="table-header" role="row"><span>Application / project</span><span>Owner</span><span>Requests</span><span>Tokens</span><span>Actual cost</span><span>Share</span></div>
+              @for (row of topAllocations(); track row.ApplicationId + ':' + row.ProjectId) {
+                <div class="table-row" role="row">
+                  <span class="identity-cell"><i></i><span><strong>{{ row.ApplicationId }}</strong><small>{{ row.ProjectId }}</small></span></span>
+                  <span><strong>{{ row.TeamId }}</strong><small>{{ row.CostCenter }}</small></span>
+                  <span data-label="Requests">{{ compact(row.Requests || 0) }}</span>
+                  <span data-label="Tokens">{{ compact(row.TotalTokens || 0) }}</span>
+                  <span data-label="Actual cost"><strong>{{ money(row.NegotiatedCost ?? row.MarketCost) }}</strong></span>
+                  <span class="share-cell" data-label="Share"><strong>{{ percent(allocationShare(row)) }}</strong><i><b [style.width.%]="allocationShare(row)"></b></i></span>
+                </div>
+              }
+            </div>
+          </section>
+
+          <section class="quality-view" [class.phone-hidden]="activeView() !== 'quality'">
+            <div class="section-intro">
+              <div><span class="eyebrow">Decision gate</span><h2>Evidence before chargeback</h2></div>
+              <p>{{ data.queryStatus === 'complete' ? 'Complete query result' : 'Partial query result' }}</p>
+            </div>
+            <div class="quality-grid">
+              <article [class.good]="data.dataQuality.requestTelemetry === 'available'">
+                <ion-icon name="pulse-outline"></ion-icon><div><span>Request telemetry</span><strong>{{ data.dataQuality.requestTelemetry }}</strong><small>{{ compact(data.summary.requests) }} gateway rows</small></div>
+              </article>
+              <article [class.good]="data.dataQuality.tokenTelemetry === 'available'">
+                <ion-icon name="analytics-outline"></ion-icon><div><span>Token telemetry</span><strong>{{ data.dataQuality.tokenTelemetry }}</strong><small>{{ percent(data.summary.tokenCoveragePct) }} correlated</small></div>
+              </article>
+              <article [class.good]="data.dataQuality.pricing === 'negotiated'">
+                <ion-icon name="cash-outline"></ion-icon><div><span>Rate coverage</span><strong>{{ data.dataQuality.pricing }}</strong><small>{{ percent(data.summary.pricingCoveragePct) }} priced tokens</small></div>
+              </article>
+              <article [class.good]="data.dataQuality.allocation === 'attributed'">
+                <ion-icon name="people-outline"></ion-icon><div><span>Allocation</span><strong>{{ data.dataQuality.allocation }}</strong><small>Application and business dimensions</small></div>
+              </article>
+            </div>
+            <section class="request-ledger">
+              <header><div><span class="eyebrow">Recent evidence</span><h3>Privacy-safe request ledger</h3></div><ion-icon name="information-circle-outline"></ion-icon></header>
+              @for (request of data.recentRequests; track request.CorrelationId) {
+                <div class="request-row">
+                  <span class="status-code" [class.error]="(request.StatusCode || 0) >= 400">{{ request.StatusCode }}</span>
+                  <span><strong>{{ request.OperationId }}</strong><small>{{ request.ApiId }}</small></span>
+                  <span><strong>{{ request.ApplicationId }}</strong><small>User {{ request.UserIdHash?.slice(0, 8) }}</small></span>
+                  <span><strong>{{ request.TimeBucket | date:'shortTime' }}</strong><small>{{ request.CorrelationId }}</small></span>
+                </div>
+              }
+            </section>
+          </section>
+        </div>
+      }
+    </main>
+
+    <nav class="phone-tabs" aria-label="Phone navigation">
+      <button type="button" [class.active]="activeView() === 'overview'" (click)="setView('overview')"><ion-icon name="grid-outline"></ion-icon><span>Overview</span></button>
+      <button type="button" [class.active]="activeView() === 'allocation'" (click)="setView('allocation')"><ion-icon name="people-outline"></ion-icon><span>Allocation</span></button>
+      <button type="button" [class.active]="activeView() === 'quality'" (click)="setView('quality')"><ion-icon name="shield-checkmark-outline"></ion-icon><span>Controls</span></button>
+    </nav>
+  </div>
+</ion-app>

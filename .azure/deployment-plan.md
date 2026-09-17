@@ -213,10 +213,10 @@ configuration.
 	and remaining screenshots are not yet complete and are not claimed by this proof.
 
 - [ ] All validation checks pass (single-tenant Caldova Fabric OBO)
-	- [ ] Core Validation (CLI, tenant-bound auth, build, ARM validation, and what-if)
-	- [ ] Bicep linting
-	- [ ] Azure Policy Validation
-	- [ ] Deployment-ready Fabric validation with Bicep/Terraform parity
+	- [ ] 1. Core Validation (CLI, tenant-bound auth, build, ARM validation, and what-if)
+	- [ ] 2. Bicep linting
+	- [ ] 3. Azure Policy Validation
+	- [ ] Repository deployment-ready validation with Bicep/Terraform parity
 
 ## Role Assignment Verification
 

@@ -1,0 +1,47 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Fabric Tokenomics API",
+    "version": "1.0.0",
+    "description": "Returns privacy-preserving APIM usage, token, allocation, and pricing telemetry."
+  },
+  "paths": {
+    "/summary": {
+      "get": {
+        "operationId": "summary",
+        "summary": "Get the tokenomics dashboard summary",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [1, 7, 30, 90],
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tokenomics dashboard data."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

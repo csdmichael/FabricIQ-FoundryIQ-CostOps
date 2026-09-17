@@ -10,6 +10,7 @@ param(
     [string] $ResourceApiObjectId,
     [string] $LakehouseConnectorObjectId,
     [string] $DataAgentConnectorObjectId,
+    [string] $DashboardClientObjectId,
     [string] $BrokerApiObjectId,
     [switch] $DeploymentReady,
     [switch] $InviteConfiguredAdmin,
@@ -46,6 +47,7 @@ if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
     }
     if ([string]::IsNullOrWhiteSpace($LakehouseConnectorObjectId)) { $LakehouseConnectorObjectId = [string]$metadataLakehouseConnector[0].objectId }
     if ([string]::IsNullOrWhiteSpace($DataAgentConnectorObjectId)) { $DataAgentConnectorObjectId = [string]$metadataDataAgentConnector[0].objectId }
+    if ([string]::IsNullOrWhiteSpace($DashboardClientObjectId) -and $existingMetadata.PSObject.Properties['dashboardClient']) { $DashboardClientObjectId = [string]$existingMetadata.dashboardClient.objectId }
 }
 
 function Invoke-Graph {
@@ -77,10 +79,10 @@ function Ensure-Application {
 
     $escapedName = $DisplayName.Replace("'", "''")
     $filter = [uri]::EscapeDataString("displayName eq '$escapedName'")
-    $applications = @((Invoke-Graph -Token $Token -Method GET -Path "applications?`$filter=$filter&`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,passwordCredentials" -Body $null).value)
+    $applications = @((Invoke-Graph -Token $Token -Method GET -Path "applications?`$filter=$filter&`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,spa,passwordCredentials" -Body $null).value)
     if (-not [string]::IsNullOrWhiteSpace($ExpectedObjectId)) {
         $ExpectedObjectId = Assert-FabricGuid -Value $ExpectedObjectId -Name "$DisplayName application object ID"
-        $expectedApplication = Invoke-Graph -Token $Token -Method GET -Path "applications/$ExpectedObjectId?`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,passwordCredentials" -Body $null
+        $expectedApplication = Invoke-Graph -Token $Token -Method GET -Path "applications/$ExpectedObjectId?`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,spa,passwordCredentials" -Body $null
         if ($expectedApplication.displayName -ne $DisplayName -or @($applications | Where-Object { $_.id -ne $ExpectedObjectId }).Count -gt 0) {
             throw "Application object '$ExpectedObjectId' does not uniquely match '$DisplayName'."
         }
@@ -98,7 +100,7 @@ function Ensure-Application {
 
 function Get-Application {
     param([string] $Token, [string] $ObjectId)
-    return Invoke-Graph -Token $Token -Method GET -Path "applications/$ObjectId?`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,passwordCredentials" -Body $null
+    return Invoke-Graph -Token $Token -Method GET -Path "applications/$ObjectId?`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,spa,passwordCredentials" -Body $null
 }
 
 function Ensure-ServicePrincipal {
@@ -312,6 +314,26 @@ try {
         }
     }
 
+    $dashboardClient = Ensure-Application -Token $resourceGraphToken -DisplayName ([string]$config.identity.dashboardClientDisplayName) -ExpectedObjectId $DashboardClientObjectId
+    $dashboardClient = Get-Application -Token $resourceGraphToken -ObjectId $dashboardClient.id
+    $dashboardAccess = @($dashboardClient.requiredResourceAccess | Where-Object { $_.resourceAppId -ne $resourceApi.appId })
+    $dashboardAccess += @{
+        resourceAppId = $resourceApi.appId
+        resourceAccess = @(@{ id = $delegatedScope.id; type = 'Scope' })
+    }
+    Invoke-Graph -Token $resourceGraphToken -Method PATCH -Path "applications/$($dashboardClient.id)" -Body @{
+        requiredResourceAccess = $dashboardAccess
+        spa = @{ redirectUris = @($config.ui.redirectUris) }
+        isFallbackPublicClient = $false
+    } | Out-Null
+    $dashboardClient = Get-Application -Token $resourceGraphToken -ObjectId $dashboardClient.id
+    $dashboardPrincipal = Ensure-ServicePrincipal -Token $resourceGraphToken -AppId $dashboardClient.appId
+    Assert-PrincipalGrantSet -Token $resourceGraphToken -ClientPrincipalId $dashboardPrincipal.id -ResourcePrincipalId $resourceApiPrincipal.id -ExpectedUserObjectIds $effectiveAllowedUsers -ExpectedScopes @([string]$config.identity.delegatedScope) -AllowExpectedScopeDrift
+    foreach ($userObjectId in $effectiveAllowedUsers) {
+        Ensure-PrincipalGrant -Token $resourceGraphToken -ClientPrincipalId $dashboardPrincipal.id -ResourcePrincipalId $resourceApiPrincipal.id -UserObjectId $userObjectId -Scopes @([string]$config.identity.delegatedScope)
+    }
+    Assert-PrincipalGrantSet -Token $resourceGraphToken -ClientPrincipalId $dashboardPrincipal.id -ResourcePrincipalId $resourceApiPrincipal.id -ExpectedUserObjectIds $effectiveAllowedUsers -ExpectedScopes @([string]$config.identity.delegatedScope)
+
     Assert-PrincipalGrantSet -Token $resourceGraphToken -ClientPrincipalId $resourceApiPrincipal.id -ResourcePrincipalId $powerBiPrincipal.id -ExpectedUserObjectIds $effectiveAllowedUsers -ExpectedScopes $downstreamPermissions -AllowExpectedScopeDrift
     foreach ($userObjectId in $effectiveAllowedUsers) {
         Ensure-PrincipalGrant -Token $resourceGraphToken -ClientPrincipalId $resourceApiPrincipal.id -ResourcePrincipalId $powerBiPrincipal.id -UserObjectId $userObjectId -Scopes $downstreamPermissions
@@ -457,6 +479,13 @@ try {
         }
         apimPrincipalId = $ApimPrincipalId
         connectors = $connectors
+        dashboardClient = [ordered]@{
+            displayName = [string]$config.identity.dashboardClientDisplayName
+            clientId = $dashboardClient.appId
+            objectId = $dashboardClient.id
+            servicePrincipalId = $dashboardPrincipal.id
+            redirectUris = @($config.ui.redirectUris)
+        }
         allowedUserObjectIds = $effectiveAllowedUsers
         keyVaultName = $KeyVaultName
         oboClientSecretName = $OboClientSecretName
@@ -468,6 +497,7 @@ try {
         ResourceApiClientId = $resourceApi.appId
         BrokerAudience = $brokerApi.appId
         ConnectorClientIds = @($connectors.clientId)
+        DashboardClientId = $dashboardClient.appId
         AllowedUserObjectIds = $effectiveAllowedUsers
         ApimPrincipalId = $ApimPrincipalId
         CredentialStored = -not [string]::IsNullOrWhiteSpace($KeyVaultName)

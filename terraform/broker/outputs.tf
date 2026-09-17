@@ -38,6 +38,15 @@ output "log_analytics_workspace_name" {
   value       = azurerm_log_analytics_workspace.broker.name
 }
 
+output "log_analytics_workspace_resource_id" {
+  description = "Log Analytics workspace ARM resource ID."
+  value       = azurerm_log_analytics_workspace.broker.id
+}
+
+output "log_analytics_workspace_customer_id" {
+  description = "Log Analytics workspace customer ID used by the query API."
+  value       = azurerm_log_analytics_workspace.broker.workspace_id
+}
 output "user_assigned_identity_principal_id" {
   description = "Broker UAMI principal (object) ID."
   value       = azurerm_user_assigned_identity.broker.principal_id

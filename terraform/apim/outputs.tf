@@ -23,6 +23,10 @@ output "data_agent_mcp_url" {
   value       = "${local.apim_gateway_url}/${local.config.apim.dataAgentMcpPath}/mcp"
 }
 
+output "tokenomics_api_url" {
+  description = "Fabric tokenomics dashboard API URL."
+  value       = "${local.apim_gateway_url}/${local.config.apim.tokenomicsApiPath}"
+}
 output "product_id" {
   description = "Resource ID of the APIM product containing both REST APIs and both MCP APIs."
   value       = azapi_resource.product.id

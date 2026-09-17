@@ -1,0 +1,15 @@
+<policies>
+  <inbound>
+    <base />
+    <rewrite-uri template="/api/tokenomics/summary" copy-unmatched-params="true" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

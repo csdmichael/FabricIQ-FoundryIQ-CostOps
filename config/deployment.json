@@ -72,6 +72,8 @@
     "dataAgentApiPath": "fabric-data-agent",
     "dataAgentMcpDisplayName": "Fabric Data Agent MCP",
     "dataAgentMcpPath": "fabric-data-agent-mcp",
+    "tokenomicsApiId": "fabric-tokenomics",
+    "tokenomicsApiPath": "fabric-tokenomics",
     "productId": "fabric-agents",
     "rateLimitCalls": 30,
     "rateLimitRenewalSeconds": 60,
@@ -84,6 +86,7 @@
     "brokerApiDisplayName": "Fabric OBO Broker Caller API",
     "lakehouseConnectorDisplayName": "Fabric Lakehouse OBO Connector",
     "dataAgentConnectorDisplayName": "Fabric Data Agent OBO Connector",
+    "dashboardClientDisplayName": "Fabric Tokenomics Dashboard",
     "delegatedScope": "Fabric.Access",
     "brokerApplicationRole": "Fabric.Broker.Invoke",
     "fabricApiScope": "https://api.fabric.microsoft.com/.default",
@@ -123,6 +126,20 @@
     "sqlRequestTimeoutMs": 120000,
     "maxRows": 1000,
     "maxStatementLength": 10000
+  },
+  "tokenomics": {
+    "projectId": "fabric-parts-shortages",
+    "teamId": "unassigned",
+    "costCenter": "unassigned",
+    "currency": "USD",
+    "rateCard": []
+  },
+  "ui": {
+    "allowedOrigin": "http://localhost:4200",
+    "redirectUris": [
+      "http://localhost:4200"
+    ],
+    "environment": "Caldova Private"
   },
   "powerPlatform": {
     "tenantId": "12a4b86b-e64c-43f9-af05-d9130a72dfd2",

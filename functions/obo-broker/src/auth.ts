@@ -4,6 +4,7 @@ import { BrokerError } from './errors.js';
 
 export interface VerifiedIdentity {
   objectId: string;
+  applicationId: string;
   expiresAt: number;
 }
 
@@ -62,13 +63,14 @@ export function createTokenVerifier(config: BrokerConfig, keys = createSigningKe
         requiredClaims: ['exp', 'iat', 'nbf', 'tid', 'oid', 'azp', 'scp'],
       })).payload;
       const objectId = stringClaim(user, 'oid').toLowerCase();
+      const applicationId = stringClaim(user, 'azp').toLowerCase();
       if (stringClaim(user, 'tid').toLowerCase() !== config.resourceTenantId || user.idtyp === 'app'
-          || typeof user.azp !== 'string' || !config.connectorClientIds.includes(user.azp.toLowerCase())
+          || !applicationId || !config.connectorClientIds.includes(applicationId)
           || !claimList(user, 'scp').includes(config.delegatedScope)
           || !config.allowedUserObjectIds.includes(objectId)) {
         throw new Error('Invalid delegated user');
       }
-      return { objectId, expiresAt: user.exp! };
+      return { objectId, applicationId, expiresAt: user.exp! };
     } catch (error) {
       if (error instanceof BrokerError) throw error;
       throw new BrokerError(401, 'invalid_token');

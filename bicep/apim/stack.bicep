@@ -21,11 +21,16 @@ param dataAgentApiId string
 param dataAgentApiPath string
 param dataAgentMcpDisplayName string
 param dataAgentMcpPath string
+param tokenomicsApiId string
+param tokenomicsApiPath string
 param productId string
+param uiAllowedOrigin string
 param applicationInsightsName string
 param applicationInsightsResourceGroupName string
+param logAnalyticsWorkspaceId string
 
 var diagnosticsEnabled = !empty(applicationInsightsName)
+var tokenomicsDiagnosticsEnabled = !empty(logAnalyticsWorkspaceId)
 var loggerName = 'fabric-obo-insights'
 var lakehouseMcpId = '${lakehouseApiId}-mcp'
 var dataAgentMcpId = '${dataAgentApiId}-mcp'
@@ -43,6 +48,7 @@ var namedValueSettings = [
   { name: 'fabric-obo-rate-limit-calls', value: string(rateLimitCalls) }
   { name: 'fabric-obo-rate-limit-renewal-seconds', value: string(rateLimitRenewalSeconds) }
   { name: 'fabric-obo-request-timeout-seconds', value: string(requestTimeoutSeconds) }
+  { name: 'fabric-obo-ui-origin', value: uiAllowedOrigin }
 ]
 
 resource apim 'Microsoft.ApiManagement/service@2024-05-01' existing = {
@@ -91,6 +97,22 @@ resource dataAgentApi 'Microsoft.ApiManagement/service/apis@2024-06-01-preview' 
   }
 }
 
+resource tokenomicsApi 'Microsoft.ApiManagement/service/apis@2024-06-01-preview' = {
+  parent: apim
+  name: tokenomicsApiId
+  properties: {
+    displayName: 'Fabric Tokenomics'
+    description: 'Privacy-preserving APIM request, token, allocation, and cost analytics.'
+    path: tokenomicsApiPath
+    protocols: [
+      'https'
+    ]
+    subscriptionRequired: false
+    format: 'openapi+json'
+    value: loadTextContent('../../apim/openapi/tokenomics.json')
+  }
+}
+
 resource lakehouseApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview' = {
   parent: lakehouseApi
   name: 'policy'
@@ -115,6 +137,18 @@ resource dataAgentApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-
   ]
 }
 
+resource tokenomicsApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview' = {
+  parent: tokenomicsApi
+  name: 'policy'
+  properties: {
+    format: 'rawxml'
+    value: commonApiPolicy
+  }
+  dependsOn: [
+    namedValues
+  ]
+}
+
 resource lakehouseQueryOperation 'Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview' existing = {
   parent: lakehouseApi
   name: 'query'
@@ -128,6 +162,11 @@ resource lakehouseTablesOperation 'Microsoft.ApiManagement/service/apis/operatio
 resource dataAgentQueryOperation 'Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview' existing = {
   parent: dataAgentApi
   name: 'query'
+}
+
+resource tokenomicsSummaryOperation 'Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview' existing = {
+  parent: tokenomicsApi
+  name: 'summary'
 }
 
 resource lakehouseQueryPolicy 'Microsoft.ApiManagement/service/apis/operations/policies@2024-06-01-preview' = {
@@ -154,6 +193,15 @@ resource dataAgentQueryPolicy 'Microsoft.ApiManagement/service/apis/operations/p
   properties: {
     format: 'rawxml'
     value: loadTextContent('../../apim/policies/data-agent-query-operation-policy.xml')
+  }
+}
+
+resource tokenomicsSummaryPolicy 'Microsoft.ApiManagement/service/apis/operations/policies@2024-06-01-preview' = {
+  parent: tokenomicsSummaryOperation
+  name: 'policy'
+  properties: {
+    format: 'rawxml'
+    value: loadTextContent('../../apim/policies/tokenomics-summary-operation-policy.xml')
   }
 }
 
@@ -227,6 +275,7 @@ var productApis = [
   { name: 'link-${dataAgentApiId}', apiId: dataAgentApi.id }
   { name: 'link-${lakehouseMcpId}', apiId: lakehouseMcp.id }
   { name: 'link-${dataAgentMcpId}', apiId: dataAgentMcp.id }
+  { name: 'link-${tokenomicsApiId}', apiId: tokenomicsApi.id }
 ]
 
 resource productApiLinks 'Microsoft.ApiManagement/service/products/apiLinks@2024-06-01-preview' = [for item in productApis: {
@@ -252,6 +301,31 @@ resource logger 'Microsoft.ApiManagement/service/loggers@2024-06-01-preview' = i
     }
     resourceId: insights!.id
     isBuffered: true
+  }
+}
+
+resource tokenomicsDiagnostic 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (tokenomicsDiagnosticsEnabled) {
+  name: 'fabric-tokenomics'
+  scope: apim
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      {
+        category: 'GatewayLogs'
+        enabled: true
+      }
+      {
+        category: 'GatewayLlmLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
   }
 }
 
@@ -311,8 +385,19 @@ resource dataAgentMcpDiagnostic 'Microsoft.ApiManagement/service/apis/diagnostic
   ]
 }
 
+resource tokenomicsApiDiagnostic 'Microsoft.ApiManagement/service/apis/diagnostics@2024-06-01-preview' = if (diagnosticsEnabled) {
+  parent: tokenomicsApi
+  name: 'applicationinsights'
+  properties: diagnosticProperties
+  dependsOn: [
+    logger
+  ]
+}
+
 output apimPrincipalId string = apim.identity.principalId
 output lakehouseApiId string = lakehouseApi.id
 output dataAgentApiId string = dataAgentApi.id
 output lakehouseMcpId string = lakehouseMcp.id
 output dataAgentMcpId string = dataAgentMcp.id
+output tokenomicsApiId string = tokenomicsApi.id
+output tokenomicsDiagnosticId string = tokenomicsDiagnosticsEnabled ? tokenomicsDiagnostic.id : ''

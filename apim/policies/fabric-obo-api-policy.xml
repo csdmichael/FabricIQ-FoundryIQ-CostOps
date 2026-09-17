@@ -1,6 +1,23 @@
 <policies>
   <inbound>
     <base />
+    <cors allow-credentials="false" terminate-unmatched-request="true">
+      <allowed-origins>
+        <origin>{{fabric-obo-ui-origin}}</origin>
+      </allowed-origins>
+      <allowed-methods preflight-result-max-age="300">
+        <method>GET</method>
+        <method>POST</method>
+        <method>OPTIONS</method>
+      </allowed-methods>
+      <allowed-headers>
+        <header>authorization</header>
+        <header>content-type</header>
+      </allowed-headers>
+      <expose-headers>
+        <header>x-correlation-id</header>
+      </expose-headers>
+    </cors>
     <validate-jwt header-name="Authorization" require-scheme="Bearer" require-expiration-time="true" require-signed-tokens="true" failed-validation-httpcode="401" failed-validation-error-message="A valid delegated Fabric token is required." output-token-variable-name="fabric-user-jwt">
       <openid-config url="https://login.microsoftonline.com/{{fabric-obo-resource-tenant-id}}/v2.0/.well-known/openid-configuration" />
       <audiences>
