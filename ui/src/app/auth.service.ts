@@ -14,7 +14,7 @@ export class AuthService {
 
   async configure(config: RuntimeConfig): Promise<void> {
     this.config = config;
-    if (config.demoMode || !config.tenantId || !config.clientId) return;
+    if (!config.tenantId || !config.clientId) return;
     this.client = new PublicClientApplication({
       auth: {
         clientId: config.clientId,
@@ -43,7 +43,6 @@ export class AuthService {
   }
 
   async accessToken(): Promise<string | null> {
-    if (this.config?.demoMode) return null;
     if (!this.client || !this.config) throw new Error('Authentication is not configured.');
     if (!this.account()) await this.signIn();
     try {

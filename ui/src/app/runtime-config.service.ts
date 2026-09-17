@@ -1,13 +1,12 @@
 import { Injectable } from '@angular/core';
 import type { RuntimeConfig } from './tokenomics.model';
 
-const demoConfig: RuntimeConfig = {
+const unconfiguredRuntime: RuntimeConfig = {
   apiBaseUrl: '',
   tenantId: '',
   clientId: '',
   scope: '',
-  demoMode: true,
-  environment: 'Demo',
+  environment: 'Unconfigured',
 };
 
 @Injectable({ providedIn: 'root' })
@@ -17,11 +16,11 @@ export class RuntimeConfigService {
   load(): Promise<RuntimeConfig> {
     this.configPromise ??= fetch('runtime-config.json', { cache: 'no-store' })
       .then(async response => {
-        if (!response.ok) return demoConfig;
+        if (!response.ok) return unconfiguredRuntime;
         const config = await response.json() as Partial<RuntimeConfig>;
-        return { ...demoConfig, ...config };
+        return { ...unconfiguredRuntime, ...config };
       })
-      .catch(() => demoConfig);
+      .catch(() => unconfiguredRuntime);
     return this.configPromise;
   }
 }

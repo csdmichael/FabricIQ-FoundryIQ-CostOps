@@ -43,6 +43,16 @@ locals {
     table = azurerm_private_dns_zone.table.name
     vault = azurerm_private_dns_zone.vault.name
   }
+  existing_private_dns_vnet_link_names = {
+    blob  = trimspace(local.config.network.brokerExistingPrivateDnsVnetLinks.blob)
+    sites = trimspace(local.config.network.brokerExistingPrivateDnsVnetLinks.web)
+    table = ""
+    vault = ""
+  }
+  managed_private_dns_zones = {
+    for kind, zone_name in local.private_dns_zones : kind => zone_name
+    if local.existing_private_dns_vnet_link_names[kind] == ""
+  }
 }
 
 data "azurerm_resource_group" "broker" {
@@ -184,7 +194,7 @@ resource "azurerm_key_vault" "broker" {
   enabled_for_deployment          = false
   enabled_for_disk_encryption     = false
   enabled_for_template_deployment = false
-  public_network_access_enabled   = true
+  public_network_access_enabled   = false
   purge_protection_enabled        = true
   soft_delete_retention_days      = 90
   tags                            = local.tags
@@ -274,7 +284,7 @@ resource "azurerm_private_dns_zone" "vault" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "broker" {
-  for_each = local.private_dns_zones
+  for_each = local.managed_private_dns_zones
 
   name                  = data.azurecaf_name.private_dns_link[each.key].result
   resource_group_name   = data.azurerm_resource_group.broker.name

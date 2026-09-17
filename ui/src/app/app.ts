@@ -121,7 +121,7 @@ export class App implements OnInit {
   async toggleAuthentication(): Promise<void> {
     if (this.auth.account()) await this.auth.signOut();
     else await this.auth.signIn();
-    if (!this.tokenomics.demoMode()) await this.refresh();
+    if (this.tokenomics.configured()) await this.refresh();
   }
 
   compact(value: number): string {

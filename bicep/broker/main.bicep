@@ -20,6 +20,12 @@ param privateEndpointSubnetResourceId string
 @description('Existing Function VNet integration subnet resource ID from network.brokerIntegrationSubnetResourceId.')
 param integrationSubnetResourceId string
 
+@description('Existing privatelink.azurewebsites.net VNet link name. Leave empty to create a dedicated link.')
+param existingWebPrivateDnsVnetLinkName string = ''
+
+@description('Existing private Blob DNS VNet link name. Leave empty to create a dedicated link.')
+param existingBlobPrivateDnsVnetLinkName string = ''
+
 @description('Azure deployment tenant ID from azure.tenantId.')
 param azureTenantId string
 
@@ -255,6 +261,8 @@ resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/con
   parent: blobService
   name: deploymentContainerName
   properties: {
+    defaultEncryptionScope: '$account-encryption-key'
+    denyEncryptionScopeOverride: false
     publicAccess: 'None'
   }
 }
@@ -269,7 +277,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enabledForDeployment: false
     enabledForDiskEncryption: false
     enabledForTemplateDeployment: false
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Disabled'
     softDeleteRetentionInDays: 90
     tenantId: azureTenantId
     sku: {
@@ -378,7 +386,7 @@ resource vaultPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
   location: 'global'
 }
 
-resource webPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+resource webPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = if (empty(existingWebPrivateDnsVnetLinkName)) {
   parent: webPrivateDnsZone
   name: take('link-${functionAppName}-sites', 80)
   location: 'global'
@@ -391,7 +399,7 @@ resource webPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetwork
   }
 }
 
-resource blobPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+resource blobPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = if (empty(existingBlobPrivateDnsVnetLinkName)) {
   parent: blobPrivateDnsZone
   name: take('link-${functionAppName}-blob', 80)
   location: 'global'
@@ -411,6 +419,7 @@ resource tablePrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetwo
   tags: tags
   properties: {
     registrationEnabled: false
+    resolutionPolicy: 'Default'
     virtualNetwork: {
       id: brokerVnetResourceId
     }
@@ -424,6 +433,7 @@ resource vaultPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetwo
   tags: tags
   properties: {
     registrationEnabled: false
+    resolutionPolicy: 'Default'
     virtualNetwork: {
       id: brokerVnetResourceId
     }

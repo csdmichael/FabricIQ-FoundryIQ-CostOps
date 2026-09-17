@@ -275,6 +275,8 @@ function Get-BrokerParameters {
         brokerVnetResourceId = [string]$config.network.brokerVnetResourceId
         privateEndpointSubnetResourceId = [string]$config.network.brokerPrivateEndpointSubnetResourceId
         integrationSubnetResourceId = [string]$config.network.brokerIntegrationSubnetResourceId
+        existingWebPrivateDnsVnetLinkName = [string]$config.network.brokerExistingPrivateDnsVnetLinks.web
+        existingBlobPrivateDnsVnetLinkName = [string]$config.network.brokerExistingPrivateDnsVnetLinks.blob
         azureTenantId = [string]$config.azure.tenantId
         resourceTenantId = [string]$config.identity.resourceTenantId
         callerTenantId = [string]$config.identity.callerTenantId
@@ -338,6 +340,21 @@ function Invoke-Preflight {
     foreach ($resourceId in @($config.network.brokerVnetResourceId, $config.network.brokerPrivateEndpointSubnetResourceId, $config.network.brokerIntegrationSubnetResourceId)) {
         az resource show --ids $resourceId --subscription $config.azure.subscriptionId --only-show-errors -o none
         if ($LASTEXITCODE -ne 0) { throw "Configured broker network resource is unavailable: $resourceId" }
+    }
+    $sharedPrivateDnsLinks = @(
+        [pscustomobject]@{ Zone = 'privatelink.azurewebsites.net'; Name = [string]$config.network.brokerExistingPrivateDnsVnetLinks.web },
+        [pscustomobject]@{ Zone = 'privatelink.blob.core.windows.net'; Name = [string]$config.network.brokerExistingPrivateDnsVnetLinks.blob }
+    )
+    foreach ($sharedLink in $sharedPrivateDnsLinks) {
+        if ([string]::IsNullOrWhiteSpace($sharedLink.Name)) { continue }
+        $linkJson = az network private-dns link vnet show --subscription $config.azure.subscriptionId --resource-group $config.azure.resourceGroup --zone-name $sharedLink.Zone --name $sharedLink.Name --only-show-errors -o json
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($linkJson)) {
+            throw "Configured shared private DNS link is unavailable: $($sharedLink.Zone)/$($sharedLink.Name)"
+        }
+        $link = $linkJson | ConvertFrom-Json
+        if (-not [string]::Equals([string]$link.virtualNetwork.id, [string]$config.network.brokerVnetResourceId, [System.StringComparison]::OrdinalIgnoreCase) -or [bool]$link.registrationEnabled) {
+            throw "Configured shared private DNS link does not target the broker VNet with registration disabled: $($sharedLink.Zone)/$($sharedLink.Name)"
+        }
     }
     $planId = "/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.Web/serverfarms/$($config.broker.existingPlanName)"
     az resource show --ids $planId --subscription $config.azure.subscriptionId --only-show-errors -o none
@@ -445,6 +462,7 @@ if (Test-Step 'identity') {
             ConfigPath = $ConfigPath
             OutputPath = $IdentityPath
             KeyVaultName = Get-OutputValue -Outputs $baseOutputs -Name 'keyVaultName'
+            KeyVaultAccessIpAddress = $UploadIpAddress
             ApimPrincipalId = $script:LiveApimPrincipalId
             DeploymentReady = $true
             InviteConfiguredAdmin = [bool]$InviteConfiguredAdmin

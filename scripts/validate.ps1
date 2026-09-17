@@ -70,6 +70,12 @@ foreach ($path in 'network.brokerVnetResourceId', 'network.brokerPrivateEndpoint
         throw "$path is not a valid virtual network or subnet resource ID."
     }
 }
+foreach ($path in 'network.brokerExistingPrivateDnsVnetLinks.web', 'network.brokerExistingPrivateDnsVnetLinks.blob') {
+    $linkName = [string](Get-FabricConfigValue -Config $config -Path $path)
+    if ($linkName -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,78}[A-Za-z0-9])?$') {
+        throw "$path is not a valid private DNS VNet link name."
+    }
+}
 
 if ($DeploymentReady) {
     $null = Assert-FabricGuid -Value $config.powerPlatform.environmentId -Name 'powerPlatform.environmentId'

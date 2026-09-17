@@ -141,6 +141,22 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 	the shared APIM service from entering allocation results. The live rate card is empty by
 	default, so the UI reports usage without claiming cost until negotiated or market rates
 	are explicitly configured.
+- The first `broker-base` deployment attempt stopped on duplicate private DNS VNet links
+	for the shared web and Blob zones. Dedicated base resources and the table/vault links
+	were created before ARM reported the conflicts. Recovery now references the existing
+	web/Blob links by configured name and validates that each targets the broker VNet with
+	registration disabled; Bicep and Terraform manage only the table/vault links.
+- The recovery template keeps the dedicated Key Vault at `publicNetworkAccess=Disabled`.
+	Identity provisioning snapshots the complete vault network ACL object, temporarily opens
+	one caller IPv4 `/32` with default deny, writes the in-memory OBO credential, restores the
+	exact prior public-access and ACL state in `finally`, and verifies the restoration.
+- Recovery what-if contains `Ignore=86, Modify=11, NoChange=14`. Every modification is on
+	a deployment-owned resource. Four role-assignment deltas were verified against live UAMI
+	principal `c64f65bb-0c99-4409-aa75-4b37777d79c4`; three DNS-zone-group deltas remove only
+	read-only ARM `etag`, `id`, `type`, and provisioning-state fields; three private-endpoint
+	deltas remove the read-only IPv6 response field; the remaining Application Insights delta
+	adds Azure-managed `Flow_Type` and `Request_Source`. There are no deletes or shared-resource
+	changes. Full local validation and target-scope ARM validation passed after the recovery.
 
 The 2026-09-16 dual-tenant validation below is retained as historical evidence only. It
 does not authorize deployment after the target moved to the single-tenant Caldova

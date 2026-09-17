@@ -40,13 +40,13 @@
           <h1>{{ activeView() === 'overview' ? 'Token command center' : activeView() === 'allocation' ? 'Cost allocation' : 'Telemetry controls' }}</h1>
         </div>
         <div class="top-actions">
-          <span class="source-chip" [class.live]="!tokenomics.demoMode()">
-            <span></span>{{ tokenomics.demoMode() ? 'Demo data' : 'Live telemetry' }}
+          <span class="source-chip" [class.live]="tokenomics.configured()">
+            <span></span>{{ tokenomics.configured() ? 'Live telemetry' : 'Configuration required' }}
           </span>
           <ion-button fill="clear" color="dark" title="Refresh dashboard" aria-label="Refresh dashboard" (click)="refresh()" [disabled]="loading()">
             <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
           </ion-button>
-          @if (!tokenomics.demoMode()) {
+          @if (tokenomics.configured()) {
             <ion-button fill="outline" color="dark" class="auth-button" (click)="toggleAuthentication()">
               <ion-icon slot="start" [name]="auth.account() ? 'log-out-outline' : 'log-in-outline'"></ion-icon>
               {{ auth.account() ? 'Sign out' : 'Sign in' }}

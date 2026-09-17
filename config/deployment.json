@@ -74,10 +74,36 @@
     "dataAgentMcpPath": "fabric-data-agent-mcp",
     "tokenomicsApiId": "fabric-tokenomics",
     "tokenomicsApiPath": "fabric-tokenomics",
+    "inferenceApiId": "fabric-foundry-inference",
+    "inferenceApiPath": "fabric-foundry-inference",
     "productId": "fabric-agents",
     "rateLimitCalls": 30,
     "rateLimitRenewalSeconds": 60,
+    "modelTokenLimitPerMinute": 25000,
     "requestTimeoutSeconds": 180
+  },
+  "foundry": {
+    "accountName": "foundry-fabric-costops",
+    "projectName": "fabric-costops",
+    "location": "westus",
+    "vnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-apim-westus-vnet",
+    "agentSubnetName": "foundry-agent",
+    "privateEndpointSubnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-apim-westus-vnet/subnets/private-endpoints",
+    "model": {
+      "name": "gpt-5.6-sol",
+      "version": "2026-07-09",
+      "format": "OpenAI",
+      "skuName": "GlobalStandard",
+      "capacity": 50
+    },
+    "modelConnections": {
+      "lakehouse": "lakehouse-ai-gateway",
+      "dataAgent": "data-agent-ai-gateway"
+    },
+    "agents": {
+      "lakehouse": "fabric-lakehouse-costops",
+      "dataAgent": "fabric-data-agent-costops"
+    }
   },
   "identity": {
     "resourceTenantId": "12a4b86b-e64c-43f9-af05-d9130a72dfd2",
@@ -106,6 +132,10 @@
     "brokerVnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-dbx-vnet-westus2",
     "brokerPrivateEndpointSubnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-dbx-vnet-westus2/subnets/private-endpoints",
     "brokerIntegrationSubnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-dbx-vnet-westus2/subnets/genie-obo-integration",
+    "brokerExistingPrivateDnsVnetLinks": {
+      "web": "genie-obo-caldova-dbx-vnet-westus2",
+      "blob": "genie-obo-databricks"
+    },
     "apimVnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-apim-westus-vnet",
     "apimSubnetName": "apim-outbound-integration",
     "apimSubnetPrefix": "10.191.0.0/24",
@@ -132,7 +162,13 @@
     "teamId": "unassigned",
     "costCenter": "unassigned",
     "currency": "USD",
-    "rateCard": []
+    "rateCard": [],
+    "actualCost": {
+      "enabled": true,
+      "scope": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub",
+      "queryApiVersion": "2023-11-01",
+      "billingLagHours": 24
+    }
   },
   "ui": {
     "allowedOrigin": "http://localhost:4200",
@@ -164,6 +200,7 @@
     "deployWorkspacePrivateLink": false,
     "deployBroker": true,
     "deployApimApis": true,
+    "deployFoundry": true,
     "createCopilotStudioAgents": true
   },
   "tags": {

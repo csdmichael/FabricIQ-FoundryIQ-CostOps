@@ -3,6 +3,7 @@ param(
     [string] $ConfigPath = (Join-Path $PSScriptRoot '../config/deployment.json'),
     [string] $OutputPath = (Join-Path $PSScriptRoot '../.generated/identity.json'),
     [string] $KeyVaultName,
+    [string] $KeyVaultAccessIpAddress,
     [string] $OboClientSecretName = 'obo-client-secret',
     [int] $CredentialLifetimeMonths = 6,
     [string] $ApimPrincipalId,
@@ -30,6 +31,8 @@ $callerGraphToken = Get-FabricAzAccessToken -TenantId $callerTenantId -Resource 
 $credential = $null
 $credentialStored = $false
 $credentialApplicationId = $null
+$vaultToken = $null
+$managementToken = $null
 
 $resolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
 if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
@@ -201,6 +204,34 @@ function Ensure-AppRoleAssignment {
         resourceId = $ResourcePrincipalId
         appRoleId = $AppRoleId
     } | Out-Null
+}
+
+function Resolve-KeyVaultAccessIpAddress {
+    param([string] $Value)
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        $Value = ([string](Invoke-RestMethod -Uri 'https://api.ipify.org')).Trim()
+    }
+    $parsed = $null
+    if (-not [System.Net.IPAddress]::TryParse($Value, [ref]$parsed) -or $parsed.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
+        throw 'KeyVaultAccessIpAddress must be one IPv4 address without a CIDR suffix.'
+    }
+    return $parsed.ToString()
+}
+
+function Get-KeyVaultNetworkAclFingerprint {
+    param([object] $NetworkAcls)
+    if ($null -eq $NetworkAcls) { return '<null>' }
+    $resourceAccessRules = if ($NetworkAcls.PSObject.Properties['resourceAccessRules']) {
+        @($NetworkAcls.resourceAccessRules | ForEach-Object { "$($_.tenantId)|$($_.resourceId)" } | Sort-Object)
+    }
+    else { @() }
+    return ([ordered]@{
+        bypass = [string]$NetworkAcls.bypass
+        defaultAction = [string]$NetworkAcls.defaultAction
+        ipRules = @($NetworkAcls.ipRules | ForEach-Object { [string]$_.value } | Sort-Object)
+        virtualNetworkRules = @($NetworkAcls.virtualNetworkRules | ForEach-Object { "$($_.id)|$($_.ignoreMissingVnetServiceEndpoint)" } | Sort-Object)
+        resourceAccessRules = $resourceAccessRules
+    } | ConvertTo-Json -Depth 8 -Compress)
 }
 
 try {
@@ -375,7 +406,33 @@ try {
     Ensure-AppRoleAssignment -Token $callerGraphToken -ClientPrincipalId $apimPrincipal.id -ResourcePrincipalId $brokerApiPrincipal.id -AppRoleId $brokerRole.id
 
     if (-not [string]::IsNullOrWhiteSpace($KeyVaultName)) {
-        $vaultToken = Get-FabricAzAccessToken -TenantId $resourceTenantId -Resource 'https://vault.azure.net' -SubscriptionId ([string]$config.azure.subscriptionId)
+        $callerIpAddress = Resolve-KeyVaultAccessIpAddress -Value $KeyVaultAccessIpAddress
+        $vaultArmUri = "https://management.azure.com/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.KeyVault/vaults/${KeyVaultName}?api-version=2023-07-01"
+        $managementToken = Get-FabricAzAccessToken -TenantId $resourceTenantId -Resource 'https://management.azure.com/' -SubscriptionId ([string]$config.azure.subscriptionId)
+        $managementHeaders = @{ Authorization = "Bearer $managementToken" }
+        $priorVaultState = Invoke-RestMethod -Method GET -Uri $vaultArmUri -Headers $managementHeaders
+        $priorPublicNetworkAccess = if ([string]::IsNullOrWhiteSpace([string]$priorVaultState.properties.publicNetworkAccess)) { 'Enabled' } else { [string]$priorVaultState.properties.publicNetworkAccess }
+        $priorNetworkAcls = $priorVaultState.properties.networkAcls
+        $priorNetworkFingerprint = Get-KeyVaultNetworkAclFingerprint -NetworkAcls $priorNetworkAcls
+        $temporaryIpRule = "$callerIpAddress/32"
+        $existingIpRules = if ($priorNetworkAcls) { @($priorNetworkAcls.ipRules) } else { @() }
+        $existingVirtualNetworkRules = if ($priorNetworkAcls) { @($priorNetworkAcls.virtualNetworkRules) } else { @() }
+        $temporaryIpRules = @($existingIpRules | Where-Object { $_.value -ne $callerIpAddress -and $_.value -ne $temporaryIpRule }) + @([pscustomobject]@{ value = $temporaryIpRule })
+        $temporaryNetworkAcls = [ordered]@{
+            bypass = if ($priorNetworkAcls -and -not [string]::IsNullOrWhiteSpace([string]$priorNetworkAcls.bypass)) { [string]$priorNetworkAcls.bypass } else { 'None' }
+            defaultAction = 'Deny'
+            ipRules = $temporaryIpRules
+            virtualNetworkRules = $existingVirtualNetworkRules
+        }
+        if ($priorNetworkAcls -and $priorNetworkAcls.PSObject.Properties['resourceAccessRules']) {
+            $temporaryNetworkAcls['resourceAccessRules'] = @($priorNetworkAcls.resourceAccessRules)
+        }
+        $temporaryVaultBody = @{ properties = @{ publicNetworkAccess = 'Enabled'; networkAcls = $temporaryNetworkAcls } } | ConvertTo-Json -Depth 20
+        $temporaryAccessAttempted = $false
+        try {
+            $temporaryAccessAttempted = $true
+            Invoke-RestMethod -Method PATCH -Uri $vaultArmUri -Headers $managementHeaders -ContentType 'application/json' -Body $temporaryVaultBody | Out-Null
+            $vaultToken = Get-FabricAzAccessToken -TenantId $resourceTenantId -Resource 'https://vault.azure.net' -SubscriptionId ([string]$config.azure.subscriptionId)
         $secretMetadata = $null
         try {
             $secretMetadata = Invoke-RestMethod -Method GET -Uri "https://$KeyVaultName.vault.azure.net/secrets/$OboClientSecretName?api-version=7.4" -Headers @{ Authorization = "Bearer $vaultToken" }
@@ -452,7 +509,22 @@ try {
         if ($managedCredentials.Count -ne 1 -or $managedCredentials[0].keyId -ne $secretCredentialKeyId) {
             throw 'The OBO resource application does not have exactly one Key Vault-bound managed credential.'
         }
-        $vaultToken = $null
+        }
+        finally {
+            if ($temporaryAccessAttempted) {
+                $restoreVaultBody = @{ properties = @{ publicNetworkAccess = $priorPublicNetworkAccess; networkAcls = $priorNetworkAcls } } | ConvertTo-Json -Depth 20
+                Invoke-RestMethod -Method PATCH -Uri $vaultArmUri -Headers $managementHeaders -ContentType 'application/json' -Body $restoreVaultBody | Out-Null
+                $restoredVaultState = Invoke-RestMethod -Method GET -Uri $vaultArmUri -Headers $managementHeaders
+                $restoredNetworkFingerprint = Get-KeyVaultNetworkAclFingerprint -NetworkAcls $restoredVaultState.properties.networkAcls
+                if ([string]$restoredVaultState.properties.publicNetworkAccess -ne $priorPublicNetworkAccess -or $restoredNetworkFingerprint -ne $priorNetworkFingerprint) {
+                    throw 'Key Vault network restoration did not reproduce the exact prior state. Inspect the vault before continuing.'
+                }
+            }
+            $temporaryVaultBody = $null
+            $restoreVaultBody = $null
+            $vaultToken = $null
+            $managementToken = $null
+        }
     }
 
     $metadata = [ordered]@{
@@ -515,4 +587,6 @@ finally {
     $resourceGraphToken = $null
     $callerGraphToken = $null
     $credential = $null
+    $vaultToken = $null
+    $managementToken = $null
 }
