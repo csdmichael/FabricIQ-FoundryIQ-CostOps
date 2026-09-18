@@ -74,9 +74,18 @@
     "dataAgentMcpPath": "fabric-data-agent-mcp",
     "tokenomicsApiId": "fabric-tokenomics",
     "tokenomicsApiPath": "fabric-tokenomics",
-    "inferenceApiId": "fabric-foundry-inference",
-    "inferenceApiPath": "fabric-foundry-inference",
-    "productId": "fabric-agents",
+    "inferenceApis": {
+      "lakehouse": {
+        "id": "fabric-foundry-lakehouse-inference",
+        "path": "fabric-foundry-inference/lakehouse"
+      },
+      "dataAgent": {
+        "id": "fabric-foundry-data-agent-inference",
+        "path": "fabric-foundry-inference/data-agent"
+      }
+    },
+    "fabricProductId": "fabric",
+    "foundryProductId": "foundry",
     "rateLimitCalls": 30,
     "rateLimitRenewalSeconds": 60,
     "modelTokenLimitPerMinute": 25000,
@@ -87,7 +96,8 @@
     "projectName": "fabric-costops",
     "location": "westus",
     "vnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-apim-westus-vnet",
-    "agentSubnetName": "foundry-agent",
+    "agentSubnetName": "foundry-costops-agent",
+    "agentSubnetPrefix": "10.191.3.0/24",
     "privateEndpointSubnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-apim-westus-vnet/subnets/private-endpoints",
     "model": {
       "name": "gpt-5.6-sol",
@@ -99,6 +109,27 @@
     "modelConnections": {
       "lakehouse": "lakehouse-ai-gateway",
       "dataAgent": "data-agent-ai-gateway"
+    },
+    "mcpConnections": {
+      "lakehouse": {
+        "name": "lakehouse-mcp-oauth",
+        "appDisplayName": "Fabric CostOps Lakehouse Agent OAuth",
+        "serverLabel": "fabric-lakehouse",
+        "apiPath": "fabric-lakehouse-mcp/mcp",
+        "allowedTools": [
+          "tables",
+          "query"
+        ]
+      },
+      "dataAgent": {
+        "name": "data-agent-mcp-oauth",
+        "appDisplayName": "Fabric CostOps Data Agent OAuth",
+        "serverLabel": "fabric-data-agent",
+        "apiPath": "fabric-data-agent-mcp/mcp",
+        "allowedTools": [
+          "query"
+        ]
+      }
     },
     "agents": {
       "lakehouse": "fabric-lakehouse-costops",
@@ -148,7 +179,7 @@
   "broker": {
     "appName": "caldova-fabric-obo-fn",
     "existingPlanName": "caldova-showcase-plan",
-    "runtime": "NODE|22-lts",
+    "runtime": "~22",
     "alwaysOn": true,
     "jwkFetchTimeoutMs": 5000,
     "tokenExchangeTimeoutMs": 15000,
@@ -167,13 +198,40 @@
       "enabled": true,
       "scope": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub",
       "queryApiVersion": "2023-11-01",
-      "billingLagHours": 24
+      "billingLagHours": 24,
+      "trackedResources": [
+        {
+          "category": "model",
+          "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.CognitiveServices/accounts/foundry-fabric-costops",
+          "shared": false
+        },
+        {
+          "category": "gateway",
+          "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.ApiManagement/service/caldova-apim-westus",
+          "shared": true
+        },
+        {
+          "category": "broker",
+          "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Web/sites/caldova-fabric-obo-fn",
+          "shared": false
+        },
+        {
+          "category": "ui",
+          "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Web/serverfarms/caldova-showcase-plan",
+          "shared": true
+        }
+      ]
     }
   },
   "ui": {
+    "appName": "caldova-fabric-costops-ui",
+    "existingPlanName": "caldova-showcase-plan",
+    "integrationSubnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-dbx-vnet-westus2/subnets/genie-obo-integration",
+    "productionUrl": "https://caldova-fabric-costops-ui.azurewebsites.net",
     "allowedOrigin": "http://localhost:4200",
     "redirectUris": [
-      "http://localhost:4200"
+      "http://localhost:4200",
+      "https://caldova-fabric-costops-ui.azurewebsites.net"
     ],
     "environment": "Caldova Private"
   },
@@ -201,6 +259,7 @@
     "deployBroker": true,
     "deployApimApis": true,
     "deployFoundry": true,
+    "deployUi": true,
     "createCopilotStudioAgents": true
   },
   "tags": {

@@ -14,15 +14,22 @@ variable "resource_api_client_id" {
   }
 }
 
-variable "connector_client_ids" {
-  description = "Generated connector application client IDs allowed to call the APIs."
-  type        = list(string)
+variable "api_client_ids" {
+  description = "Generated application client IDs allowed to call each delegated API surface."
+  type = object({
+    lakehouse  = list(string)
+    data_agent = list(string)
+    tokenomics = list(string)
+  })
 
   validation {
-    condition = length(var.connector_client_ids) > 0 && alltrue([
-      for value in var.connector_client_ids : can(regex("^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[1-5][0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$", trimspace(value)))
+    condition = alltrue([
+      for values in [var.api_client_ids.lakehouse, var.api_client_ids.data_agent, var.api_client_ids.tokenomics] :
+      length(values) > 0 && alltrue([
+        for value in values : can(regex("^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[1-5][0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$", trimspace(value)))
+      ])
     ])
-    error_message = "connector_client_ids must contain at least one nonempty GUID."
+    error_message = "api_client_ids must contain at least one nonempty GUID for lakehouse, data_agent, and tokenomics."
   }
 }
 
@@ -45,6 +52,16 @@ variable "broker_audience" {
   validation {
     condition     = can(regex("^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[1-5][0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$", trimspace(var.broker_audience)))
     error_message = "broker_audience must be a nonempty GUID."
+  }
+}
+
+variable "foundry_project_mi_client_id" {
+  description = "Application client ID of the Foundry project system-assigned managed identity."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[1-5][0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$", trimspace(var.foundry_project_mi_client_id)))
+    error_message = "foundry_project_mi_client_id must be a nonempty GUID."
   }
 }
 

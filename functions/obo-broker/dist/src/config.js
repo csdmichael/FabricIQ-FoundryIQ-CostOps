@@ -29,6 +29,20 @@ export function loadConfig(environment) {
     if (!tokenomicsApiIds.length || tokenomicsApiIds.some(value => !/^[A-Za-z0-9._-]{1,128}$/.test(value))) {
         throw new Error('Invalid TOKENOMICS_APIM_API_IDS');
     }
+    let tokenomicsApiAttribution;
+    try {
+        const parsed = JSON.parse(required('TOKENOMICS_API_ATTRIBUTION_JSON'));
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+            throw new Error();
+        tokenomicsApiAttribution = parsed;
+    }
+    catch {
+        throw new Error('Invalid TOKENOMICS_API_ATTRIBUTION_JSON');
+    }
+    if (Object.entries(tokenomicsApiAttribution).some(([apiId, applicationId]) => !tokenomicsApiIds.includes(apiId)
+        || !/^[A-Za-z0-9._-]{1,128}$/.test(applicationId))) {
+        throw new Error('Invalid TOKENOMICS_API_ATTRIBUTION_JSON');
+    }
     let tokenomicsRateCard;
     try {
         const parsed = JSON.parse(required('TOKENOMICS_RATE_CARD_JSON'));
@@ -47,6 +61,31 @@ export function loadConfig(environment) {
         && [rate.negotiatedInputUsdPerMillion, rate.negotiatedOutputUsdPerMillion].every(value => value === undefined || (Number.isFinite(value) && value >= 0));
     if (!tokenomicsRateCard.every(validRate))
         throw new Error('Invalid TOKENOMICS_RATE_CARD_JSON');
+    const actualCostEnabledValue = required('ACTUAL_COST_ENABLED').toLowerCase();
+    if (actualCostEnabledValue !== 'true' && actualCostEnabledValue !== 'false')
+        throw new Error('Invalid ACTUAL_COST_ENABLED');
+    const actualCostScope = required('ACTUAL_COST_SCOPE').replace(/\/$/, '');
+    if (!/^\/subscriptions\/[0-9a-f-]{36}\/resourceGroups\/[A-Za-z0-9._()\-]+$/i.test(actualCostScope))
+        throw new Error('Invalid ACTUAL_COST_SCOPE');
+    let actualCostTrackedResources;
+    try {
+        const parsed = JSON.parse(required('ACTUAL_COST_TRACKED_RESOURCES_JSON'));
+        if (!Array.isArray(parsed))
+            throw new Error();
+        actualCostTrackedResources = parsed;
+    }
+    catch {
+        throw new Error('Invalid ACTUAL_COST_TRACKED_RESOURCES_JSON');
+    }
+    const validActualCostResource = (resource) => typeof resource === 'object' && resource !== null
+        && ['model', 'gateway', 'broker', 'ui'].includes(resource.category)
+        && typeof resource.resourceId === 'string'
+        && resource.resourceId.toLowerCase().startsWith(`${actualCostScope.toLowerCase()}/providers/`)
+        && typeof resource.shared === 'boolean';
+    if (!actualCostTrackedResources.length || !actualCostTrackedResources.every(validActualCostResource)
+        || new Set(actualCostTrackedResources.map(resource => resource.resourceId.toLowerCase())).size !== actualCostTrackedResources.length) {
+        throw new Error('Invalid ACTUAL_COST_TRACKED_RESOURCES_JSON');
+    }
     const config = {
         resourceTenantId: required('RESOURCE_TENANT_ID').toLowerCase(),
         callerTenantId: required('CALLER_TENANT_ID').toLowerCase(),
@@ -73,11 +112,17 @@ export function loadConfig(environment) {
         managedIdentityClientId: required('MANAGED_IDENTITY_CLIENT_ID').toLowerCase(),
         logAnalyticsWorkspaceId: required('LOG_ANALYTICS_WORKSPACE_ID').toLowerCase(),
         tokenomicsApiIds,
+        tokenomicsApiAttribution,
         tokenomicsProjectId: dimension('TOKENOMICS_PROJECT_ID'),
         tokenomicsTeamId: dimension('TOKENOMICS_TEAM_ID'),
         tokenomicsCostCenter: dimension('TOKENOMICS_COST_CENTER'),
         tokenomicsCurrency: required('TOKENOMICS_CURRENCY').toUpperCase(),
         tokenomicsRateCard,
+        actualCostEnabled: actualCostEnabledValue === 'true',
+        actualCostScope,
+        actualCostQueryApiVersion: required('ACTUAL_COST_QUERY_API_VERSION'),
+        actualCostBillingLagHours: positiveInteger('ACTUAL_COST_BILLING_LAG_HOURS'),
+        actualCostTrackedResources,
     };
     const uuidValues = [config.resourceTenantId, config.callerTenantId, config.apiClientId,
         config.brokerAudience, config.apimPrincipalId, config.workspaceId, config.dataAgentId,
@@ -87,6 +132,8 @@ export function loadConfig(environment) {
         || config.fabricApiScope !== 'https://api.fabric.microsoft.com/.default'
         || config.powerBiApiScope !== 'https://analysis.windows.net/powerbi/api/.default'
         || !/^[A-Z]{3}$/.test(config.tokenomicsCurrency)
+        || !/^20\d{2}-\d{2}-\d{2}$/.test(config.actualCostQueryApiVersion)
+        || config.actualCostBillingLagHours > 168
         || config.lakehouseName.length > 128 || /[\r\n]/.test(config.lakehouseName)
         || config.maxRows > 10000 || config.maxStatementLength > 100000) {
         throw new Error('Invalid broker configuration');

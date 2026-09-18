@@ -12,7 +12,7 @@ locals {
   private_endpoint_subnet_id            = local.config.network.brokerPrivateEndpointSubnetResourceId
   integration_subnet_id                 = local.config.network.brokerIntegrationSubnetResourceId
   allowed_user_object_ids               = length(var.allowed_user_object_ids) > 0 ? var.allowed_user_object_ids : tolist(local.config.identity.allowedUserObjectIds)
-  node_version                          = split("-", split("|", local.config.broker.runtime)[1])[0]
+  node_version                          = local.config.broker.runtime
   tags                                  = tomap(local.config.tags)
   unique_name_suffix                    = substr(md5("${local.subscription_id}/${local.resource_group}/${local.function_app_name}"), 0, 8)
   arm_guid_namespace                    = "11fb06fb-712d-4ddd-98c7-e71bbd588830"
@@ -26,6 +26,12 @@ locals {
   key_vault_secrets_officer_role_id     = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/b86a8fe4-44ce-4948-aee5-eccb2c155cd7"
   storage_blob_data_contributor_role_id = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"
   log_analytics_reader_role_id          = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/73c42c96-874c-492b-b04d-ab87d138a893"
+
+  actual_cost_role_definition_ids = {
+    cost_management_reader = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/72fafb9e-0641-4937-9268-a91bfd8191a3"
+    monitoring_reader      = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/43d0d8ad-25c7-4714-9337-8ba259a9fe05"
+    reader                 = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7"
+  }
 
   storage_role_definition_ids = {
     blob_data_owner        = "/subscriptions/${local.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
@@ -263,6 +269,16 @@ resource "azurerm_role_assignment" "identity_log_analytics_reader" {
   principal_type     = "ServicePrincipal"
 }
 
+resource "azurerm_role_assignment" "identity_actual_cost_readers" {
+  for_each = local.config.tokenomics.actualCost.enabled ? local.actual_cost_role_definition_ids : {}
+
+  name               = uuidv5(local.arm_guid_namespace, "${data.azurerm_resource_group.broker.id}-${azurerm_user_assigned_identity.broker.id}-${each.value}")
+  scope              = data.azurerm_resource_group.broker.id
+  role_definition_id = each.value
+  principal_id       = azurerm_user_assigned_identity.broker.principal_id
+  principal_type     = "ServicePrincipal"
+}
+
 resource "azurerm_private_dns_zone" "web" {
   name                = local.web_private_dns_zone_name
   resource_group_name = data.azurerm_resource_group.broker.name
@@ -354,7 +370,7 @@ resource "azurerm_private_endpoint" "vault" {
   }
 }
 
-resource "azurerm_linux_function_app" "broker" {
+resource "azurerm_windows_function_app" "broker" {
   count = var.deploy_function ? 1 : 0
 
   name                                           = local.function_app_name
@@ -411,12 +427,21 @@ resource "azurerm_linux_function_app" "broker" {
     MAX_STATEMENT_LENGTH                         = tostring(local.config.broker.maxStatementLength)
     MANAGED_IDENTITY_CLIENT_ID                   = azurerm_user_assigned_identity.broker.client_id
     LOG_ANALYTICS_WORKSPACE_ID                   = azurerm_log_analytics_workspace.broker.workspace_id
-    TOKENOMICS_APIM_API_IDS                      = join(",", [local.config.apim.lakehouseApiId, local.config.apim.dataAgentApiId, "${local.config.apim.lakehouseApiId}-mcp", "${local.config.apim.dataAgentApiId}-mcp"])
-    TOKENOMICS_PROJECT_ID                        = local.config.tokenomics.projectId
-    TOKENOMICS_TEAM_ID                           = local.config.tokenomics.teamId
-    TOKENOMICS_COST_CENTER                       = local.config.tokenomics.costCenter
-    TOKENOMICS_CURRENCY                          = local.config.tokenomics.currency
-    TOKENOMICS_RATE_CARD_JSON                    = jsonencode(local.config.tokenomics.rateCard)
+    TOKENOMICS_APIM_API_IDS                      = join(",", [local.config.apim.lakehouseApiId, local.config.apim.dataAgentApiId, "${local.config.apim.lakehouseApiId}-mcp", "${local.config.apim.dataAgentApiId}-mcp", local.config.apim.inferenceApis.lakehouse.id, local.config.apim.inferenceApis.dataAgent.id])
+    TOKENOMICS_API_ATTRIBUTION_JSON = jsonencode({
+      (local.config.apim.inferenceApis.lakehouse.id) = local.config.foundry.agents.lakehouse
+      (local.config.apim.inferenceApis.dataAgent.id) = local.config.foundry.agents.dataAgent
+    })
+    TOKENOMICS_PROJECT_ID              = local.config.tokenomics.projectId
+    TOKENOMICS_TEAM_ID                 = local.config.tokenomics.teamId
+    TOKENOMICS_COST_CENTER             = local.config.tokenomics.costCenter
+    TOKENOMICS_CURRENCY                = local.config.tokenomics.currency
+    TOKENOMICS_RATE_CARD_JSON          = jsonencode(local.config.tokenomics.rateCard)
+    ACTUAL_COST_ENABLED                = tostring(local.config.tokenomics.actualCost.enabled)
+    ACTUAL_COST_SCOPE                  = local.config.tokenomics.actualCost.scope
+    ACTUAL_COST_QUERY_API_VERSION      = local.config.tokenomics.actualCost.queryApiVersion
+    ACTUAL_COST_BILLING_LAG_HOURS      = tostring(local.config.tokenomics.actualCost.billingLagHours)
+    ACTUAL_COST_TRACKED_RESOURCES_JSON = jsonencode(local.config.tokenomics.actualCost.trackedResources)
   }
 
   site_config {
@@ -451,12 +476,12 @@ resource "azurerm_linux_function_app" "broker" {
     }
 
     precondition {
-      condition     = data.azurerm_service_plan.broker.os_type == "Linux" && upper(data.azurerm_service_plan.broker.sku_name) == "B1"
-      error_message = "broker.existingPlanName must identify the existing Linux B1 App Service plan."
+      condition     = data.azurerm_service_plan.broker.os_type == "Windows" && upper(data.azurerm_service_plan.broker.sku_name) == "B1"
+      error_message = "broker.existingPlanName must identify the existing Windows B1 App Service plan."
     }
 
     precondition {
-      condition     = local.node_version == "22" && local.config.broker.alwaysOn
+      condition     = local.node_version == "~22" && local.config.broker.alwaysOn
       error_message = "broker.runtime must select Node 22 and broker.alwaysOn must be true."
     }
   }
@@ -469,6 +494,7 @@ resource "azurerm_linux_function_app" "broker" {
     azurerm_role_assignment.deployer_storage_blob_data_contributor,
     azurerm_role_assignment.identity_key_vault,
     azurerm_role_assignment.identity_log_analytics_reader,
+    azurerm_role_assignment.identity_actual_cost_readers,
     azurerm_role_assignment.storage,
   ]
 }
@@ -477,7 +503,7 @@ resource "azurerm_monitor_diagnostic_setting" "function" {
   count = var.deploy_function ? 1 : 0
 
   name                       = "function-logs"
-  target_resource_id         = azurerm_linux_function_app.broker[0].id
+  target_resource_id         = azurerm_windows_function_app.broker[0].id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.broker.id
 
   enabled_log {
@@ -500,7 +526,7 @@ resource "azurerm_private_endpoint" "function" {
 
   private_service_connection {
     name                           = data.azurecaf_name.private_service_connection["sites"].result
-    private_connection_resource_id = azurerm_linux_function_app.broker[0].id
+    private_connection_resource_id = azurerm_windows_function_app.broker[0].id
     subresource_names              = ["sites"]
     is_manual_connection           = false
   }

@@ -21,7 +21,7 @@ function Get-FabricDeploymentConfig {
     if ($config.schemaVersion -ne 1) {
         throw "Unsupported Fabric deployment schema version '$($config.schemaVersion)'."
     }
-    foreach ($section in 'azure', 'fabric', 'apim', 'identity', 'network', 'broker', 'tokenomics', 'ui', 'powerPlatform', 'deployment', 'tags') {
+    foreach ($section in 'azure', 'fabric', 'apim', 'foundry', 'identity', 'network', 'broker', 'tokenomics', 'ui', 'powerPlatform', 'deployment', 'tags') {
         if (-not $config.PSObject.Properties[$section]) {
             throw "Fabric deployment configuration is missing the '$section' section."
         }

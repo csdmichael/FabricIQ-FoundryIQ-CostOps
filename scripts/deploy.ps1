@@ -2,7 +2,7 @@
 param(
     [string] $ConfigPath = (Join-Path $PSScriptRoot '../config/deployment.json'),
     [string] $IdentityPath = (Join-Path $PSScriptRoot '../.generated/identity.json'),
-    [ValidateSet('preflight', 'apim-base', 'network-apim', 'network-broker', 'broker-base', 'identity', 'package', 'broker-app', 'apim', 'all')]
+    [ValidateSet('preflight', 'apim-base', 'network-apim', 'network-broker', 'broker-base', 'foundry-base', 'identity', 'package', 'broker-app', 'apim', 'ui', 'foundry-connections', 'foundry-agents', 'all')]
     [string] $Step = 'preflight',
     [switch] $WhatIf,
     [switch] $InviteConfiguredAdmin,
@@ -11,6 +11,8 @@ param(
     [string] $LakehouseConnectorObjectId,
     [string] $DataAgentConnectorObjectId,
     [string] $DashboardClientObjectId,
+    [string] $FoundryLakehouseOAuthClientObjectId,
+    [string] $FoundryDataAgentOAuthClientObjectId,
     [string] $BrokerApiObjectId,
     [string] $CurrentDeployerPrincipalId,
     [string] $UploadIpAddress,
@@ -47,10 +49,14 @@ function Test-Step {
         'network-apim' { [bool]$config.deployment.deployNetworking }
         'network-broker' { [bool]$config.deployment.deployNetworking }
         'broker-base' { [bool]$config.deployment.deployBroker }
+        'foundry-base' { [bool]$config.deployment.deployFoundry }
         'identity' { [bool]$config.deployment.deployBroker }
         'package' { [bool]$config.deployment.deployBroker }
         'broker-app' { [bool]$config.deployment.deployBroker }
         'apim' { [bool]$config.deployment.deployApimApis }
+        'ui' { [bool]$config.deployment.deployUi }
+        'foundry-connections' { [bool]$config.deployment.deployFoundry }
+        'foundry-agents' { [bool]$config.deployment.deployFoundry }
         default { $true }
     }
     if ($Step -eq $Name -and -not $enabled) {
@@ -204,6 +210,10 @@ function Assert-LiveIdentityMetadata {
             $expectedName = if ($connector.kind -eq 'lakehouse') { [string]$config.identity.lakehouseConnectorDisplayName } else { [string]$config.identity.dataAgentConnectorDisplayName }
             Assert-LiveApplicationPair -Token $resourceToken -Metadata $connector -ExpectedDisplayName $expectedName -Label "$($connector.kind) connector"
         }
+        foreach ($oauthClient in $Identity.foundryOAuthClients) {
+            $expectedName = if ($oauthClient.kind -eq 'lakehouse') { [string]$config.foundry.mcpConnections.lakehouse.appDisplayName } else { [string]$config.foundry.mcpConnections.dataAgent.appDisplayName }
+            Assert-LiveApplicationPair -Token $resourceToken -Metadata $oauthClient -ExpectedDisplayName $expectedName -Label "$($oauthClient.kind) Foundry OAuth client"
+        }
         Assert-LiveApplicationPair -Token $resourceToken -Metadata $Identity.dashboardClient -ExpectedDisplayName ([string]$config.identity.dashboardClientDisplayName) -Label 'Dashboard SPA'
         Assert-LiveApplicationPair -Token $callerToken -Metadata $Identity.brokerApi -ExpectedDisplayName ([string]$config.identity.brokerApiDisplayName) -Label 'Broker API'
         $apimPrincipal = Get-GraphObject -Token $callerToken -Path "servicePrincipals/$($Identity.apimPrincipalId)?`$select=id"
@@ -231,6 +241,10 @@ function Get-IdentityMetadata {
                 [pscustomobject]@{ kind = 'lakehouse'; clientId = '44444444-4444-4444-8444-444444444444' },
                 [pscustomobject]@{ kind = 'dataAgent'; clientId = '55555555-5555-4555-8555-555555555555' }
             )
+            foundryOAuthClients = @(
+                [pscustomobject]@{ kind = 'lakehouse'; clientId = '99999999-9999-4999-8999-999999999999' },
+                [pscustomobject]@{ kind = 'dataAgent'; clientId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }
+            )
             dashboardClient = [pscustomobject]@{ clientId = '77777777-7777-4777-8777-777777777777' }
             allowedUserObjectIds = @('66666666-6666-4666-8666-666666666666')
         }
@@ -247,10 +261,15 @@ function Get-IdentityMetadata {
     if ($connectorKinds.Count -ne 2 -or $connectorKinds[0] -ne 'dataAgent' -or $connectorKinds[1] -ne 'lakehouse') {
         throw 'Identity metadata must contain exactly one dataAgent and one lakehouse connector.'
     }
+    $foundryOAuthKinds = @($identity.foundryOAuthClients.kind | Sort-Object)
+    if ($foundryOAuthKinds.Count -ne 2 -or $foundryOAuthKinds[0] -ne 'dataAgent' -or $foundryOAuthKinds[1] -ne 'lakehouse') {
+        throw 'Identity metadata must contain exactly one dataAgent and one lakehouse Foundry OAuth client.'
+    }
     $null = Assert-FabricGuid -Value $identity.resourceApi.clientId -Name 'identity.resourceApi.clientId'
     $null = Assert-FabricGuid -Value $identity.brokerApi.clientId -Name 'identity.brokerApi.clientId'
     $null = Assert-FabricGuid -Value $identity.apimPrincipalId -Name 'identity.apimPrincipalId'
     $null = Assert-FabricGuidList -Values @($identity.connectors.clientId) -Name 'identity.connectors.clientId'
+    $null = Assert-FabricGuidList -Values @($identity.foundryOAuthClients.clientId) -Name 'identity.foundryOAuthClients.clientId'
     $null = Assert-FabricGuid -Value $identity.dashboardClient.clientId -Name 'identity.dashboardClient.clientId'
     $null = Assert-FabricGuidList -Values @($identity.allowedUserObjectIds) -Name 'identity.allowedUserObjectIds'
     if ($identity.apimPrincipalId -ne $script:LiveApimPrincipalId) {
@@ -265,7 +284,7 @@ function Get-BrokerParameters {
     $connectorClientIds = [object[]]@()
     $allowedUserObjectIds = [object[]]@()
     if ($DeployFunction) {
-        $connectorClientIds = [object[]]@($Identity.connectors.clientId) + [object[]]@($Identity.dashboardClient.clientId)
+        $connectorClientIds = [object[]]@($Identity.connectors.clientId) + [object[]]@($Identity.foundryOAuthClients.clientId) + [object[]]@($Identity.dashboardClient.clientId)
         $allowedUserObjectIds = [object[]]@($Identity.allowedUserObjectIds)
     }
     return @{
@@ -311,12 +330,23 @@ function Get-BrokerParameters {
             [string]$config.apim.dataAgentApiId
             "$($config.apim.lakehouseApiId)-mcp"
             "$($config.apim.dataAgentApiId)-mcp"
+            [string]$config.apim.inferenceApis.lakehouse.id
+            [string]$config.apim.inferenceApis.dataAgent.id
         )
         tokenomicsProjectId = [string]$config.tokenomics.projectId
         tokenomicsTeamId = [string]$config.tokenomics.teamId
         tokenomicsCostCenter = [string]$config.tokenomics.costCenter
         tokenomicsCurrency = [string]$config.tokenomics.currency
         tokenomicsRateCardJson = ConvertTo-Json -InputObject @($config.tokenomics.rateCard) -Depth 10 -Compress
+        tokenomicsApiAttributionJson = ConvertTo-Json -InputObject ([ordered]@{
+            ([string]$config.apim.inferenceApis.lakehouse.id) = [string]$config.foundry.agents.lakehouse
+            ([string]$config.apim.inferenceApis.dataAgent.id) = [string]$config.foundry.agents.dataAgent
+        }) -Depth 10 -Compress
+        actualCostEnabled = [bool]$config.tokenomics.actualCost.enabled
+        actualCostScope = [string]$config.tokenomics.actualCost.scope
+        actualCostQueryApiVersion = [string]$config.tokenomics.actualCost.queryApiVersion
+        actualCostBillingLagHours = [int]$config.tokenomics.actualCost.billingLagHours
+        actualCostTrackedResourcesJson = ConvertTo-Json -InputObject @($config.tokenomics.actualCost.trackedResources) -Depth 10 -Compress
         tags = $config.tags
     }
 }
@@ -359,10 +389,37 @@ function Invoke-Preflight {
     $planId = "/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.Web/serverfarms/$($config.broker.existingPlanName)"
     az resource show --ids $planId --subscription $config.azure.subscriptionId --only-show-errors -o none
     if ($LASTEXITCODE -ne 0) { throw "Configured App Service plan is unavailable: $planId" }
+    if ($config.ui.existingPlanName -ne $config.broker.existingPlanName -or $config.ui.integrationSubnetResourceId -ne $config.network.brokerIntegrationSubnetResourceId) {
+        throw 'The production UI must reuse the configured broker App Service plan and integration subnet.'
+    }
+    $expectedUiUrl = "https://$($config.ui.appName).azurewebsites.net"
+    if ($config.ui.productionUrl -ne $expectedUiUrl -or @($config.ui.redirectUris) -notcontains $expectedUiUrl) {
+        throw 'The UI production URL and SPA redirect URI must match ui.appName.'
+    }
 
     $callerContext = Assert-FabricAzureContext -SubscriptionId ([string]$config.apim.subscriptionId) -TenantId ([string]$config.apim.tenantId)
     az resource show --ids $config.network.apimVnetResourceId --subscription $config.apim.subscriptionId --only-show-errors -o none
     if ($LASTEXITCODE -ne 0) { throw "Configured APIM VNet is unavailable: $($config.network.apimVnetResourceId)" }
+    if (-not [string]::Equals([string]$config.foundry.vnetResourceId, [string]$config.network.apimVnetResourceId, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'The Foundry VNet must match the configured APIM VNet for this private deployment.'
+    }
+    $apimVnetName = $config.network.apimVnetResourceId.Split('/')[-1]
+    $foundrySubnetJson = az network vnet subnet show --subscription $config.azure.subscriptionId --resource-group $config.azure.resourceGroup --vnet-name $apimVnetName --name $config.foundry.agentSubnetName --only-show-errors -o json 2>$null
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($foundrySubnetJson)) {
+        $foundrySubnet = $foundrySubnetJson | ConvertFrom-Json
+        $delegations = @($foundrySubnet.delegations.serviceName)
+        if ($foundrySubnet.addressPrefix -ne $config.foundry.agentSubnetPrefix -or $delegations.Count -ne 1 -or $delegations[0] -ne 'Microsoft.App/environments') {
+            throw "Existing Foundry subnet '$($config.foundry.agentSubnetName)' does not match the exclusive configured CIDR and delegation."
+        }
+    }
+    else {
+        $vnetSubnetsJson = az network vnet subnet list --subscription $config.azure.subscriptionId --resource-group $config.azure.resourceGroup --vnet-name $apimVnetName --query '[].{name:name,prefix:addressPrefix}' -o json
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to verify the Foundry subnet CIDR.' }
+        $cidrCollision = @($vnetSubnetsJson | ConvertFrom-Json | Where-Object { $_.prefix -eq $config.foundry.agentSubnetPrefix })
+        if ($cidrCollision.Count -gt 0) {
+            throw "Foundry subnet CIDR '$($config.foundry.agentSubnetPrefix)' is already in use by '$($cidrCollision[0].name)'."
+        }
+    }
     $apimJson = az apim show --subscription $config.apim.subscriptionId --resource-group $config.apim.resourceGroup --name $config.apim.serviceName --only-show-errors -o json 2>$null
     $apimExists = $LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($apimJson)
     if ($apimExists) {
@@ -404,9 +461,13 @@ function Invoke-Preflight {
 $brokerBaseDeploymentName = "$deploymentPrefix-broker-base"
 $brokerAppDeploymentName = "$deploymentPrefix-broker-app"
 $apimBaseDeploymentName = "$deploymentPrefix-apim-base"
+$foundryBaseDeploymentName = "$deploymentPrefix-foundry-base"
+$foundryConnectionsDeploymentName = "$deploymentPrefix-foundry-connections"
+$uiDeploymentName = "$deploymentPrefix-ui"
 $script:LiveApimPrincipalId = $null
 $baseOutputs = $null
 $appOutputs = $null
+$foundryBaseOutputs = $null
 $package = $null
 $preflight = Invoke-Preflight
 if ($Step -eq 'preflight') {
@@ -450,6 +511,29 @@ if (Test-Step 'broker-base') {
     $baseOutputs = Invoke-GroupDeployment -Name $brokerBaseDeploymentName -SubscriptionId $config.azure.subscriptionId -ResourceGroup $config.azure.resourceGroup -TemplateFile (Join-Path $fabricRoot 'bicep/broker/main.bicep') -ParametersFile $baseParameterPath
 }
 
+if (Test-Step 'foundry-base') {
+    $null = Assert-FabricAzureContext -SubscriptionId ([string]$config.azure.subscriptionId) -TenantId ([string]$config.azure.tenantId)
+    $foundryBaseParameterPath = Join-Path $parameterDirectory 'foundry-base.parameters.json'
+    Write-ArmParameters -Path $foundryBaseParameterPath -Values @{
+        accountName = [string]$config.foundry.accountName
+        projectName = [string]$config.foundry.projectName
+        location = [string]$config.foundry.location
+        vnetResourceId = [string]$config.foundry.vnetResourceId
+        agentSubnetName = [string]$config.foundry.agentSubnetName
+        agentSubnetPrefix = [string]$config.foundry.agentSubnetPrefix
+        privateEndpointSubnetResourceId = [string]$config.foundry.privateEndpointSubnetResourceId
+        modelName = [string]$config.foundry.model.name
+        modelFormat = [string]$config.foundry.model.format
+        modelVersion = [string]$config.foundry.model.version
+        modelSkuName = [string]$config.foundry.model.skuName
+        modelCapacity = [int]$config.foundry.model.capacity
+        apimPrincipalId = [string]$script:LiveApimPrincipalId
+        currentDeployerPrincipalId = [string]$CurrentDeployerPrincipalId
+        tags = $config.tags
+    }
+    $foundryBaseOutputs = Invoke-GroupDeployment -Name $foundryBaseDeploymentName -SubscriptionId $config.azure.subscriptionId -ResourceGroup $config.azure.resourceGroup -TemplateFile (Join-Path $fabricRoot 'bicep/foundry/main.bicep') -ParametersFile $foundryBaseParameterPath
+}
+
 if (Test-Step 'identity') {
     if ($WhatIf) {
         Write-Host 'SKIP identity mutation during what-if.'
@@ -468,7 +552,7 @@ if (Test-Step 'identity') {
             InviteConfiguredAdmin = [bool]$InviteConfiguredAdmin
             RemoveStaleGrants = [bool]$RemoveStaleGrants
         }
-        foreach ($adoptionParameter in 'ResourceApiObjectId', 'LakehouseConnectorObjectId', 'DataAgentConnectorObjectId', 'DashboardClientObjectId', 'BrokerApiObjectId') {
+        foreach ($adoptionParameter in 'ResourceApiObjectId', 'LakehouseConnectorObjectId', 'DataAgentConnectorObjectId', 'DashboardClientObjectId', 'FoundryLakehouseOAuthClientObjectId', 'FoundryDataAgentOAuthClientObjectId', 'BrokerApiObjectId') {
             $adoptionValue = Get-Variable -Name $adoptionParameter -ValueOnly
             if (-not [string]::IsNullOrWhiteSpace([string]$adoptionValue)) {
                 $identityParameters[$adoptionParameter] = $adoptionValue
@@ -567,15 +651,30 @@ if (Test-Step 'broker-app') {
 
 if (Test-Step 'apim') {
     $identity = Get-IdentityMetadata
+    $foundryProjectMiClientId = '88888888-8888-4888-8888-888888888888'
+    if (-not $WhatIf) {
+        if (-not $foundryBaseOutputs) {
+            $foundryBaseOutputs = Get-DeploymentOutputs -Name $foundryBaseDeploymentName -SubscriptionId $config.azure.subscriptionId -ResourceGroup $config.azure.resourceGroup
+        }
+        $foundryProjectPrincipalId = Get-OutputValue -Outputs $foundryBaseOutputs -Name 'projectPrincipalId'
+        $foundryProjectMiClientId = az ad sp show --id $foundryProjectPrincipalId --query appId -o tsv
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($foundryProjectMiClientId)) {
+            throw 'Unable to resolve the Foundry project managed-identity application ID. Rerun after Entra propagation completes.'
+        }
+        $foundryProjectMiClientId = Assert-FabricGuid -Value $foundryProjectMiClientId -Name 'Foundry project managed-identity application ID'
+    }
     $effectiveApplicationInsightsName = if ([string]::IsNullOrWhiteSpace($ApplicationInsightsName)) { "appi-$($config.broker.appName)" } else { $ApplicationInsightsName }
     $effectiveApplicationInsightsResourceGroupName = if ([string]::IsNullOrWhiteSpace($ApplicationInsightsResourceGroupName)) { [string]$config.azure.resourceGroup } else { $ApplicationInsightsResourceGroupName }
     $logAnalyticsWorkspaceId = "/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.OperationalInsights/workspaces/log-$($config.broker.appName)"
     $apimParameterPath = Join-Path $parameterDirectory 'apim.parameters.json'
     Write-ArmParameters -Path $apimParameterPath -Values @{
         resourceApiClientId = [string]$identity.resourceApi.clientId
-        connectorClientIds = @($identity.connectors.clientId) + @($identity.dashboardClient.clientId)
+        lakehouseClientIds = @($identity.connectors | Where-Object { $_.kind -eq 'lakehouse' } | ForEach-Object { $_.clientId }) + @($identity.foundryOAuthClients | Where-Object { $_.kind -eq 'lakehouse' } | ForEach-Object { $_.clientId })
+        dataAgentClientIds = @($identity.connectors | Where-Object { $_.kind -eq 'dataAgent' } | ForEach-Object { $_.clientId }) + @($identity.foundryOAuthClients | Where-Object { $_.kind -eq 'dataAgent' } | ForEach-Object { $_.clientId })
+        tokenomicsClientIds = @($identity.dashboardClient.clientId)
         allowedUserObjectIds = @($identity.allowedUserObjectIds)
         brokerAudience = [string]$identity.brokerApi.clientId
+        foundryProjectMiClientId = [string]$foundryProjectMiClientId
         brokerPrivateUrl = "https://$($config.broker.appName).azurewebsites.net"
         applicationInsightsName = $effectiveApplicationInsightsName
         applicationInsightsResourceGroupName = $effectiveApplicationInsightsResourceGroupName
@@ -585,10 +684,78 @@ if (Test-Step 'apim') {
     Invoke-SubscriptionDeployment -Name "$deploymentPrefix-apim" -TemplateFile (Join-Path $fabricRoot 'bicep/apim/main.bicep') -ParametersFile $apimParameterPath | Out-Null
 }
 
+if (Test-Step 'ui') {
+    $null = Assert-FabricAzureContext -SubscriptionId ([string]$config.azure.subscriptionId) -TenantId ([string]$config.azure.tenantId)
+    $uiParameterPath = Join-Path $parameterDirectory 'ui.parameters.json'
+    Write-ArmParameters -Path $uiParameterPath -Values @{
+        appName = [string]$config.ui.appName
+        existingPlanName = [string]$config.ui.existingPlanName
+        integrationSubnetResourceId = [string]$config.ui.integrationSubnetResourceId
+        apimGatewayHost = ([uri][string]$config.apim.gatewayUrl).Host
+        tokenomicsApiPath = [string]$config.apim.tokenomicsApiPath
+        logAnalyticsWorkspaceId = "/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.OperationalInsights/workspaces/log-$($config.broker.appName)"
+        tags = $config.tags
+    }
+    Invoke-GroupDeployment -Name $uiDeploymentName -SubscriptionId $config.azure.subscriptionId -ResourceGroup $config.azure.resourceGroup -TemplateFile (Join-Path $fabricRoot 'bicep/ui/main.bicep') -ParametersFile $uiParameterPath | Out-Null
+    if (-not $WhatIf) {
+        $uiPackage = & (Join-Path $PSScriptRoot 'build-ui-package.ps1') -ConfigPath $ConfigPath -IdentityPath $IdentityPath
+        az webapp deploy --subscription $config.azure.subscriptionId --resource-group $config.azure.resourceGroup --name $config.ui.appName --src-path $uiPackage.PackagePath --type zip --async false --clean true --restart true --timeout 300000 --only-show-errors -o none
+        if ($LASTEXITCODE -ne 0) { throw 'Production UI package deployment failed.' }
+        $health = Invoke-RestMethod -Method GET -Uri "$($config.ui.productionUrl)/health"
+        if ($health.status -ne 'ok') { throw 'Production UI health verification failed.' }
+    }
+}
+
+if (Test-Step 'foundry-connections') {
+    $null = Assert-FabricAzureContext -SubscriptionId ([string]$config.azure.subscriptionId) -TenantId ([string]$config.azure.tenantId)
+    $foundryConnectionsParameterPath = Join-Path $parameterDirectory 'foundry-connections.parameters.json'
+    Write-ArmParameters -Path $foundryConnectionsParameterPath -Values @{
+        accountName = [string]$config.foundry.accountName
+        projectName = [string]$config.foundry.projectName
+        apimGatewayUrl = [string]$config.apim.gatewayUrl
+        connections = @(
+            [ordered]@{
+                connectionName = [string]$config.foundry.modelConnections.lakehouse
+                apiPath = [string]$config.apim.inferenceApis.lakehouse.path
+                agentId = [string]$config.foundry.agents.lakehouse
+            }
+            [ordered]@{
+                connectionName = [string]$config.foundry.modelConnections.dataAgent
+                apiPath = [string]$config.apim.inferenceApis.dataAgent.path
+                agentId = [string]$config.foundry.agents.dataAgent
+            }
+        )
+        modelName = [string]$config.foundry.model.name
+        modelFormat = [string]$config.foundry.model.format
+        modelVersion = [string]$config.foundry.model.version
+    }
+    Invoke-GroupDeployment -Name $foundryConnectionsDeploymentName -SubscriptionId $config.azure.subscriptionId -ResourceGroup $config.azure.resourceGroup -TemplateFile (Join-Path $fabricRoot 'bicep/foundry/connections.bicep') -ParametersFile $foundryConnectionsParameterPath | Out-Null
+}
+
+if (Test-Step 'foundry-agents') {
+    if ($WhatIf) {
+        & python -m py_compile (Join-Path $PSScriptRoot 'provision-foundry-agents.py')
+        if ($LASTEXITCODE -ne 0) { throw 'Foundry Prompt Agent helper syntax validation failed.' }
+        Write-Host 'SKIP Foundry OAuth and Prompt Agent mutation during what-if.'
+    }
+    else {
+        $null = Get-IdentityMetadata
+        $foundryAgentParameters = @{
+            ConfigPath = $ConfigPath
+            IdentityPath = $IdentityPath
+            FoundryAccessIpAddress = $UploadIpAddress
+        }
+        & (Join-Path $PSScriptRoot 'provision-foundry-agents.ps1') @foundryAgentParameters
+    }
+}
+
 [pscustomobject]@{
     Step = $Step
     WhatIf = [bool]$WhatIf
     BrokerBaseDeployment = $brokerBaseDeploymentName
     BrokerAppDeployment = $brokerAppDeploymentName
     ApimBaseDeployment = $apimBaseDeploymentName
+    FoundryBaseDeployment = $foundryBaseDeploymentName
+    FoundryConnectionsDeployment = $foundryConnectionsDeploymentName
+    UiDeployment = $uiDeploymentName
 }

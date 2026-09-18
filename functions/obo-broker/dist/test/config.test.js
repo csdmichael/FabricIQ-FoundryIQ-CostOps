@@ -24,11 +24,17 @@ const environment = {
     MANAGED_IDENTITY_CLIENT_ID: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     LOG_ANALYTICS_WORKSPACE_ID: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     TOKENOMICS_APIM_API_IDS: 'fabric-lakehouse-obo,fabric-data-agent-obo',
+    TOKENOMICS_API_ATTRIBUTION_JSON: '{"fabric-data-agent-obo":"fabric-data-agent-costops"}',
     TOKENOMICS_PROJECT_ID: 'fabric-parts-shortages',
     TOKENOMICS_TEAM_ID: 'unassigned',
     TOKENOMICS_COST_CENTER: 'unassigned',
     TOKENOMICS_CURRENCY: 'USD',
     TOKENOMICS_RATE_CARD_JSON: '[]',
+    ACTUAL_COST_ENABLED: 'true',
+    ACTUAL_COST_SCOPE: '/subscriptions/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/resourceGroups/costops',
+    ACTUAL_COST_QUERY_API_VERSION: '2023-11-01',
+    ACTUAL_COST_BILLING_LAG_HOURS: '24',
+    ACTUAL_COST_TRACKED_RESOURCES_JSON: '[{"category":"model","resourceId":"/subscriptions/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/resourceGroups/costops/providers/Microsoft.CognitiveServices/accounts/foundry-costops","shared":false}]',
 };
 test('loads only the approved Fabric endpoints and scopes', () => {
     const config = loadConfig(environment);
@@ -38,5 +44,7 @@ test('loads only the approved Fabric endpoints and scopes', () => {
     assert.throws(() => loadConfig({ ...environment, FABRIC_SQL_ENDPOINT_HOST: 'evil.example' }));
     assert.throws(() => loadConfig({ ...environment, FABRIC_API_SCOPE: 'https://graph.microsoft.com/.default' }));
     assert.throws(() => loadConfig({ ...environment, ALLOWED_USER_OBJECT_IDS: '' }));
+    assert.throws(() => loadConfig({ ...environment, ACTUAL_COST_SCOPE: '/subscriptions/invalid' }));
+    assert.throws(() => loadConfig({ ...environment, ACTUAL_COST_TRACKED_RESOURCES_JSON: '[]' }));
 });
 //# sourceMappingURL=config.test.js.map

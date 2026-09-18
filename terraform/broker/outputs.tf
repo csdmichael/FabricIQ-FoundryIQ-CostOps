@@ -1,6 +1,6 @@
 output "function_url" {
   description = "Private Function App base URL when deploy_function is true."
-  value       = var.deploy_function ? "https://${azurerm_linux_function_app.broker[0].default_hostname}" : null
+  value       = var.deploy_function ? "https://${azurerm_windows_function_app.broker[0].default_hostname}" : null
 }
 
 output "function_private_endpoint_ip" {

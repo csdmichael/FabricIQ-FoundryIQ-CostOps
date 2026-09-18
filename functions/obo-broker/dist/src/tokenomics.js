@@ -94,6 +94,7 @@ export function buildTokenomicsDashboard(rows, config, days, queryStatus) {
         trend,
         allocations,
         models: modelRows,
+        billingAllocations: rows.filter(row => row.Section === 'allocationDaily'),
         operations: rows.filter(row => row.Section === 'operation'),
         recentRequests: rows.filter(row => row.Section === 'recent'),
         dataQuality: {
@@ -104,13 +105,77 @@ export function buildTokenomicsDashboard(rows, config, days, queryStatus) {
         },
     };
 }
+function allocateModelCost(rows, cost) {
+    if (cost === null)
+        return rows.map(row => ({ ...row, ActualCost: null }));
+    const totalTokens = rows.reduce((total, row) => total + numberValue(row.TotalTokens), 0);
+    if (totalTokens === 0)
+        return rows.map(row => ({ ...row, ActualCost: null }));
+    return rows.map(row => ({ ...row, ActualCost: round(cost * numberValue(row.TotalTokens) / totalTokens) }));
+}
+function allocationKey(row, fields) {
+    return fields.map(field => text(row[field])).join('\u001f');
+}
+function aggregateActualCost(summaryRows, dailyRows, fields, costKnown) {
+    if (!costKnown)
+        return summaryRows.map(row => ({ ...row, ActualCost: null }));
+    const totals = new Map();
+    for (const row of dailyRows) {
+        if (row.ActualCost === null || row.ActualCost === undefined)
+            continue;
+        const key = allocationKey(row, fields);
+        totals.set(key, (totals.get(key) ?? 0) + numberValue(row.ActualCost));
+    }
+    return summaryRows.map(row => {
+        const key = allocationKey(row, fields);
+        return { ...row, ActualCost: totals.has(key) ? round(totals.get(key)) : null };
+    });
+}
+function allocateDailyCost(rows, dailyCost, costKnown) {
+    const rowsByDate = new Map();
+    for (const row of rows) {
+        const date = text(row.TimeBucket).slice(0, 10);
+        rowsByDate.set(date, [...(rowsByDate.get(date) ?? []), row]);
+    }
+    return [...rowsByDate.entries()]
+        .flatMap(([date, dailyRows]) => allocateModelCost(dailyRows, costKnown ? dailyCost.get(date) ?? 0 : null));
+}
+export function reconcileActualCost(dashboard, actualCost) {
+    const costKnown = actualCost.status === 'available' || actualCost.status === 'empty';
+    const dailyCost = new Map(actualCost.trend.map(row => [row.date, row.dedicatedModelCost]));
+    const trend = allocateDailyCost(dashboard.trend, dailyCost, costKnown);
+    const dailyAllocations = allocateDailyCost(dashboard.billingAllocations, dailyCost, costKnown);
+    const allocations = aggregateActualCost(dashboard.allocations, dailyAllocations, ['ApplicationId', 'ProjectId', 'TeamId', 'CostCenter', 'Model'], costKnown);
+    const models = aggregateActualCost(dashboard.models, trend, ['Model', 'IsStream'], costKnown);
+    const allocatedModelCost = allocations.some(row => row.ActualCost !== null)
+        ? round(allocations.reduce((total, row) => total + numberValue(row.ActualCost), 0))
+        : null;
+    const { billingAllocations: _, ...publicDashboard } = dashboard;
+    return {
+        ...publicDashboard,
+        actualCost: {
+            ...actualCost,
+            allocatedModelCost,
+            allocationMethod: allocatedModelCost === null ? 'none' : 'observed-token-share',
+        },
+        allocations,
+        models,
+        trend,
+        dataQuality: {
+            ...dashboard.dataQuality,
+            billing: actualCost.status === 'available' ? 'actual' : actualCost.status,
+        },
+    };
+}
 export function tokenomicsDashboardQuery(config) {
     const apiIds = JSON.stringify(config.tokenomicsApiIds);
+    const apiAttribution = JSON.stringify(config.tokenomicsApiAttribution);
     const projectId = config.tokenomicsProjectId;
     const teamId = config.tokenomicsTeamId;
     const costCenter = config.tokenomicsCostCenter;
     return `
 let ApiIds = dynamic(${apiIds});
+let ApiAttribution = dynamic(${apiAttribution});
 let Gateway = materialize(
   union isfuzzy=true
     (datatable(TimeGenerated:datetime, CorrelationId:string, ApiId:string, OperationId:string, ResponseCode:int, TotalTime:real)[]),
@@ -133,11 +198,13 @@ let Audits = materialize(
 let Requests = materialize(
   Gateway
   | join kind=leftouter Audits on CorrelationId
-  | extend UserIdHash=iff(isempty(UserIdHash), 'unattributed', UserIdHash),
-      ApplicationId=iff(isempty(ApplicationId), 'unattributed', ApplicationId),
+    | extend ConfiguredApplicationId=tostring(ApiAttribution[ApiId])
+    | extend UserIdHash=iff(isempty(UserIdHash), 'unattributed', UserIdHash),
+      ApplicationId=iff(isempty(ApplicationId), iff(isempty(ConfiguredApplicationId), 'unattributed', ConfiguredApplicationId), ApplicationId),
       ProjectId=iff(isempty(ProjectId), '${projectId}', ProjectId),
       TeamId=iff(isempty(TeamId), '${teamId}', TeamId),
       CostCenter=iff(isempty(CostCenter), '${costCenter}', CostCenter)
+    | project-away ConfiguredApplicationId
 );
 let Tokens = materialize(
   union isfuzzy=true
@@ -174,14 +241,20 @@ union
     | summarize Requests=sum(Requests), Successes=sum(Successes), Errors=sum(Errors),
         TokenizedRequests=dcountif(CorrelationId, HasTokenUsage == 1), PromptTokens=sum(PromptTokens),
         CompletionTokens=sum(CompletionTokens), TotalTokens=sum(TotalTokens), P95LatencyMs=percentile(LatencyMs, 95)
-        by TimeBucket=format_datetime(bin(TimeGenerated, 1d), 'yyyy-MM-dd'), Model
-    | extend Section='trend', ApplicationId='', ProjectId='', TeamId='', CostCenter='', ApiId='', OperationId='', StatusCode=0, CorrelationId='', UserIdHash='', IsStream=false),
+        by TimeBucket=format_datetime(bin(TimeGenerated, 1d), 'yyyy-MM-dd'), Model, IsStream
+      | extend Section='trend', ApplicationId='', ProjectId='', TeamId='', CostCenter='', ApiId='', OperationId='', StatusCode=0, CorrelationId='', UserIdHash=''),
   (Activity
     | summarize Requests=sum(Requests), Successes=sum(Successes), Errors=sum(Errors),
         TokenizedRequests=dcountif(CorrelationId, HasTokenUsage == 1), PromptTokens=sum(PromptTokens),
         CompletionTokens=sum(CompletionTokens), TotalTokens=sum(TotalTokens), P95LatencyMs=percentile(LatencyMs, 95)
         by ApplicationId, ProjectId, TeamId, CostCenter, Model
     | extend Section='allocation', TimeBucket='', ApiId='', OperationId='', StatusCode=0, CorrelationId='', UserIdHash='', IsStream=false),
+  (Activity
+    | summarize Requests=sum(Requests), Successes=sum(Successes), Errors=sum(Errors),
+        TokenizedRequests=dcountif(CorrelationId, HasTokenUsage == 1), PromptTokens=sum(PromptTokens),
+        CompletionTokens=sum(CompletionTokens), TotalTokens=sum(TotalTokens), P95LatencyMs=percentile(LatencyMs, 95)
+        by TimeBucket=format_datetime(bin(TimeGenerated, 1d), 'yyyy-MM-dd'), ApplicationId, ProjectId, TeamId, CostCenter, Model
+    | extend Section='allocationDaily', ApiId='', OperationId='', StatusCode=0, CorrelationId='', UserIdHash='', IsStream=false),
   (TokenContext
     | summarize Requests=dcount(CorrelationId), Successes=long(0), Errors=long(0), TokenizedRequests=dcount(CorrelationId),
         PromptTokens=sum(PromptTokens), CompletionTokens=sum(CompletionTokens), TotalTokens=sum(TotalTokens), P95LatencyMs=real(0)

@@ -5,9 +5,15 @@ from pathlib import Path
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create a portable Function deployment ZIP.")
+    parser = argparse.ArgumentParser(description="Create a portable deployment ZIP.")
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument(
+        "--require",
+        action="append",
+        dest="required_entries",
+        help="Archive entry that must exist; repeat for each required entry.",
+    )
     arguments = parser.parse_args()
 
     source = arguments.source.resolve()
@@ -28,7 +34,10 @@ def main() -> None:
 
     with zipfile.ZipFile(output, "r") as archive:
         names = archive.namelist()
-        required = {"host.json", "package.json", "dist/src/functions/http.js"}
+        required = set(
+            arguments.required_entries
+            or ("host.json", "package.json", "dist/src/functions/http.js")
+        )
         missing = sorted(required.difference(names))
         if missing:
             raise SystemExit(f"Deployment ZIP is missing: {', '.join(missing)}")

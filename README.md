@@ -1,8 +1,8 @@
 # Microsoft Fabric OBO and AI tokenomics through private API Management
 
-This guide deploys a permission-trimmed Microsoft Fabric Lakehouse API and Fabric Data Agent MCP proxy through [Azure API Management (APIM)](https://learn.microsoft.com/azure/api-management/genai-gateway-capabilities). Two Copilot Studio agents use OAuth custom connectors so every Fabric request runs under the signed-in user's permissions. The broker never falls back to an application identity for data access. A responsive Angular/Ionic CostOps UI presents APIM request attribution, token coverage, allocation, pricing coverage, and operational controls.
+This guide deploys permission-trimmed Microsoft Fabric Lakehouse and Data Agent tools through [Azure API Management (APIM)](https://learn.microsoft.com/azure/api-management/genai-gateway-capabilities). Copilot Studio and Microsoft Foundry agents preserve the signed-in user through OAuth; the broker never falls back to an application identity for Fabric data. A private Foundry project uses `gpt-5.6-sol` only through attributable APIM AI Gateway routes. The responsive Angular/Ionic CostOps UI reconciles APIM token telemetry with Azure Cost Management `ActualCost` without relabeling rate-card estimates as billed cost.
 
-> **Reference status (2026-09-17):** The Fabric Lakehouse, Data Agent, semantic model, reports, and dashboards are live. The broker, APIM REST/MCP/tokenomics additions, SPA identity, and responsive UI pass the formal local, ARM validation, and additive-only what-if gates but are not yet deployed. Copilot Studio and Foundry agent URLs remain pending until publication produces immutable live IDs. Deployment evidence is added only after each live gate passes.
+> **Reference status (2026-09-17):** Fabric data and Power BI artifacts are live. The broker, private Foundry foundation, two APIM model routes, OAuth Prompt Agent workflow, Azure-billed cost reconciliation, and production UI host pass local and isolated Azure what-if gates but are not yet deployed. The deployment plan is reopened to `Approved` for formal validation. Immutable agent links are added only after live publication and smoke tests.
 
 ## Architecture
 
@@ -23,7 +23,12 @@ flowchart LR
     APIM -. Gateway and LLM diagnostics .-> Monitor[Azure Monitor and Log Analytics]
     Broker -. Hashed attribution traces .-> Monitor
     Broker -->|Managed identity query| Monitor
-    Dashboard[Angular and Ionic CostOps UI] -->|Delegated Fabric.Access token| APIM
+    Broker -->|Managed identity ActualCost query| Cost[Azure Cost Management]
+    Dashboard[Angular and Ionic CostOps UI] -->|Same-origin delegated proxy| APIM
+    User --> Foundry[Private Foundry Prompt Agents]
+    Foundry -->|Project MI and agent attribution| APIM
+    APIM -->|APIM MI over private endpoint| Model[gpt-5.6-sol]
+    Foundry -->|Custom OAuth user token| APIM
 ```
 
 The token path is:
@@ -64,8 +69,10 @@ The status column is intentional. **Live** links identify deployed artifacts. **
 | Surface | Direct URL | Status |
 | --- | --- | --- |
 | CostOps tokenomics UI | [http://localhost:4200/](http://localhost:4200/) | Local development |
-| UI production URL | Not assigned; no UI hosting target is configured | Pending hosting decision |
+| UI production URL | [https://caldova-fabric-costops-ui.azurewebsites.net](https://caldova-fabric-costops-ui.azurewebsites.net) | Post-deploy; public host, authenticated data |
 | APIM service in Azure portal | [caldova-apim-westus overview](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.ApiManagement/service/caldova-apim-westus/overview) | Live shared service |
+| APIM `fabric` product | [fabric product](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.ApiManagement/service/caldova-apim-westus/products/fabric) | Post-deploy; published |
+| APIM `foundry` product | [foundry product](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.ApiManagement/service/caldova-apim-westus/products/foundry) | Post-deploy; published |
 | APIM private gateway | [https://caldova-apim-westus.azure-api.net](https://caldova-apim-westus.azure-api.net) | Live gateway; private access |
 | Lakehouse table discovery | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse/tables](https://caldova-apim-westus.azure-api.net/fabric-lakehouse/tables) | Post-deploy |
 | Lakehouse read-only query | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse/query](https://caldova-apim-westus.azure-api.net/fabric-lakehouse/query) | Post-deploy |
@@ -73,13 +80,17 @@ The status column is intentional. **Live** links identify deployed artifacts. **
 | Data Agent query | [https://caldova-apim-westus.azure-api.net/fabric-data-agent/query](https://caldova-apim-westus.azure-api.net/fabric-data-agent/query) | Post-deploy |
 | Data Agent MCP | [https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp](https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp) | Post-deploy |
 | Tokenomics summary API | [https://caldova-apim-westus.azure-api.net/fabric-tokenomics/summary](https://caldova-apim-westus.azure-api.net/fabric-tokenomics/summary) | Post-deploy |
+| Lakehouse model gateway | [https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/lakehouse](https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/lakehouse) | Post-deploy; project managed identity only |
+| Data Agent model gateway | [https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/data-agent](https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/data-agent) | Post-deploy; project managed identity only |
+| Private Foundry account | [foundry-fabric-costops overview](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.CognitiveServices/accounts/foundry-fabric-costops/overview) | Post-deploy |
+| Foundry project endpoint | [https://foundry-fabric-costops.services.ai.azure.com/api/projects/fabric-costops](https://foundry-fabric-costops.services.ai.azure.com/api/projects/fabric-costops) | Post-deploy; private access |
 | Broker Function in Azure portal | [caldova-fabric-obo-fn overview](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Web/sites/caldova-fabric-obo-fn/overview) | Post-deploy |
 | Broker private health endpoint | [https://caldova-fabric-obo-fn.azurewebsites.net/api/health](https://caldova-fabric-obo-fn.azurewebsites.net/api/health) | Post-deploy; private access |
 | Native Fabric Data Agent MCP | [https://api.fabric.microsoft.com/v1/mcp/workspaces/53829079-597d-4c27-9897-6a2042473761/dataagents/25696ea2-a91e-4b18-9846-5d045c6a082e/agent](https://api.fabric.microsoft.com/v1/mcp/workspaces/53829079-597d-4c27-9897-6a2042473761/dataagents/25696ea2-a91e-4b18-9846-5d045c6a082e/agent) | Live; Fabric bearer token required |
 | Power Platform environment | [Caldova Private in Power Apps](https://make.powerapps.com/environments/52456fcd-1d20-ecdb-aa2e-8979e3f794f5/home) | Live environment |
 | Copilot Studio environment | [Caldova Private in Copilot Studio](https://copilotstudio.microsoft.com/environments/52456fcd-1d20-ecdb-aa2e-8979e3f794f5/home) | Live environment |
 
-Live agent deep links cannot be formed safely from display names. Add the Copilot Studio bot IDs and Foundry project/agent identifiers here only after publication and a successful live pull. Until then, use the source links in the agent sections below.
+Live agent deep links require immutable version IDs. Add the Copilot Studio bot IDs and Foundry Prompt Agent versions here only after publication and a successful live readback. Until then, use the deterministic project endpoint and source links below.
 
 ## Live Caldova workspace and Power BI
 
@@ -165,7 +176,9 @@ Before deployment, replace or resolve:
 - tenant, subscription, resource group, location, and existing resource IDs;
 - Fabric workspace, Lakehouse, SQL endpoint, and Data Agent IDs;
 - APIM service, gateway, API paths, product, and VNet;
-- existing App Service plan and broker subnets;
+- dedicated Foundry account/project, exclusive agent subnet, pinned model, and per-agent connections;
+- existing Windows App Service plan, broker/UI integration subnet, and production UI URL;
+- resource-group `ActualCost` scope, billing lag, and tracked resources;
 - Power Platform environment ID;
 - allowed Fabric-tenant user object IDs.
 
@@ -179,15 +192,17 @@ Bicep is the live reference deployment path. Terraform is an equivalent customer
 
 Deploy in this order:
 
-1. [bicep/network-apim-side/main.bicep](bicep/network-apim-side/main.bicep) in the APIM subscription.
-2. [bicep/network-broker-side/main.bicep](bicep/network-broker-side/main.bicep) in the Fabric broker subscription.
-3. [bicep/broker/main.bicep](bicep/broker/main.bicep) with `deployFunction=false`.
-4. Run [scripts/provision-identity.ps1](scripts/provision-identity.ps1) and store the OBO credential directly in the emitted Key Vault.
-5. Build and upload the Function package without storage keys or SAS tokens.
-6. Re-run the broker template with generated IDs, nonempty allowlists, and `deployFunction=true`.
-7. Deploy [bicep/apim/main.bicep](bicep/apim/main.bicep) in the APIM subscription.
-8. Run [scripts/create-connectors.ps1](scripts/create-connectors.ps1).
-9. Package, import, bind tools, and publish both agents with [scripts/package-agents.ps1](scripts/package-agents.ps1).
+1. Deploy [bicep/broker/main.bicep](bicep/broker/main.bicep) with `deployFunction=false`.
+2. Deploy the private Foundry foundation in [bicep/foundry/main.bicep](bicep/foundry/main.bicep).
+3. Run [scripts/provision-identity.ps1](scripts/provision-identity.ps1); credentials go directly to Key Vault or their platform connection store.
+4. Build/upload the Function package and redeploy the broker with generated IDs and `deployFunction=true`.
+5. Deploy the REST, MCP, tokenomics, and two model APIs from [bicep/apim/main.bicep](bicep/apim/main.bicep).
+6. Deploy the production Web App from [bicep/ui/main.bicep](bicep/ui/main.bicep), then publish [the portable UI package](scripts/build-ui-package.ps1).
+7. Deploy the two model connections from [bicep/foundry/connections.bicep](bicep/foundry/connections.bicep).
+8. Run [scripts/provision-foundry-agents.ps1](scripts/provision-foundry-agents.ps1) to create OAuth connections, register redirects, version both Prompt Agents, and smoke-test model traffic.
+9. Run [scripts/create-connectors.ps1](scripts/create-connectors.ps1), then package, bind, test, and publish Copilot Studio agents.
+
+[scripts/deploy.ps1](scripts/deploy.ps1) implements this order through `broker-base`, `foundry-base`, `identity`, `package`, `broker-app`, `apim`, `ui`, `foundry-connections`, and `foundry-agents` stages.
 
 Run incremental deployments only. Review every `what-if` result and stop on an unexpected delete, replacement, VNet change, APIM service change, or App Service plan change.
 
@@ -199,6 +214,8 @@ Equivalent independent modules are under [terraform](terraform):
 - `network-broker-side`
 - `broker`
 - `apim`
+- `foundry`
+- `ui`
 
 Run `terraform fmt -check`, `terraform init -backend=false`, and `terraform validate` before configuring a real backend. Keep state in customer-controlled remote storage; never commit state or tfvars.
 
@@ -208,6 +225,7 @@ Run `terraform fmt -check`, `terraform init -backend=false`, and `terraform vali
 
 - a Fabric-tenant resource API with delegated `Fabric.Access`;
 - separate Lakehouse and Data Agent OAuth connector clients;
+- separate Lakehouse and Data Agent custom OAuth clients for Foundry MCP connections;
 - least-privilege downstream Fabric delegated permissions;
 - principal-scoped consent for explicitly allowed users;
 - a caller-tenant broker API with `Fabric.Broker.Invoke`;
@@ -219,7 +237,14 @@ The script writes only nonsecret IDs to the ignored `.generated` directory. With
 
 ## APIM APIs and MCP
 
-APIM deploys three REST APIs and two MCP projections. APIM's ability to govern APIs, models, and MCP servers is described in the [AI gateway capabilities reference](https://learn.microsoft.com/azure/api-management/genai-gateway-capabilities).
+APIM deploys three REST APIs, two MCP projections, and two model-inference APIs. They are grouped into two published, subscription-free products because authentication is enforced by delegated OAuth or project managed identity rather than APIM subscription keys.
+
+| APIM product | Included APIs |
+| --- | --- |
+| `fabric` | Fabric Lakehouse REST, Fabric Data Agent REST, Fabric Lakehouse MCP, Fabric Data Agent MCP, and Fabric Tokenomics |
+| `foundry` | Lakehouse Prompt Agent inference and Data Agent Prompt Agent inference |
+
+The products are deliberately separate: Fabric data/tool traffic remains visible as `fabric`, while all model traffic is governed and metered under `foundry`. APIM's ability to govern APIs, models, and MCP servers is described in the [AI gateway capabilities reference](https://learn.microsoft.com/azure/api-management/genai-gateway-capabilities).
 
 | Surface | Path | Full private gateway URL | Purpose |
 | --- | --- | --- | --- |
@@ -228,6 +253,8 @@ APIM deploys three REST APIs and two MCP projections. APIM's ability to govern A
 | Data Agent REST | `/fabric-data-agent` | [https://caldova-apim-westus.azure-api.net/fabric-data-agent](https://caldova-apim-westus.azure-api.net/fabric-data-agent) | Proxy one natural-language Data Agent request |
 | Data Agent MCP | `/fabric-data-agent-mcp/mcp` | [https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp](https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp) | MCP projection of the governed REST operation |
 | Tokenomics REST | `/fabric-tokenomics/summary` | [https://caldova-apim-westus.azure-api.net/fabric-tokenomics/summary](https://caldova-apim-westus.azure-api.net/fabric-tokenomics/summary) | Return a fixed, privacy-preserving usage and cost summary; never accepts caller-supplied KQL |
+| Lakehouse inference | `/fabric-foundry-inference/lakehouse` | [https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/lakehouse](https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/lakehouse) | Validate the project identity, enforce Lakehouse agent attribution/TPM, and call the private model with APIM managed identity |
+| Data Agent inference | `/fabric-foundry-inference/data-agent` | [https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/data-agent](https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/data-agent) | Validate the project identity, enforce Data Agent attribution/TPM, and call the private model with APIM managed identity |
 
 Copilot Studio uses OAuth custom connectors for the private APIM path, following Microsoft's guidance for [using Power Platform connectors as agent tools](https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors). Direct Copilot Studio MCP authoring is not assumed to have Power Platform VNet injection. The connector definitions use Swagger 2.0, typed request bodies, and generated redirect URIs.
 
@@ -237,7 +264,7 @@ The tokenomics design adapts the attribution pattern in the [Azure-Samples APIM 
 
 High-cardinality request/user detail stays in logs and traces. Bounded dimensions can use APIM's [`llm-emit-token-metric` policy](https://learn.microsoft.com/azure/api-management/llm-emit-token-metric-policy), which documents the five-custom-dimension and active-time-series limits. The broker queries Azure Monitor with its managed identity and workspace-scoped Log Analytics Reader role, following the [Azure Monitor Logs Query API](https://learn.microsoft.com/azure/azure-monitor/logs/api/overview).
 
-Cost remains separate from usage. An empty `tokenomics.rateCard` reports requests and observed tokens without inventing cost. Market benchmarking can use the [Azure Retail Prices API](https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices); chargeback should use effective-dated negotiated rows from the [Cost Management Price Sheet API](https://learn.microsoft.com/azure/cost-management-billing/automate/migrate-ea-price-sheet-api).
+Cost remains separate from usage. The broker queries the [Cost Management Query API](https://learn.microsoft.com/rest/api/cost-management/query/usage) with `type=ActualCost` at only the configured resource-group scope. It reports billing source, status, bill-through date, expected lag, dedicated model cost, shared platform cost, and untracked scope cost. Dedicated model cost is allocated to agents by observed APIM token share and labeled with that method. Market and negotiated rate-card values remain estimates; an empty rate card never suppresses billed cost or invents savings.
 
 The [UI source](ui) uses [Angular](https://github.com/angular/angular), [Ionic](https://github.com/ionic-team/ionic-framework), [MSAL.js](https://github.com/AzureAD/microsoft-authentication-library-for-js), and [Chart.js](https://github.com/chartjs/Chart.js). It provides a desktop sidebar and dense five-KPI view, a tablet icon rail and two-column analytics view, and phone bottom tabs with single-view navigation. No demo dataset is checked in. The placeholder runtime config renders a configuration-required state; a live build injects only public tenant/client/scope/API values from generated identity metadata.
 
@@ -248,6 +275,7 @@ npm start --prefix ui -- --host 127.0.0.1 --port 4200
 ```
 
 Open [http://localhost:4200/](http://localhost:4200/) for the local UI. No production UI host is currently configured, so the README intentionally does not claim a public UI URL.
+The production host is [https://caldova-fabric-costops-ui.azurewebsites.net](https://caldova-fabric-costops-ui.azurewebsites.net). It serves compiled assets from the existing Windows B1 plan and proxies only `/api/fabric-tokenomics/summary` over the existing VNet peering/private DNS path. The browser still obtains and sends the delegated token; the host stores no credential and the shared APIM remains private.
 
 ## Copilot Studio agents
 
@@ -272,7 +300,16 @@ Complete agent setup in two phases:
 
 ## Microsoft Foundry agents
 
-The target matrix calls for `Fabric OneLake Analyst` and `Fabric Data Agent Analyst`, each restricted to one APIM MCP endpoint and configured with OAuth identity passthrough. Follow [Set up MCP server authentication](https://learn.microsoft.com/azure/foundry/agents/how-to/mcp-authentication) and [toolbox authentication](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/tool-authentication). The Foundry project has not been selected in [config/deployment.json](config/deployment.json), so there is no verified Foundry project, Playground, or agent URL to publish here yet. Add those links only after project selection, connection creation, consent, allowed/denied-user testing, and versioned agent publication.
+The approved target is the dedicated private `foundry-fabric-costops/fabric-costops` project in West US. It uses the exclusive `foundry-costops-agent` `/24` subnet and a private endpoint in the existing APIM VNet. It does not reuse or modify the unrelated `foundry-myaacoub-private/sales-poc` project or its in-use agent subnet.
+
+Both Prompt Agents use pinned `gpt-5.6-sol` version `2026-07-09` through a distinct `ApiManagement` model connection. APIM validates the project managed identity and fixed agent header, enforces 25K TPM per agent route, emits token metrics, and authenticates to the private model account with its own managed identity. Direct model access is not configured.
+
+| Prompt Agent | Model connection | MCP connection | Allowed tools |
+| --- | --- | --- | --- |
+| `fabric-lakehouse-costops` | `lakehouse-ai-gateway/gpt-5.6-sol` | `lakehouse-mcp-oauth` | `tables`, `query` |
+| `fabric-data-agent-costops` | `data-agent-ai-gateway/gpt-5.6-sol` | `data-agent-mcp-oauth` | `query` |
+
+[scripts/provision-foundry-agents.ps1](scripts/provision-foundry-agents.ps1) creates one custom OAuth client and `RemoteTool` connection per MCP endpoint, requests only `Fabric.Access offline_access`, registers each Foundry-generated redirect URI, and rotates credentials directly into the connection store. It checkpoints every verified connection and agent version so an idempotent rerun can resume after a partial failure without exposing credentials. [The Python helper](scripts/provision-foundry-agents.py) creates idempotent agent versions and runs a model-only gateway smoke test. Full tool acceptance still requires the allowed user to complete the per-connection OAuth consent flow described in [Set up MCP server authentication](https://learn.microsoft.com/azure/foundry/agents/how-to/mcp-authentication).
 
 ## Validation and acceptance
 
@@ -287,12 +324,15 @@ Add `-DeploymentReady` only after the Power Platform environment and user allowl
 Live acceptance requires all of the following:
 
 - Azure validation and `what-if` pass for both peerings, both broker stages, and APIM.
+- Private Foundry and UI previews are create-only; the exclusive subnet, private endpoint, model, project, and Web App match configuration.
 - The existing App Service plan and VNets are referenced, not modified or replaced.
 - Public Function and SCM endpoints are denied; APIM resolves the private Function endpoint.
 - Anonymous, wrong-tenant, wrong-audience, application-token, unapproved connector, and unapproved user requests fail closed.
 - An approved user lists only visible Lakehouse tables and completes a read-only query.
 - The Data Agent MCP handshake initializes, lists exactly the expected tool, and returns a permission-trimmed answer.
 - The denied-user test returns `403` and no downstream data.
+- Azure Cost Management returns `ActualCost`; billing lag and unavailable states remain visible and rate-card estimates are never labeled billed.
+- Both Foundry Prompt Agents route model and MCP traffic through their own APIM API IDs and expose only their configured tools.
 - Both Copilot Studio agents use user OAuth connections and publish successfully.
 - Each agent creates a `.pptx` that contains `ppt/presentation.xml`, native evidence visuals, source notes, and no invented values.
 
@@ -306,7 +346,8 @@ Capture screenshots only after the corresponding live check passes. Put sanitize
 - [ ] Resource API overview, Expose an API, v2 token manifest, and least-privilege delegated permissions.
 - [ ] Both connector app overviews, generated redirect URIs, and delegated `Fabric.Access` permissions.
 - [ ] Broker Function plan, identity, Key Vault reference settings, VNet integration, and sites private endpoint.
-- [ ] APIM Fabric REST APIs, generated MCP APIs, named values, policy, and diagnostics.
+- [ ] APIM `fabric` product with the two REST APIs, both MCP APIs, tokenomics, named values, policies, and diagnostics.
+- [ ] APIM `foundry` product with both managed-identity inference APIs, token limits, token metrics, and private model backend.
 - [ ] Bidirectional APIM/broker VNet peerings and private DNS records.
 - [ ] Power Platform environment, enterprise policy, connector General/Security/Definition/Test views.
 - [ ] Both Copilot Studio agents with connector tools, OAuth connection, code-interpreter prompt, and published status.
@@ -315,11 +356,11 @@ Capture screenshots only after the corresponding live check passes. Put sanitize
 ## Rollback
 
 1. Unpublish or remove the new Copilot Studio agent solutions without changing unrelated agents.
-2. Remove the two new custom connectors and their connections; revoke their principal-scoped grants and credentials.
-3. Remove the additive Fabric APIs/MCP projections and private DNS records from APIM.
-4. Roll the Function package back to the previous package blob, or disable the Function app.
-5. Remove the broker Function/private endpoints and then base resources only after confirming no shared resource uses them.
-6. Remove each VNet peering from its owning subscription.
+2. Delete the two Foundry Prompt Agent versions and OAuth/model connections, then remove the project capability host before the account.
+3. Remove the dedicated Foundry private endpoint/account and wait for its service association to release before deleting the exclusive subnet.
+4. Remove the two new custom connectors/connections and revoke their principal-scoped grants and credentials.
+5. Remove the additive Fabric, MCP, tokenomics, and inference APIs from APIM.
+6. Roll back the Function/UI packages or disable the two apps; remove their dedicated resources only after shared-plan use is checked.
 7. Remove the dedicated app registrations only after grants, assignments, redirects, and ownership are recorded.
 
 Do not delete Fabric workspace items, semantic models, the Lakehouse, the Data Agent, the existing APIM service, the existing App Service plan, shared VNets, or unrelated private DNS zones as part of rollback.
@@ -343,6 +384,9 @@ Canonical destination URLs are used instead of email Safe Links. Revalidate prev
 | Copilot Studio connector tools | [Use Power Platform connectors as agent tools](https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors) |
 | Foundry MCP OAuth identity passthrough | [Set up MCP server authentication](https://learn.microsoft.com/azure/foundry/agents/how-to/mcp-authentication) |
 | Foundry tool authentication | [How toolbox authentication works](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/tool-authentication) |
+| Foundry private networking | [Set up private networking for Foundry Agent Service](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks) |
+| Foundry model connections through APIM | [Bring your own model to Foundry Agent Service](https://learn.microsoft.com/azure/foundry/agents/how-to/ai-gateway) |
+| Azure billed cost query | [Cost Management Query API](https://learn.microsoft.com/rest/api/cost-management/query/usage) |
 | Programmatic KQL access | [Azure Monitor Logs Query API overview](https://learn.microsoft.com/azure/azure-monitor/logs/api/overview) |
 | Public/list price benchmark | [Azure Retail Prices REST API overview](https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices) |
 | Negotiated price sheet | [Migrate to the Cost Management Price Sheet API](https://learn.microsoft.com/azure/cost-management-billing/automate/migrate-ea-price-sheet-api) |

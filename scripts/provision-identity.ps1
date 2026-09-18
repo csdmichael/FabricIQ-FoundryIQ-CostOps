@@ -12,6 +12,8 @@ param(
     [string] $LakehouseConnectorObjectId,
     [string] $DataAgentConnectorObjectId,
     [string] $DashboardClientObjectId,
+    [string] $FoundryLakehouseOAuthClientObjectId,
+    [string] $FoundryDataAgentOAuthClientObjectId,
     [string] $BrokerApiObjectId,
     [switch] $DeploymentReady,
     [switch] $InviteConfiguredAdmin,
@@ -51,6 +53,15 @@ if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
     if ([string]::IsNullOrWhiteSpace($LakehouseConnectorObjectId)) { $LakehouseConnectorObjectId = [string]$metadataLakehouseConnector[0].objectId }
     if ([string]::IsNullOrWhiteSpace($DataAgentConnectorObjectId)) { $DataAgentConnectorObjectId = [string]$metadataDataAgentConnector[0].objectId }
     if ([string]::IsNullOrWhiteSpace($DashboardClientObjectId) -and $existingMetadata.PSObject.Properties['dashboardClient']) { $DashboardClientObjectId = [string]$existingMetadata.dashboardClient.objectId }
+    if ($existingMetadata.PSObject.Properties['foundryOAuthClients']) {
+        $metadataLakehouseOAuth = @($existingMetadata.foundryOAuthClients | Where-Object { $_.kind -eq 'lakehouse' })
+        $metadataDataAgentOAuth = @($existingMetadata.foundryOAuthClients | Where-Object { $_.kind -eq 'dataAgent' })
+        if ($metadataLakehouseOAuth.Count -ne 1 -or $metadataDataAgentOAuth.Count -ne 1) {
+            throw 'Existing identity metadata does not contain exactly one Foundry OAuth client of each required kind.'
+        }
+        if ([string]::IsNullOrWhiteSpace($FoundryLakehouseOAuthClientObjectId)) { $FoundryLakehouseOAuthClientObjectId = [string]$metadataLakehouseOAuth[0].objectId }
+        if ([string]::IsNullOrWhiteSpace($FoundryDataAgentOAuthClientObjectId)) { $FoundryDataAgentOAuthClientObjectId = [string]$metadataDataAgentOAuth[0].objectId }
+    }
 }
 
 function Invoke-Graph {
@@ -345,6 +356,39 @@ try {
         }
     }
 
+    $foundryOAuthDefinitions = @(
+        [pscustomobject]@{ Kind = 'lakehouse'; DisplayName = [string]$config.foundry.mcpConnections.lakehouse.appDisplayName; ObjectId = $FoundryLakehouseOAuthClientObjectId },
+        [pscustomobject]@{ Kind = 'dataAgent'; DisplayName = [string]$config.foundry.mcpConnections.dataAgent.appDisplayName; ObjectId = $FoundryDataAgentOAuthClientObjectId }
+    )
+    $foundryOAuthClients = @()
+    foreach ($definition in $foundryOAuthDefinitions) {
+        $oauthClient = Ensure-Application -Token $resourceGraphToken -DisplayName $definition.DisplayName -ExpectedObjectId $definition.ObjectId
+        $oauthClient = Get-Application -Token $resourceGraphToken -ObjectId $oauthClient.id
+        $oauthClientAccess = @($oauthClient.requiredResourceAccess | Where-Object { $_.resourceAppId -ne $resourceApi.appId })
+        $oauthClientAccess += @{
+            resourceAppId = $resourceApi.appId
+            resourceAccess = @(@{ id = $delegatedScope.id; type = 'Scope' })
+        }
+        Invoke-Graph -Token $resourceGraphToken -Method PATCH -Path "applications/$($oauthClient.id)" -Body @{
+            requiredResourceAccess = $oauthClientAccess
+            isFallbackPublicClient = $false
+        } | Out-Null
+        $oauthClient = Get-Application -Token $resourceGraphToken -ObjectId $oauthClient.id
+        $oauthClientPrincipal = Ensure-ServicePrincipal -Token $resourceGraphToken -AppId $oauthClient.appId
+        Assert-PrincipalGrantSet -Token $resourceGraphToken -ClientPrincipalId $oauthClientPrincipal.id -ResourcePrincipalId $resourceApiPrincipal.id -ExpectedUserObjectIds $effectiveAllowedUsers -ExpectedScopes @([string]$config.identity.delegatedScope) -AllowExpectedScopeDrift
+        foreach ($userObjectId in $effectiveAllowedUsers) {
+            Ensure-PrincipalGrant -Token $resourceGraphToken -ClientPrincipalId $oauthClientPrincipal.id -ResourcePrincipalId $resourceApiPrincipal.id -UserObjectId $userObjectId -Scopes @([string]$config.identity.delegatedScope)
+        }
+        Assert-PrincipalGrantSet -Token $resourceGraphToken -ClientPrincipalId $oauthClientPrincipal.id -ResourcePrincipalId $resourceApiPrincipal.id -ExpectedUserObjectIds $effectiveAllowedUsers -ExpectedScopes @([string]$config.identity.delegatedScope)
+        $foundryOAuthClients += [pscustomobject]@{
+            kind = $definition.Kind
+            displayName = $definition.DisplayName
+            clientId = $oauthClient.appId
+            objectId = $oauthClient.id
+            servicePrincipalId = $oauthClientPrincipal.id
+        }
+    }
+
     $dashboardClient = Ensure-Application -Token $resourceGraphToken -DisplayName ([string]$config.identity.dashboardClientDisplayName) -ExpectedObjectId $DashboardClientObjectId
     $dashboardClient = Get-Application -Token $resourceGraphToken -ObjectId $dashboardClient.id
     $dashboardAccess = @($dashboardClient.requiredResourceAccess | Where-Object { $_.resourceAppId -ne $resourceApi.appId })
@@ -551,6 +595,7 @@ try {
         }
         apimPrincipalId = $ApimPrincipalId
         connectors = $connectors
+        foundryOAuthClients = $foundryOAuthClients
         dashboardClient = [ordered]@{
             displayName = [string]$config.identity.dashboardClientDisplayName
             clientId = $dashboardClient.appId
@@ -569,6 +614,7 @@ try {
         ResourceApiClientId = $resourceApi.appId
         BrokerAudience = $brokerApi.appId
         ConnectorClientIds = @($connectors.clientId)
+        FoundryOAuthClientIds = @($foundryOAuthClients.clientId)
         DashboardClientId = $dashboardClient.appId
         AllowedUserObjectIds = $effectiveAllowedUsers
         ApimPrincipalId = $ApimPrincipalId

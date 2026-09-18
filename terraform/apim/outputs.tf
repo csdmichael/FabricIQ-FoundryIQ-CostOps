@@ -27,7 +27,22 @@ output "tokenomics_api_url" {
   description = "Fabric tokenomics dashboard API URL."
   value       = "${local.apim_gateway_url}/${local.config.apim.tokenomicsApiPath}"
 }
-output "product_id" {
-  description = "Resource ID of the APIM product containing both REST APIs and both MCP APIs."
-  value       = azapi_resource.product.id
+
+output "lakehouse_inference_url" {
+  description = "Lakehouse Prompt Agent managed-identity inference API URL."
+  value       = "${local.apim_gateway_url}/${local.config.apim.inferenceApis.lakehouse.path}"
+}
+
+output "data_agent_inference_url" {
+  description = "Data Agent Prompt Agent managed-identity inference API URL."
+  value       = "${local.apim_gateway_url}/${local.config.apim.inferenceApis.dataAgent.path}"
+}
+output "fabric_product_id" {
+  description = "Resource ID of the published fabric APIM product."
+  value       = azapi_resource.product["fabric"].id
+}
+
+output "foundry_product_id" {
+  description = "Resource ID of the published foundry APIM product."
+  value       = azapi_resource.product["foundry"].id
 }

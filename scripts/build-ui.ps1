@@ -2,6 +2,7 @@
 param(
     [string] $ConfigPath = (Join-Path $PSScriptRoot '../config/deployment.json'),
     [string] $IdentityPath = (Join-Path $PSScriptRoot '../.generated/identity.json'),
+    [string] $ApiBaseUrl,
     [switch] $SkipInstall
 )
 
@@ -24,8 +25,14 @@ if ($identity.schemaVersion -ne 1 -or $identity.configFingerprint -ne (Get-Fabri
 }
 $dashboardClientId = Assert-FabricGuid -Value $identity.dashboardClient.clientId -Name 'identity.dashboardClient.clientId'
 $resourceApiClientId = Assert-FabricGuid -Value $identity.resourceApi.clientId -Name 'identity.resourceApi.clientId'
+$effectiveApiBaseUrl = if ([string]::IsNullOrWhiteSpace($ApiBaseUrl)) {
+    "$($config.apim.gatewayUrl.TrimEnd('/'))/$($config.apim.tokenomicsApiPath)"
+}
+else {
+    $ApiBaseUrl.TrimEnd('/')
+}
 $runtimeConfig = [ordered]@{
-    apiBaseUrl = "$($config.apim.gatewayUrl.TrimEnd('/'))/$($config.apim.tokenomicsApiPath)"
+    apiBaseUrl = $effectiveApiBaseUrl
     tenantId = [string]$config.identity.resourceTenantId
     clientId = $dashboardClientId
     scope = "api://$resourceApiClientId/$($config.identity.delegatedScope)"

@@ -5,13 +5,24 @@
     "resourceApiClientId": {
       "value": "REPLACE-WITH-RESOURCE-API-CLIENT-ID"
     },
-    "connectorClientIds": {
+    "lakehouseClientIds": {
       "value": [
         "REPLACE-WITH-LAKEHOUSE-CONNECTOR-CLIENT-ID",
-        "REPLACE-WITH-DATA-AGENT-CONNECTOR-CLIENT-ID"
+        "REPLACE-WITH-LAKEHOUSE-FOUNDRY-OAUTH-CLIENT-ID"
       ]
     },
-    "allowedFabricGuestObjectIds": {
+    "dataAgentClientIds": {
+      "value": [
+        "REPLACE-WITH-DATA-AGENT-CONNECTOR-CLIENT-ID",
+        "REPLACE-WITH-DATA-AGENT-FOUNDRY-OAUTH-CLIENT-ID"
+      ]
+    },
+    "tokenomicsClientIds": {
+      "value": [
+        "REPLACE-WITH-DASHBOARD-CLIENT-ID"
+      ]
+    },
+    "allowedUserObjectIds": {
       "value": [
         "REPLACE-WITH-FABRIC-GUEST-OBJECT-ID"
       ]
@@ -19,22 +30,16 @@
     "brokerAudience": {
       "value": "REPLACE-WITH-BROKER-API-CLIENT-ID"
     },
+    "foundryProjectMiClientId": {
+      "value": "REPLACE-WITH-FOUNDRY-PROJECT-MANAGED-IDENTITY-CLIENT-ID"
+    },
     "brokerPrivateUrl": {
       "value": "https://fabric-parts-obo-broker-my.azurewebsites.net"
-    },
-    "brokerPrivateEndpointIp": {
-      "value": "REPLACE-WITH-IP"
     },
     "applicationInsightsName": {
       "value": ""
     },
     "applicationInsightsResourceGroupName": {
-      "value": ""
-    },
-    "createPrivateDnsZone": {
-      "value": true
-    },
-    "privateDnsZoneResourceGroupName": {
       "value": ""
     }
   }

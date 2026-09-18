@@ -94,8 +94,8 @@ param fabricSqlEndpointHost string
 @description('Fabric data agent ID.')
 param fabricDataAgentId string
 
-@description('Linux runtime from broker.runtime.')
-param runtime string = 'NODE|22-lts'
+@description('Windows App Service Node version from broker.runtime.')
+param runtime string = '~22'
 
 @description('Whether Always On is enabled on the existing dedicated plan.')
 param alwaysOn bool = true
@@ -139,6 +139,26 @@ param tokenomicsCurrency string = 'USD'
 @description('Effective-dated token rate card serialized as JSON. An empty array disables cost estimates without disabling usage telemetry.')
 param tokenomicsRateCardJson string = '[]'
 
+@description('Configured APIM API-to-application attribution map serialized as JSON.')
+param tokenomicsApiAttributionJson string = '{}'
+
+@description('Enable read-only Azure Cost Management ActualCost queries.')
+param actualCostEnabled bool = false
+
+@description('Resource-group scope used for ActualCost queries.')
+param actualCostScope string
+
+@description('Pinned Azure Cost Management query API version.')
+param actualCostQueryApiVersion string = '2023-11-01'
+
+@description('Expected maximum Azure billing ingestion lag displayed by the UI.')
+@minValue(1)
+@maxValue(168)
+param actualCostBillingLagHours int = 24
+
+@description('Tracked billing resources serialized as JSON.')
+param actualCostTrackedResourcesJson string
+
 @minValue(30)
 @maxValue(730)
 param logRetentionDays int = 30
@@ -176,6 +196,11 @@ var storageRoleDefinitionIds = [
 var keyVaultSecretsUserRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
 var keyVaultSecretsOfficerRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
 var logAnalyticsReaderRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '73c42c96-874c-492b-b04d-ab87d138a893')
+var actualCostRoleDefinitionIds = [
+  subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '72fafb9e-0641-4937-9268-a91bfd8191a3') // Cost Management Reader
+  subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '43d0d8ad-25c7-4714-9337-8ba259a9fe05') // Monitoring Reader
+  subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7') // Reader
+]
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' existing = {
   name: existingPlanName
@@ -366,6 +391,15 @@ resource identityLogAnalyticsReader 'Microsoft.Authorization/roleAssignments@202
   }
 }
 
+resource identityActualCostReaders 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for roleDefinitionId in actualCostRoleDefinitionIds: if (actualCostEnabled) {
+  name: guid(resourceGroup().id, brokerIdentity.id, roleDefinitionId)
+  properties: {
+    principalId: brokerIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: roleDefinitionId
+  }
+}]
+
 resource webPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
   name: webPrivateDnsZoneName
   location: 'global'
@@ -555,7 +589,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = if (deployFunction) {
   name: functionAppName
   location: location
   tags: tags
-  kind: 'functionapp,linux'
+  kind: 'functionapp'
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
@@ -567,7 +601,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = if (deployFunction) {
     httpsOnly: true
     keyVaultReferenceIdentity: brokerIdentity.id
     publicNetworkAccess: 'Disabled'
-    reserved: true
+    reserved: false
     serverFarmId: appServicePlan.id
     siteConfig: {
       alwaysOn: alwaysOn
@@ -582,7 +616,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = if (deployFunction) {
         }
         {
           name: 'WEBSITE_NODE_DEFAULT_VERSION'
-          value: '~22'
+          value: runtime
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
@@ -728,11 +762,34 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = if (deployFunction) {
           name: 'TOKENOMICS_RATE_CARD_JSON'
           value: tokenomicsRateCardJson
         }
+        {
+          name: 'TOKENOMICS_API_ATTRIBUTION_JSON'
+          value: tokenomicsApiAttributionJson
+        }
+        {
+          name: 'ACTUAL_COST_ENABLED'
+          value: string(actualCostEnabled)
+        }
+        {
+          name: 'ACTUAL_COST_SCOPE'
+          value: actualCostScope
+        }
+        {
+          name: 'ACTUAL_COST_QUERY_API_VERSION'
+          value: actualCostQueryApiVersion
+        }
+        {
+          name: 'ACTUAL_COST_BILLING_LAG_HOURS'
+          value: string(actualCostBillingLagHours)
+        }
+        {
+          name: 'ACTUAL_COST_TRACKED_RESOURCES_JSON'
+          value: actualCostTrackedResourcesJson
+        }
       ]
       ftpsState: 'Disabled'
       http20Enabled: true
       ipSecurityRestrictionsDefaultAction: 'Deny'
-      linuxFxVersion: runtime
       minTlsVersion: '1.2'
       scmIpSecurityRestrictionsDefaultAction: 'Deny'
       scmIpSecurityRestrictionsUseMain: true
@@ -749,6 +806,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = if (deployFunction) {
     deployerStorageBlobDataContributor
     identityKeyVaultSecretsUser
     identityLogAnalyticsReader
+    identityActualCostReaders
     blobPrivateDnsVnetLink
     tablePrivateDnsVnetLink
     vaultPrivateDnsVnetLink

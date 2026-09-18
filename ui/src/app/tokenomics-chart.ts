@@ -49,7 +49,7 @@ export class TokenomicsChart implements AfterViewInit, OnChanges, OnDestroy {
       const key = row.TimeBucket ?? 'Unknown';
       const bucket = buckets.get(key) ?? { tokens: 0, cost: 0 };
       bucket.tokens += row.TotalTokens ?? 0;
-      bucket.cost += row.NegotiatedCost ?? row.MarketCost ?? 0;
+      bucket.cost += row.ActualCost ?? 0;
       buckets.set(key, bucket);
     }
     const entries = [...buckets.entries()].sort(([left], [right]) => left.localeCompare(right));
@@ -82,7 +82,7 @@ export class TokenomicsChart implements AfterViewInit, OnChanges, OnDestroy {
       data: {
         labels: this.rows.map(row => row.TeamId ?? row.ApplicationId ?? 'Unattributed'),
         datasets: [{
-          data: this.rows.map(row => row.NegotiatedCost ?? row.MarketCost ?? row.TotalTokens ?? 0),
+          data: this.rows.map(row => row.ActualCost ?? row.TotalTokens ?? 0),
           backgroundColor: ['#1678c8', '#16a3a5', '#f06435', '#6b3fa0', '#2f7d32', '#d9a400'],
           borderColor: '#ffffff',
           borderWidth: 3,

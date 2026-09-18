@@ -2,8 +2,8 @@
   "openapi": "3.0.1",
   "info": {
     "title": "Fabric Tokenomics API",
-    "version": "1.0.0",
-    "description": "Returns privacy-preserving APIM usage, token, allocation, and pricing telemetry."
+    "version": "2.0.0",
+    "description": "Returns privacy-preserving APIM usage, token telemetry, rate-card estimates, and Azure Cost Management ActualCost reconciliation."
   },
   "paths": {
     "/summary": {
@@ -24,7 +24,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Tokenomics dashboard data."
+            "description": "Tokenomics dashboard data with distinct estimated and billed cost fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenomicsDashboard"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -36,6 +43,64 @@
     }
   },
   "components": {
+    "schemas": {
+      "TokenomicsRow": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "TimeBucket": { "type": "string" },
+          "ApplicationId": { "type": "string" },
+          "Model": { "type": "string" },
+          "Requests": { "type": "integer" },
+          "TotalTokens": { "type": "integer" },
+          "MarketCost": { "type": "number", "nullable": true, "description": "Market rate-card estimate." },
+          "NegotiatedCost": { "type": "number", "nullable": true, "description": "Negotiated rate-card estimate." },
+          "ActualCost": { "type": "number", "nullable": true, "description": "Azure-billed dedicated model cost allocated by observed token share." }
+        }
+      },
+      "ActualCostSnapshot": {
+        "type": "object",
+        "required": ["source", "queryType", "status", "scope", "currency", "generatedAt", "expectedBillingLagHours", "allocationMethod"],
+        "properties": {
+          "source": { "type": "string", "enum": ["AzureCostManagement"] },
+          "queryType": { "type": "string", "enum": ["ActualCost"] },
+          "status": { "type": "string", "enum": ["available", "empty", "unavailable", "disabled"] },
+          "scope": { "type": "string" },
+          "currency": { "type": "string" },
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "billedThrough": { "type": "string", "format": "date", "nullable": true },
+          "expectedBillingLagHours": { "type": "integer" },
+          "scopeCost": { "type": "number", "nullable": true },
+          "trackedCost": { "type": "number", "nullable": true },
+          "dedicatedModelCost": { "type": "number", "nullable": true },
+          "sharedPlatformCost": { "type": "number", "nullable": true },
+          "untrackedCost": { "type": "number", "nullable": true },
+          "allocatedModelCost": { "type": "number", "nullable": true },
+          "allocationMethod": { "type": "string", "enum": ["observed-token-share", "none"] },
+          "byService": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "byResource": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "trend": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        }
+      },
+      "TokenomicsDashboard": {
+        "type": "object",
+        "required": ["generatedAt", "windowDays", "currency", "queryStatus", "actualCost", "summary", "trend", "allocations", "models", "operations", "recentRequests", "dataQuality"],
+        "properties": {
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "windowDays": { "type": "integer", "enum": [1, 7, 30, 90] },
+          "currency": { "type": "string" },
+          "queryStatus": { "type": "string", "enum": ["complete", "partial"] },
+          "actualCost": { "$ref": "#/components/schemas/ActualCostSnapshot" },
+          "summary": { "type": "object", "additionalProperties": true },
+          "trend": { "type": "array", "items": { "$ref": "#/components/schemas/TokenomicsRow" } },
+          "allocations": { "type": "array", "items": { "$ref": "#/components/schemas/TokenomicsRow" } },
+          "models": { "type": "array", "items": { "$ref": "#/components/schemas/TokenomicsRow" } },
+          "operations": { "type": "array", "items": { "$ref": "#/components/schemas/TokenomicsRow" } },
+          "recentRequests": { "type": "array", "items": { "$ref": "#/components/schemas/TokenomicsRow" } },
+          "dataQuality": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",

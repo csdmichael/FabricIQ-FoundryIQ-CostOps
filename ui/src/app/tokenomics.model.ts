@@ -22,6 +22,7 @@ export interface TokenomicsRow {
   P95LatencyMs?: number;
   MarketCost?: number | null;
   NegotiatedCost?: number | null;
+  ActualCost?: number | null;
   PricedTokens?: number;
   ApplicationId?: string;
   ProjectId?: string;
@@ -36,11 +37,45 @@ export interface TokenomicsRow {
   IsStream?: boolean;
 }
 
+export interface ActualCostBreakdown {
+  name: string;
+  cost: number;
+}
+
+export interface ActualCostTrend {
+  date: string;
+  scopeCost: number;
+  trackedCost: number;
+  dedicatedModelCost: number;
+}
+
+export interface ActualCostSnapshot {
+  source: 'AzureCostManagement';
+  queryType: 'ActualCost';
+  status: 'available' | 'empty' | 'unavailable' | 'disabled';
+  scope: string;
+  currency: string;
+  generatedAt: string;
+  billedThrough: string | null;
+  expectedBillingLagHours: number;
+  scopeCost: number | null;
+  trackedCost: number | null;
+  dedicatedModelCost: number | null;
+  sharedPlatformCost: number | null;
+  untrackedCost: number | null;
+  allocatedModelCost: number | null;
+  allocationMethod: 'observed-token-share' | 'none';
+  byService: ActualCostBreakdown[];
+  byResource: ActualCostBreakdown[];
+  trend: ActualCostTrend[];
+}
+
 export interface TokenomicsDashboard {
   generatedAt: string;
   windowDays: WindowDays;
   currency: string;
   queryStatus: 'complete' | 'partial';
+  actualCost: ActualCostSnapshot;
   summary: {
     requests: number;
     successfulRequests: number;
@@ -66,5 +101,6 @@ export interface TokenomicsDashboard {
     tokenTelemetry: 'available' | 'not-observed';
     pricing: 'negotiated' | 'market-only' | 'unconfigured' | 'partial';
     allocation: 'attributed' | 'partial' | 'unattributed';
+    billing: 'actual' | 'empty' | 'unavailable' | 'disabled';
   };
 }

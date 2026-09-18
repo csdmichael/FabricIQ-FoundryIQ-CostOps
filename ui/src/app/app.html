@@ -91,13 +91,13 @@
               </article>
               <article class="kpi green">
                 <div class="kpi-icon"><ion-icon name="wallet-outline"></ion-icon></div>
-                <span>Actual cost</span><strong>{{ money(data.summary.negotiatedCost) }}</strong>
-                <small>{{ data.dataQuality.pricing === 'negotiated' ? 'Negotiated rate card' : data.dataQuality.pricing }}</small>
+                <span>Billed model cost</span><strong>{{ money(data.actualCost.dedicatedModelCost, 2) }}</strong>
+                <small>{{ data.actualCost.billedThrough ? 'ActualCost through ' + data.actualCost.billedThrough : data.actualCost.status }}</small>
               </article>
               <article class="kpi teal">
                 <div class="kpi-icon"><ion-icon name="cash-outline"></ion-icon></div>
-                <span>Savings</span><strong>{{ money(data.summary.savings) }}</strong>
-                <small>Against market benchmark</small>
+                <span>Savings estimate</span><strong>{{ money(data.summary.savings, 2) }}</strong>
+                <small>Negotiated rate vs market benchmark</small>
               </article>
               <article class="kpi orange">
                 <div class="kpi-icon"><ion-icon name="speedometer-outline"></ion-icon></div>
@@ -106,15 +106,15 @@
               </article>
               <article class="kpi purple">
                 <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
-                <span>Cost / request</span><strong>{{ money(costPerRequest(), 2) }}</strong>
-                <small>{{ compact(data.summary.requests) }} gateway requests</small>
+                <span>Billed cost / tokenized request</span><strong>{{ money(costPerTokenizedRequest(), 2) }}</strong>
+                <small>Dedicated model cost across {{ compact(data.summary.tokenizedRequests) }} tokenized requests</small>
               </article>
             </div>
 
             <div class="insight-grid">
               <section class="chart-panel trend-panel">
-                <header><div><span class="eyebrow">Consumption</span><h3>Tokens and actual cost</h3></div><span class="panel-tag">{{ data.currency }}</span></header>
-                <app-tokenomics-chart mode="trend" [rows]="data.trend" [currency]="data.currency" label="Token volume and actual cost over time"></app-tokenomics-chart>
+                <header><div><span class="eyebrow">Consumption</span><h3>Tokens and billed model cost</h3></div><span class="panel-tag">{{ data.currency }}</span></header>
+                <app-tokenomics-chart mode="trend" [rows]="data.trend" [currency]="data.currency" label="Token volume and Azure billed model cost over time"></app-tokenomics-chart>
               </section>
               <section class="chart-panel allocation-panel">
                 <header><div><span class="eyebrow">Ownership</span><h3>Cost by team</h3></div><span class="panel-tag">Allocated</span></header>
@@ -140,17 +140,17 @@
           <section class="allocation-view" [class.phone-hidden]="activeView() !== 'allocation'">
             <div class="section-intro">
               <div><span class="eyebrow">Showback ledger</span><h2>Who consumed, what it cost</h2></div>
-              <p>{{ percent(data.summary.pricingCoveragePct) }} pricing coverage</p>
+              <p>{{ data.actualCost.allocationMethod === 'observed-token-share' ? 'Azure billed cost allocated by observed token share' : 'Billed allocation unavailable' }}</p>
             </div>
             <div class="allocation-table" role="table" aria-label="Cost allocation by application and business dimensions">
-              <div class="table-header" role="row"><span>Application / project</span><span>Owner</span><span>Requests</span><span>Tokens</span><span>Actual cost</span><span>Share</span></div>
+              <div class="table-header" role="row"><span>Application / project</span><span>Owner</span><span>Requests</span><span>Tokens</span><span>Allocated billed cost</span><span>Share</span></div>
               @for (row of topAllocations(); track row.ApplicationId + ':' + row.ProjectId) {
                 <div class="table-row" role="row">
                   <span class="identity-cell"><i></i><span><strong>{{ row.ApplicationId }}</strong><small>{{ row.ProjectId }}</small></span></span>
                   <span><strong>{{ row.TeamId }}</strong><small>{{ row.CostCenter }}</small></span>
                   <span data-label="Requests">{{ compact(row.Requests || 0) }}</span>
                   <span data-label="Tokens">{{ compact(row.TotalTokens || 0) }}</span>
-                  <span data-label="Actual cost"><strong>{{ money(row.NegotiatedCost ?? row.MarketCost) }}</strong></span>
+                  <span data-label="Allocated billed cost"><strong>{{ money(row.ActualCost, 2) }}</strong></span>
                   <span class="share-cell" data-label="Share"><strong>{{ percent(allocationShare(row)) }}</strong><i><b [style.width.%]="allocationShare(row)"></b></i></span>
                 </div>
               }
@@ -170,7 +170,10 @@
                 <ion-icon name="analytics-outline"></ion-icon><div><span>Token telemetry</span><strong>{{ data.dataQuality.tokenTelemetry }}</strong><small>{{ percent(data.summary.tokenCoveragePct) }} correlated</small></div>
               </article>
               <article [class.good]="data.dataQuality.pricing === 'negotiated'">
-                <ion-icon name="cash-outline"></ion-icon><div><span>Rate coverage</span><strong>{{ data.dataQuality.pricing }}</strong><small>{{ percent(data.summary.pricingCoveragePct) }} priced tokens</small></div>
+                <ion-icon name="cash-outline"></ion-icon><div><span>Rate-card estimate</span><strong>{{ data.dataQuality.pricing }}</strong><small>{{ percent(data.summary.pricingCoveragePct) }} estimated tokens</small></div>
+              </article>
+              <article [class.good]="data.dataQuality.billing === 'actual'">
+                <ion-icon name="wallet-outline"></ion-icon><div><span>Azure billing</span><strong>{{ data.dataQuality.billing }}</strong><small>{{ data.actualCost.billedThrough ? 'Billed through ' + data.actualCost.billedThrough : 'Expected lag ' + data.actualCost.expectedBillingLagHours + ' hours' }}</small></div>
               </article>
               <article [class.good]="data.dataQuality.allocation === 'attributed'">
                 <ion-icon name="people-outline"></ion-icon><div><span>Allocation</span><strong>{{ data.dataQuality.allocation }}</strong><small>Application and business dimensions</small></div>

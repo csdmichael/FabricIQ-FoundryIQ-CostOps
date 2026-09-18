@@ -13,6 +13,12 @@ Build, publish, and deploy a customer-portable Microsoft Fabric integration that
 - uses one nonsecret JSON configuration contract across PowerShell, Bicep, and Terraform;
 - supplies separate `bicep` and `terraform` deployment paths;
 - supplies Terraform parity for the repository's existing Bicep deployment surfaces;
+- deploys a dedicated VNet-injected private Microsoft Foundry account and project;
+- routes `gpt-5.6-sol` model calls through two attributable APIM AI Gateway APIs;
+- publishes a `fabric` APIM product for Fabric REST/MCP/tokenomics and a separate `foundry` product for model inference;
+- creates two Prompt Agents with separate custom OAuth MCP connections and least-privilege tool allowlists;
+- reconciles token telemetry with resource-group-scoped Azure Cost Management `ActualCost`;
+- publishes the live-only Angular/Ionic dashboard to a Windows Web App with a same-origin private-APIM proxy;
 - documents the complete identity and network flow with sanitized live screenshots; and
 - commits and pushes source before publishing and deploying cloud resources.
 
@@ -70,6 +76,15 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 7. Copilot Studio agents are solution/package artifacts driven from configuration. A
 	 deployment must stop if the configured environment is absent, lacks Dataverse, or
 	 cannot support the selected private-network path.
+8. The dedicated `foundry-fabric-costops/fabric-costops` project uses a new exclusive
+	`foundry-costops-agent` subnet. The existing `foundry-agent` subnet remains owned by
+	`foundry-myaacoub-private` and must not be reused.
+9. The model backend remains private. APIM uses outbound VNet integration and managed
+	identity to reach it; the project uses two `ApiManagement` connections so model tokens
+	are attributed to the Lakehouse or Data Agent Prompt Agent by API ID.
+10. Azure-billed `ActualCost` is distinct from market and negotiated rate-card estimates.
+	Dedicated model cost is allocated by observed token share; shared APIM/App Service cost
+	and untracked resource-group cost remain separately disclosed.
 
 ## Execution Plan
 
@@ -83,7 +98,10 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 - [x] Copy the Lakehouse, SQL endpoint, Data Agent, and OneLake data into the Caldova workspace.
 - [x] Publish and verify the Caldova semantic model, three reports, and two dashboards.
 - [x] Run syntax, unit, policy, Bicep, Terraform, secret, and local parity checks.
-- [ ] Re-run Azure validation and what-if for the single-tenant Caldova target; record proof below.
+- [x] Implement private Foundry, APIM model gateway, OAuth Prompt Agents, ActualCost, and production UI hosting.
+- [x] Validate the selected `gpt-5.6-sol` version/SKU and available westus quota.
+- [x] Validate the live Cost Management `ActualCost` response schema at resource-group scope.
+- [x] Re-run Azure validation and what-if for the single-tenant Caldova target; record proof below.
 - [x] Commit and push source.
 - [ ] Deploy Azure resources and application code through the validated Bicep recipe.
 - [ ] Publish connectors and both agents only after the target environment resolves.
@@ -104,6 +122,88 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 
 ## Active Validation Proof
 
+2026-09-18 resumed deployment validation (current):
+
+- `pwsh scripts/validate.ps1 -DeploymentReady -IncludeParity` passed the configuration
+	contract, 21 broker tests, two Angular tests, both production builds, zero production
+	dependency vulnerabilities, APIM OpenAPI/policy parsing, six Bicep targets, all
+	Terraform parity roots, PowerShell and Python syntax, portable packaging, and deployment
+	safety checks.
+- Live inventory of `caldova-apim-westus` found only the three pre-existing Databricks APIs
+	and the `databricks-agents` product. None of this deployment's Fabric APIs, MCP APIs,
+	tokenomics API, Foundry routes, or `fabric`/`foundry` products exists yet.
+- Fresh guarded ARM previews from the current source and generated parameters completed
+	without deletes or unsupported changes: broker base `Create=3, Ignore=87, Modify=11,
+	NoChange=14`; private Foundry base `Create=9, Ignore=101`; broker application `Create=9,
+	Ignore=87, Modify=11, NoChange=14`; APIM APIs/products/policies `Create=52`; production
+	UI `Create=5, Ignore=101`; Foundry APIM connections `Create=2, Ignore=101`.
+- The APIM preview is additive-only on the shared service. It creates the Lakehouse and
+	Data Agent REST APIs, their two APIM MCP APIs, tokenomics, two Foundry inference APIs,
+	the published `fabric` and `foundry` products, their API links, named values, policies,
+	logger, and dedicated diagnostic setting. It proposes zero modifications or deletions.
+- The 11 broker modifications are the same previously reviewed Azure read-model deltas on
+	deployment-owned role assignments, private endpoints and zone groups, and Application
+	Insights metadata. The resumed preview introduces no shared-resource modification.
+- Static RBAC parity was rechecked across Bicep and Terraform. Storage and Key Vault
+	data-plane roles remain resource-scoped, Log Analytics Reader remains workspace-scoped,
+	APIM receives Cognitive Services User only on the new Foundry account, and the only
+	resource-group exception is the three read-only roles required by the configured
+	resource-group-scoped `ActualCost` query.
+
+2026-09-17 private Foundry, AI Gateway, ActualCost, and production UI validation (current):
+
+- Formal Bicep recipe validation completed at `2026-09-17T23:40:40Z` with
+	`references/recipes/scripts/validate-deployment.ps1`. Every invocation passed Azure CLI,
+	authentication, Bicep compilation, target-scope ARM validation, and what-if:
+	- broker base: resource-group scope, `OVERALL: PASS`;
+	- private Foundry foundation: `Create=10, Modify=0, Delete=0`, `OVERALL: PASS`;
+	- broker application: resource-group scope, `OVERALL: PASS`;
+	- APIM APIs/products/policies: `Create=54, Modify=0, Delete=0`, `OVERALL: PASS`;
+	- production UI: `Create=6, Modify=0, Delete=0`, `OVERALL: PASS`;
+	- Foundry APIM model connections: `Create=3, Modify=0, Delete=0`, `OVERALL: PASS`.
+- The recipe helper counts nested pretty-print property lines for the already-deployed broker
+	resources and reports 16 apparent deletes. The retained `FullResourcePayloads` previews are
+	authoritative: they contain zero resource deletions. All 11 broker resource modifications
+	remain the reviewed Azure read-model/symbolic-reference deltas documented below.
+- Azure Policy validation retrieved nine enforced assignments effective at
+	`m365-myaacoub`. The region rule blocks only West Europe; planned resources use West US
+	or West US 2. Resource-type rules target classic Azure types, VM/VMSS/AKS, Sentinel,
+	SQL, and Managed HSM. The only Cognitive Services deny blocks
+	`ProvisionedManaged`; the selected `gpt-5.6-sol` deployment uses `GlobalStandard`.
+	All target-scope ARM validation and what-if commands passed policy evaluation.
+
+- `pwsh scripts/validate.ps1 -DeploymentReady -IncludeParity` completed again at
+	`2026-09-17T23:47:44Z` and passed the configuration contract, 15 broker tests, two Angular tests, both production
+	builds, zero production dependency vulnerabilities, APIM OpenAPI/policy parsing, six
+	Bicep build/lint targets, all Terraform parity roots, PowerShell/Python/Node syntax,
+	portable ZIP, and deployment safety tests.
+- West US model discovery confirmed `gpt-5.6-sol` version `2026-07-09` supports
+	`GlobalStandard`. Subscription quota reported 500 of 1000 used; the configured 50-unit
+	deployment fits the remaining quota. `gpt-6-astra` GlobalStandard had no remaining quota
+	and is not selected.
+- The existing APIM is Standard v2 with outbound VNet integration and an approved private
+	gateway endpoint. Its `publicNetworkAccess` remains `Disabled`. The broker VNet is peered
+	to the APIM VNet and linked to `privatelink.azure-api.net`, enabling the production UI's
+	same-origin server proxy without exposing APIM publicly.
+- Isolated what-if previews: private Foundry `Create=9, Ignore=100`; APIM APIs, products, and policies
+	`Create=53`; production UI `Create=5, Ignore=100`; Windows broker app
+	`Create=9, Ignore=86, Modify=11, NoChange=14`. Foundry and UI previews contain zero
+	Modify/Delete/Unsupported changes and ignore the unrelated existing Foundry account.
+- The 11 broker modifications were reviewed field by field: Azure-managed App Insights
+	metadata, symbolic references resolving to the unchanged UAMI principal, read-only
+	private-endpoint IPv6 response fields, and private DNS child response metadata only.
+	The three new broker role assignments are Cost Management Reader, Monitoring Reader,
+	and Reader scoped only to `m365-myaacoub`.
+- A live seven-day `ActualCost` query at the configured resource-group scope returned
+	columns `Cost, UsageDate, ResourceId, ServiceName, Currency`, 244 rows, no next page,
+	and total scope cost `275.55526 USD`. This validates the production parser contract but
+	does not claim that costs for not-yet-created Foundry/UI resources already exist.
+- APIM product ownership is split explicitly: `fabric` links the Lakehouse/Data Agent
+	REST and MCP APIs plus tokenomics; `foundry` links only the two model-inference APIs.
+- The dedicated Foundry account/project, OAuth connections, Prompt Agent versions, and UI
+	host are not yet deployed. The official azure-validate workflow is recording this proof
+	before authorizing the `Validated` status for the expanded scope.
+
 2026-09-17 tokenomics and responsive UI validation (current):
 
 - `pwsh scripts/validate.ps1 -DeploymentReady -IncludeParity -SkipTerraformInit`
@@ -117,8 +217,8 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 	verified web (1440x1000), tablet (1024x900), and phone (390x844) layouts with the
 	expected sidebar/icon-rail/bottom-tab navigation, zero horizontal overflow, no tested
 	text overflow, nonblank chart canvases, and working phone view switching. The checked-in
-	runtime configuration remains explicitly in demo mode; a live build requires generated
-	SPA identity metadata and never embeds a credential.
+	runtime configuration is explicitly unconfigured and contains no demo data; a live build
+	requires generated SPA identity metadata and never embeds a credential.
 - Azure CLI authentication matched tenant `12a4b86b-e64c-43f9-af05-d9130a72dfd2`
 	and subscription `cf824570-a8ba-497a-a184-0a52f1830aa9`. Microsoft Graph `/me`
 	resolved `admin@caldova37587778.onmicrosoft.com` to configured allowed object ID
@@ -266,7 +366,7 @@ configuration.
 	resolution, deployment, connector/agent publication, delegated and denied-user tests,
 	and remaining screenshots are not yet complete and are not claimed by this proof.
 
-- [x] All validation checks pass (single-tenant Caldova Fabric OBO)
+- [x] All validation checks pass (private Foundry, split APIM products, Fabric OBO, ActualCost, and UI)
 	- [x] 1. Core Validation (CLI, tenant-bound auth, build, ARM validation, and what-if)
 	- [x] 2. Bicep linting
 	- [x] 3. Azure Policy Validation
@@ -274,19 +374,29 @@ configuration.
 
 ## Role Assignment Verification
 
-- Status: Verified on 2026-09-17 after the tokenomics changes in both `bicep/broker` and
-	`terraform/broker`.
-- Broker user-assigned identity: Storage Blob Data Owner and Storage Table Data
-	Contributor on its dedicated storage account; Key Vault Secrets User on its dedicated
-	vault; Log Analytics Reader on its dedicated workspace. These support identity-based
-	Functions host/package storage, the versionless OBO secret reference, and read-only
-	tokenomics queries against APIM and broker telemetry.
-- Current deployer: Storage Blob Data Contributor on the dedicated storage account and
-	Key Vault Secrets Officer on the dedicated vault for package upload and direct secret
-	creation during deployment.
-- APIM system identity: no broad Azure RBAC. The identity provisioner assigns only the
+- Status: Verified on 2026-09-17 against the final Bicep and Terraform product-split source.
+- Broker user-assigned identity: Storage Blob Data Owner and Storage Table Data Contributor
+	on its dedicated storage account; Key Vault Secrets User on its dedicated vault; Log
+	Analytics Reader on its dedicated workspace. These match identity-based Functions host
+	storage/package access, the versionless OBO secret reference, and fixed KQL queries.
+- ActualCost exception: the broker identity receives Cost Management Reader, Monitoring
+	Reader, and Reader on only resource group `m365-myaacoub`. This is the narrowest scope
+	matching `tokenomics.actualCost.scope` and is required by the Cost Management Query API.
+	The roles are read-only; no subscription, management-group, billing-account, Contributor,
+	or Owner role is introduced.
+- Current deployer: Storage Blob Data Contributor on the dedicated storage account and Key
+	Vault Secrets Officer on the dedicated vault for package upload and direct secret creation;
+	Foundry Project Manager on only `foundry-fabric-costops/fabric-costops` for connection and
+	Prompt Agent version provisioning.
+- APIM system identity: Cognitive Services User on only `foundry-fabric-costops` for private
+	model inference. The identity provisioner separately assigns only the
 	`Fabric.Broker.Invoke` Entra application role on the dedicated broker API.
-- Scope: every Azure role is storage-account, vault, or workspace scoped; no resource-group or subscription-wide role
-	is introduced. Bicep and Terraform use the same role definition IDs and scopes.
-- Issues: none. No Queue role, generic Contributor, generic Owner, or duplicate storage
-	role is granted to the broker identity.
+- Foundry project managed identity: no Azure role is needed on APIM; the `ApiManagement`
+	connection obtains a token and APIM validates its application ID and audience. The private
+	Foundry account identity uses platform-managed Basic Agent resources and performs no
+	custom data-plane operation requiring an external role.
+- UI Web App: no managed identity and no Azure data-plane permissions; it forwards the
+	user's delegated bearer token only to the fixed private tokenomics route.
+- Bicep and Terraform use identical role definition IDs/scopes. No Queue role, generic
+	Contributor/Owner, duplicate storage role, or write-capable Cost Management role exists.
+- Issues: none.

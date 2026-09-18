@@ -21,12 +21,17 @@ locals {
   broker_private_url         = trimsuffix(trimspace(var.broker_private_url), "/")
   expected_broker_url        = "https://${local.broker_app_name}.azurewebsites.net"
 
-  resource_tenant_id = lower(trimspace(local.config.identity.resourceTenantId))
-  caller_tenant_id   = lower(trimspace(local.config.identity.callerTenantId))
-  delegated_scope    = trimspace(local.config.identity.delegatedScope)
-  broker_role        = trimspace(local.config.identity.brokerApplicationRole)
+  resource_tenant_id           = lower(trimspace(local.config.identity.resourceTenantId))
+  caller_tenant_id             = lower(trimspace(local.config.identity.callerTenantId))
+  delegated_scope              = trimspace(local.config.identity.delegatedScope)
+  broker_role                  = trimspace(local.config.identity.brokerApplicationRole)
+  foundry_project_mi_client_id = lower(trimspace(var.foundry_project_mi_client_id))
 
-  connector_client_ids                     = [for value in var.connector_client_ids : lower(trimspace(value))]
+  api_client_ids = {
+    lakehouse  = [for value in var.api_client_ids.lakehouse : lower(trimspace(value))]
+    data-agent = [for value in var.api_client_ids.data_agent : lower(trimspace(value))]
+    tokenomics = [for value in var.api_client_ids.tokenomics : lower(trimspace(value))]
+  }
   allowed_user_object_ids                  = [for value in var.allowed_user_object_ids : lower(trimspace(value))]
   application_insights_name                = trimspace(coalesce(var.application_insights_name, ""))
   diagnostics_enabled                      = local.application_insights_name != ""
@@ -39,7 +44,6 @@ locals {
     fabric-obo-caller-tenant-id           = local.caller_tenant_id
     fabric-obo-resource-api-client-id     = lower(trimspace(var.resource_api_client_id))
     fabric-obo-delegated-scope            = local.delegated_scope
-    fabric-obo-connector-client-ids       = join(",", local.connector_client_ids)
     fabric-obo-allowed-user-oids          = join(",", local.allowed_user_object_ids)
     fabric-obo-broker-audience            = lower(trimspace(var.broker_audience))
     fabric-obo-broker-role                = local.broker_role
@@ -48,6 +52,10 @@ locals {
     fabric-obo-rate-limit-renewal-seconds = tostring(local.config.apim.rateLimitRenewalSeconds)
     fabric-obo-request-timeout-seconds    = tostring(local.config.apim.requestTimeoutSeconds)
     fabric-obo-ui-origin                  = local.config.ui.allowedOrigin
+    foundry-tenant-id                     = local.config.azure.tenantId
+    foundry-project-mi-client-id          = local.foundry_project_mi_client_id
+    foundry-model-backend-url             = "https://${local.config.foundry.accountName}.openai.azure.com/openai"
+    foundry-model-token-limit             = tostring(local.config.apim.modelTokenLimitPerMinute)
   }
 
   apis = {
@@ -57,6 +65,7 @@ locals {
       description  = "Read-only Fabric Lakehouse operations using delegated OAuth through the private broker."
       path         = local.config.apim.lakehouseApiPath
       openapi_file = "${path.module}/../../apim/openapi/lakehouse.json"
+      client_ids   = local.api_client_ids.lakehouse
     }
     data-agent = {
       name         = local.config.apim.dataAgentApiId
@@ -64,6 +73,7 @@ locals {
       description  = "Fabric Data Agent queries using delegated OAuth through the private broker."
       path         = local.config.apim.dataAgentApiPath
       openapi_file = "${path.module}/../../apim/openapi/data-agent.json"
+      client_ids   = local.api_client_ids.data-agent
     }
     tokenomics = {
       name         = local.config.apim.tokenomicsApiId
@@ -71,6 +81,20 @@ locals {
       description  = "Privacy-preserving APIM request, token, allocation, and cost analytics."
       path         = local.config.apim.tokenomicsApiPath
       openapi_file = "${path.module}/../../apim/openapi/tokenomics.json"
+      client_ids   = local.api_client_ids.tokenomics
+    }
+  }
+
+  foundry_inference_apis = {
+    lakehouse = {
+      name     = local.config.apim.inferenceApis.lakehouse.id
+      path     = local.config.apim.inferenceApis.lakehouse.path
+      agent_id = local.config.foundry.agents.lakehouse
+    }
+    data-agent = {
+      name     = local.config.apim.inferenceApis.dataAgent.id
+      path     = local.config.apim.inferenceApis.dataAgent.path
+      agent_id = local.config.foundry.agents.dataAgent
     }
   }
 
@@ -114,6 +138,19 @@ locals {
     }
   }
 
+  products = {
+    fabric = {
+      name         = local.config.apim.fabricProductId
+      display_name = "fabric"
+      description  = "Delegated Fabric Lakehouse and Data Agent REST APIs, MCP servers, and CostOps telemetry."
+    }
+    foundry = {
+      name         = local.config.apim.foundryProductId
+      display_name = "foundry"
+      description  = "Managed-identity Microsoft Foundry model inference APIs governed by APIM AI Gateway policies."
+    }
+  }
+
   required_config_values = [
     local.apim_tenant_id,
     local.apim_subscription_id,
@@ -141,7 +178,13 @@ locals {
     local.config.apim.dataAgentMcpPath,
     local.config.apim.tokenomicsApiId,
     local.config.apim.tokenomicsApiPath,
-    local.config.apim.productId,
+    local.config.apim.inferenceApis.lakehouse.id,
+    local.config.apim.inferenceApis.lakehouse.path,
+    local.config.apim.inferenceApis.dataAgent.id,
+    local.config.apim.inferenceApis.dataAgent.path,
+    local.config.foundry.accountName,
+    local.config.apim.fabricProductId,
+    local.config.apim.foundryProductId,
   ]
 
   apim_nsg_rules = {
@@ -173,8 +216,8 @@ resource "terraform_data" "guardrails" {
       error_message = "The generated resource API client ID and broker audience must not be empty."
     }
     precondition {
-      condition     = length(local.connector_client_ids) > 0 && length(local.allowed_user_object_ids) > 0 && alltrue([for value in concat(local.connector_client_ids, local.allowed_user_object_ids) : length(value) > 0])
-      error_message = "Connector and Fabric user allowlists must contain nonempty IDs."
+      condition     = length(local.allowed_user_object_ids) > 0 && alltrue(concat([for values in values(local.api_client_ids) : [for value in values : length(value) > 0]]...)) && alltrue([for value in local.allowed_user_object_ids : length(value) > 0])
+      error_message = "Route-specific client and Fabric user allowlists must contain nonempty IDs."
     }
     precondition {
       condition     = local.broker_private_url == local.expected_broker_url
@@ -338,11 +381,78 @@ resource "azapi_resource" "api_policy" {
   body = {
     properties = {
       format = "rawxml"
-      value  = file("${path.module}/../../apim/policies/fabric-obo-api-policy.xml")
+      value  = replace(file("${path.module}/../../apim/policies/fabric-obo-api-policy.xml"), "__ALLOWED_CLIENT_IDS__", join(",", local.apis[each.key].client_ids))
     }
   }
 
   depends_on = [azapi_resource.named_value]
+}
+
+resource "azapi_resource" "foundry_inference_api" {
+  for_each = local.foundry_inference_apis
+
+  type      = "Microsoft.ApiManagement/service/apis@2024-06-01-preview"
+  name      = each.value.name
+  parent_id = local.apim_id
+
+  body = {
+    properties = {
+      displayName          = "Foundry inference - ${each.value.agent_id}"
+      description          = "Managed-identity AI Gateway route for ${each.value.agent_id}."
+      path                 = each.value.path
+      protocols            = ["https"]
+      serviceUrl           = "https://${local.config.foundry.accountName}.openai.azure.com/openai"
+      subscriptionRequired = false
+    }
+  }
+}
+
+resource "azapi_resource" "foundry_chat_completions_operation" {
+  for_each = local.foundry_inference_apis
+
+  type      = "Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview"
+  name      = "chat-completions"
+  parent_id = azapi_resource.foundry_inference_api[each.key].id
+
+  body = {
+    properties = {
+      displayName = "Chat Completions"
+      method      = "POST"
+      urlTemplate = "/deployments/{deploymentName}/chat/completions"
+      templateParameters = [{
+        name     = "deploymentName"
+        type     = "string"
+        required = true
+      }]
+      request = {
+        queryParameters = [{
+          name     = "api-version"
+          type     = "string"
+          required = false
+        }]
+      }
+    }
+  }
+}
+
+resource "azapi_resource" "foundry_inference_policy" {
+  for_each = local.foundry_inference_apis
+
+  type      = "Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview"
+  name      = "policy"
+  parent_id = azapi_resource.foundry_inference_api[each.key].id
+
+  body = {
+    properties = {
+      format = "rawxml"
+      value  = replace(file("${path.module}/../../apim/policies/foundry-inference-policy.xml"), "__AGENT_ID__", each.value.agent_id)
+    }
+  }
+
+  depends_on = [
+    azapi_resource.named_value,
+    azapi_resource.foundry_chat_completions_operation,
+  ]
 }
 
 resource "azapi_resource" "operation_policy" {
@@ -389,14 +499,16 @@ resource "azapi_resource" "mcp_server" {
 }
 
 resource "azapi_resource" "product" {
+  for_each = local.products
+
   type      = "Microsoft.ApiManagement/service/products@2024-06-01-preview"
-  name      = local.config.apim.productId
+  name      = each.value.name
   parent_id = local.apim_id
 
   body = {
     properties = {
-      displayName          = "Fabric Agents"
-      description          = "Delegated Fabric REST APIs and MCP servers."
+      displayName          = each.value.display_name
+      description          = each.value.description
       subscriptionRequired = false
       approvalRequired     = false
       state                = "published"
@@ -408,21 +520,30 @@ resource "azapi_resource" "product_api_link" {
   for_each = merge(
     {
       for key, api in azapi_resource.api : "rest-${key}" => {
-        name   = local.apis[key].name
-        api_id = api.id
+        name        = local.apis[key].name
+        api_id      = api.id
+        product_key = "fabric"
       }
     },
     {
       for key, api in azapi_resource.mcp_server : "mcp-${key}" => {
-        name   = local.mcp_servers[key].name
-        api_id = api.id
+        name        = local.mcp_servers[key].name
+        api_id      = api.id
+        product_key = "fabric"
+      }
+    },
+    {
+      for key, api in azapi_resource.foundry_inference_api : "inference-${key}" => {
+        name        = local.foundry_inference_apis[key].name
+        api_id      = api.id
+        product_key = "foundry"
       }
     }
   )
 
   type      = "Microsoft.ApiManagement/service/products/apiLinks@2024-06-01-preview"
   name      = "link-${each.value.name}"
-  parent_id = azapi_resource.product.id
+  parent_id = azapi_resource.product[each.value.product_key].id
 
   body = {
     properties = {
@@ -485,6 +606,9 @@ locals {
     },
     {
       for key, api in azapi_resource.mcp_server : "mcp-${key}" => api.id
+    },
+    {
+      for key, api in azapi_resource.foundry_inference_api : "inference-${key}" => api.id
     }
   )
 }
@@ -517,4 +641,10 @@ resource "azapi_resource" "diagnostic" {
       }
     }
   }
+
+  depends_on = [
+    azapi_resource.api_policy,
+    azapi_resource.foundry_inference_policy,
+    azapi_resource.operation_policy,
+  ]
 }

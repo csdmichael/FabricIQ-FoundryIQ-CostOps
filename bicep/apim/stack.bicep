@@ -5,7 +5,9 @@ param resourceTenantId string
 param callerTenantId string
 param resourceApiClientId string
 param delegatedScope string
-param connectorClientIds array
+param lakehouseClientIds array
+param dataAgentClientIds array
+param tokenomicsClientIds array
 param allowedUserObjectIds array
 param brokerAudience string
 param brokerRole string
@@ -23,7 +25,13 @@ param dataAgentMcpDisplayName string
 param dataAgentMcpPath string
 param tokenomicsApiId string
 param tokenomicsApiPath string
-param productId string
+param foundryTenantId string
+param foundryProjectMiClientId string
+param foundryAccountName string
+param foundryModelTokenLimitPerMinute int
+param foundryInferenceApis array
+param fabricProductId string
+param foundryProductId string
 param uiAllowedOrigin string
 param applicationInsightsName string
 param applicationInsightsResourceGroupName string
@@ -35,12 +43,12 @@ var loggerName = 'fabric-obo-insights'
 var lakehouseMcpId = '${lakehouseApiId}-mcp'
 var dataAgentMcpId = '${dataAgentApiId}-mcp'
 var commonApiPolicy = loadTextContent('../../apim/policies/fabric-obo-api-policy.xml')
+var foundryInferencePolicy = loadTextContent('../../apim/policies/foundry-inference-policy.xml')
 var namedValueSettings = [
   { name: 'fabric-obo-resource-tenant-id', value: resourceTenantId }
   { name: 'fabric-obo-caller-tenant-id', value: callerTenantId }
   { name: 'fabric-obo-resource-api-client-id', value: resourceApiClientId }
   { name: 'fabric-obo-delegated-scope', value: delegatedScope }
-  { name: 'fabric-obo-connector-client-ids', value: join(connectorClientIds, ',') }
   { name: 'fabric-obo-allowed-user-oids', value: join(allowedUserObjectIds, ',') }
   { name: 'fabric-obo-broker-audience', value: brokerAudience }
   { name: 'fabric-obo-broker-role', value: brokerRole }
@@ -49,6 +57,10 @@ var namedValueSettings = [
   { name: 'fabric-obo-rate-limit-renewal-seconds', value: string(rateLimitRenewalSeconds) }
   { name: 'fabric-obo-request-timeout-seconds', value: string(requestTimeoutSeconds) }
   { name: 'fabric-obo-ui-origin', value: uiAllowedOrigin }
+  { name: 'foundry-tenant-id', value: foundryTenantId }
+  { name: 'foundry-project-mi-client-id', value: foundryProjectMiClientId }
+  { name: 'foundry-model-backend-url', value: 'https://${foundryAccountName}.openai.azure.com/openai' }
+  { name: 'foundry-model-token-limit', value: string(foundryModelTokenLimitPerMinute) }
 ]
 
 resource apim 'Microsoft.ApiManagement/service@2024-05-01' existing = {
@@ -113,12 +125,65 @@ resource tokenomicsApi 'Microsoft.ApiManagement/service/apis@2024-06-01-preview'
   }
 }
 
+resource foundryInferenceApi 'Microsoft.ApiManagement/service/apis@2024-06-01-preview' = [for inferenceApi in foundryInferenceApis: {
+  parent: apim
+  name: inferenceApi.id
+  properties: {
+    displayName: 'Foundry inference - ${inferenceApi.agentId}'
+    description: 'Managed-identity AI Gateway route for ${inferenceApi.agentId}.'
+    path: inferenceApi.path
+    protocols: [
+      'https'
+    ]
+    serviceUrl: 'https://${foundryAccountName}.openai.azure.com/openai'
+    subscriptionRequired: false
+  }
+}]
+
+resource foundryChatCompletionsOperation 'Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview' = [for (inferenceApi, index) in foundryInferenceApis: {
+  parent: foundryInferenceApi[index]
+  name: 'chat-completions'
+  properties: {
+    displayName: 'Chat Completions'
+    method: 'POST'
+    urlTemplate: '/deployments/{deploymentName}/chat/completions'
+    templateParameters: [
+      {
+        name: 'deploymentName'
+        type: 'string'
+        required: true
+      }
+    ]
+    request: {
+      queryParameters: [
+        {
+          name: 'api-version'
+          type: 'string'
+          required: false
+        }
+      ]
+    }
+  }
+}]
+
+resource foundryInferenceApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview' = [for (inferenceApi, index) in foundryInferenceApis: {
+  parent: foundryInferenceApi[index]
+  name: 'policy'
+  properties: {
+    format: 'rawxml'
+    value: replace(foundryInferencePolicy, '__AGENT_ID__', inferenceApi.agentId)
+  }
+  dependsOn: [
+    namedValues
+  ]
+}]
+
 resource lakehouseApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview' = {
   parent: lakehouseApi
   name: 'policy'
   properties: {
     format: 'rawxml'
-    value: commonApiPolicy
+    value: replace(commonApiPolicy, '__ALLOWED_CLIENT_IDS__', join(lakehouseClientIds, ','))
   }
   dependsOn: [
     namedValues
@@ -130,7 +195,7 @@ resource dataAgentApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-
   name: 'policy'
   properties: {
     format: 'rawxml'
-    value: commonApiPolicy
+    value: replace(commonApiPolicy, '__ALLOWED_CLIENT_IDS__', join(dataAgentClientIds, ','))
   }
   dependsOn: [
     namedValues
@@ -142,7 +207,7 @@ resource tokenomicsApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024
   name: 'policy'
   properties: {
     format: 'rawxml'
-    value: commonApiPolicy
+    value: replace(commonApiPolicy, '__ALLOWED_CLIENT_IDS__', join(tokenomicsClientIds, ','))
   }
   dependsOn: [
     namedValues
@@ -258,19 +323,31 @@ resource dataAgentMcp 'Microsoft.ApiManagement/service/apis@2024-06-01-preview' 
   ]
 }
 
-resource product 'Microsoft.ApiManagement/service/products@2024-06-01-preview' = {
+resource fabricProduct 'Microsoft.ApiManagement/service/products@2024-06-01-preview' = {
   parent: apim
-  name: productId
+  name: fabricProductId
   properties: {
-    displayName: 'Fabric Agents'
-    description: 'Delegated Fabric REST APIs and MCP servers.'
+    displayName: 'fabric'
+    description: 'Delegated Fabric Lakehouse and Data Agent REST APIs, MCP servers, and CostOps telemetry.'
     subscriptionRequired: false
     approvalRequired: false
     state: 'published'
   }
 }
 
-var productApis = [
+resource foundryProduct 'Microsoft.ApiManagement/service/products@2024-06-01-preview' = {
+  parent: apim
+  name: foundryProductId
+  properties: {
+    displayName: 'foundry'
+    description: 'Managed-identity Microsoft Foundry model inference APIs governed by APIM AI Gateway policies.'
+    subscriptionRequired: false
+    approvalRequired: false
+    state: 'published'
+  }
+}
+
+var fabricProductApis = [
   { name: 'link-${lakehouseApiId}', apiId: lakehouseApi.id }
   { name: 'link-${dataAgentApiId}', apiId: dataAgentApi.id }
   { name: 'link-${lakehouseMcpId}', apiId: lakehouseMcp.id }
@@ -278,11 +355,19 @@ var productApis = [
   { name: 'link-${tokenomicsApiId}', apiId: tokenomicsApi.id }
 ]
 
-resource productApiLinks 'Microsoft.ApiManagement/service/products/apiLinks@2024-06-01-preview' = [for item in productApis: {
-  parent: product
+resource fabricProductApiLinks 'Microsoft.ApiManagement/service/products/apiLinks@2024-06-01-preview' = [for item in fabricProductApis: {
+  parent: fabricProduct
   name: item.name
   properties: {
     apiId: item.apiId
+  }
+}]
+
+resource foundryProductApiLinks 'Microsoft.ApiManagement/service/products/apiLinks@2024-06-01-preview' = [for (inferenceApi, index) in foundryInferenceApis: {
+  parent: foundryProduct
+  name: 'link-${inferenceApi.id}'
+  properties: {
+    apiId: foundryInferenceApi[index].id
   }
 }]
 
@@ -394,6 +479,16 @@ resource tokenomicsApiDiagnostic 'Microsoft.ApiManagement/service/apis/diagnosti
   ]
 }
 
+resource foundryInferenceDiagnostic 'Microsoft.ApiManagement/service/apis/diagnostics@2024-06-01-preview' = [for (inferenceApi, index) in foundryInferenceApis: if (diagnosticsEnabled) {
+  parent: foundryInferenceApi[index]
+  name: 'applicationinsights'
+  properties: diagnosticProperties
+  dependsOn: [
+    logger
+    foundryInferenceApiPolicy[index]
+  ]
+}]
+
 output apimPrincipalId string = apim.identity.principalId
 output lakehouseApiId string = lakehouseApi.id
 output dataAgentApiId string = dataAgentApi.id
@@ -401,3 +496,6 @@ output lakehouseMcpId string = lakehouseMcp.id
 output dataAgentMcpId string = dataAgentMcp.id
 output tokenomicsApiId string = tokenomicsApi.id
 output tokenomicsDiagnosticId string = tokenomicsDiagnosticsEnabled ? tokenomicsDiagnostic.id : ''
+output foundryInferenceApiIds array = [for (inferenceApi, index) in foundryInferenceApis: foundryInferenceApi[index].id]
+output fabricProductId string = fabricProduct.id
+output foundryProductId string = foundryProduct.id

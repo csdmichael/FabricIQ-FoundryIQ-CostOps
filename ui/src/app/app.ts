@@ -44,10 +44,10 @@ export class App implements OnInit {
     const summary = this.dashboard()?.summary;
     return !summary?.requests ? 0 : summary.successfulRequests / summary.requests * 100;
   });
-  readonly costPerRequest = computed(() => {
-    const summary = this.dashboard()?.summary;
-    const cost = summary?.negotiatedCost ?? summary?.marketCost;
-    return !summary?.requests || cost === null || cost === undefined ? null : cost / summary.requests;
+  readonly costPerTokenizedRequest = computed(() => {
+    const data = this.dashboard();
+    const cost = data?.actualCost.dedicatedModelCost;
+    return !data?.summary.tokenizedRequests || cost === null || cost === undefined ? null : cost / data.summary.tokenizedRequests;
   });
   readonly topAllocations = computed(() => {
     const grouped = new Map<string, TokenomicsRow>();
@@ -65,12 +65,13 @@ export class App implements OnInit {
         TotalTokens: (current.TotalTokens ?? 0) + (row.TotalTokens ?? 0),
         MarketCost: addNullable(current.MarketCost, row.MarketCost),
         NegotiatedCost: addNullable(current.NegotiatedCost, row.NegotiatedCost),
+        ActualCost: addNullable(current.ActualCost, row.ActualCost),
         Model: current.Model || row.Model,
       } : { ...row });
     }
     return [...grouped.values()].sort((left, right) => (
-      (right.NegotiatedCost ?? right.MarketCost ?? right.TotalTokens ?? 0)
-      - (left.NegotiatedCost ?? left.MarketCost ?? left.TotalTokens ?? 0)
+      (right.ActualCost ?? right.TotalTokens ?? 0)
+      - (left.ActualCost ?? left.TotalTokens ?? 0)
     ));
   });
 
