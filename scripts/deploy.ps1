@@ -19,7 +19,8 @@ param(
     [string] $ApplicationInsightsName = '',
     [string] $ApplicationInsightsResourceGroupName = '',
     [switch] $AllowWhatIfModify,
-    [switch] $ReusePrivateDnsZone
+    [switch] $ReusePrivateDnsZone,
+    [switch] $SkipFoundrySmokeTest
 )
 
 $ErrorActionPreference = 'Stop'
@@ -744,6 +745,7 @@ if (Test-Step 'foundry-agents') {
             ConfigPath = $ConfigPath
             IdentityPath = $IdentityPath
             FoundryAccessIpAddress = $UploadIpAddress
+            SkipSmokeTest = [bool]$SkipFoundrySmokeTest
         }
         & (Join-Path $PSScriptRoot 'provision-foundry-agents.ps1') @foundryAgentParameters
     }

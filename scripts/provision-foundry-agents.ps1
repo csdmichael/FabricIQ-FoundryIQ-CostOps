@@ -117,7 +117,7 @@ $priorAccountState = Invoke-RestMethod -Method GET -Uri $accountArmUri -Headers 
 $priorPublicNetworkAccess = [string]$priorAccountState.properties.publicNetworkAccess
 $priorNetworkAcls = $priorAccountState.properties.networkAcls
 $priorNetworkFingerprint = Get-NetworkAclFingerprint -NetworkAcls $priorNetworkAcls
-$temporaryIpRule = "$callerIpAddress/32"
+$temporaryIpRule = $callerIpAddress
 $existingIpRules = @($priorNetworkAcls.ipRules)
 $temporaryIpRules = @($existingIpRules | Where-Object { $_.value -ne $callerIpAddress -and $_.value -ne $temporaryIpRule }) + @([pscustomobject]@{ value = $temporaryIpRule })
 $temporaryNetworkAcls = [ordered]@{
@@ -246,10 +246,18 @@ catch {
 finally {
     if ($temporaryAccessAttempted) {
         $restoreAccountBody = @{ properties = @{ publicNetworkAccess = $priorPublicNetworkAccess; networkAcls = $priorNetworkAcls } } | ConvertTo-Json -Depth 20
-        Invoke-RestMethod -Method PATCH -Uri $accountArmUri -Headers $managementHeaders -ContentType 'application/json' -Body $restoreAccountBody | Out-Null
-        $restoredAccountState = Invoke-RestMethod -Method GET -Uri $accountArmUri -Headers $managementHeaders
-        if ([string]$restoredAccountState.properties.publicNetworkAccess -ne $priorPublicNetworkAccess -or
-            (Get-NetworkAclFingerprint -NetworkAcls $restoredAccountState.properties.networkAcls) -ne $priorNetworkFingerprint) {
+        $networkRestored = $false
+        for ($attempt = 1; $attempt -le 12; $attempt++) {
+            Invoke-RestMethod -Method PATCH -Uri $accountArmUri -Headers $managementHeaders -ContentType 'application/json' -Body $restoreAccountBody | Out-Null
+            $restoredAccountState = Invoke-RestMethod -Method GET -Uri $accountArmUri -Headers $managementHeaders
+            if ([string]$restoredAccountState.properties.publicNetworkAccess -eq $priorPublicNetworkAccess -and
+                (Get-NetworkAclFingerprint -NetworkAcls $restoredAccountState.properties.networkAcls) -eq $priorNetworkFingerprint) {
+                $networkRestored = $true
+                break
+            }
+            Start-Sleep -Seconds 5
+        }
+        if (-not $networkRestored) {
             throw 'Foundry network restoration did not reproduce the exact prior state. Inspect the account before continuing.'
         }
     }
