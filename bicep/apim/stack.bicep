@@ -330,7 +330,6 @@ resource fabricProduct 'Microsoft.ApiManagement/service/products@2024-06-01-prev
     displayName: 'fabric'
     description: 'Delegated Fabric Lakehouse and Data Agent REST APIs, MCP servers, and CostOps telemetry.'
     subscriptionRequired: false
-    approvalRequired: false
     state: 'published'
   }
 }
@@ -342,7 +341,6 @@ resource foundryProduct 'Microsoft.ApiManagement/service/products@2024-06-01-pre
     displayName: 'foundry'
     description: 'Managed-identity Microsoft Foundry model inference APIs governed by APIM AI Gateway policies.'
     subscriptionRequired: false
-    approvalRequired: false
     state: 'published'
   }
 }

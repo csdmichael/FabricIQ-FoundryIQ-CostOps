@@ -156,9 +156,10 @@ function Invoke-FabricNative {
         [Parameter(Mandatory = $true)] [string] $Description
     )
 
-    & $FilePath @ArgumentList
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Description failed with exit code $LASTEXITCODE."
+    & $FilePath @ArgumentList | Out-Host
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "$Description failed with exit code $exitCode."
     }
 }
 

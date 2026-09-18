@@ -510,7 +510,6 @@ resource "azapi_resource" "product" {
       displayName          = each.value.display_name
       description          = each.value.description
       subscriptionRequired = false
-      approvalRequired     = false
       state                = "published"
     }
   }

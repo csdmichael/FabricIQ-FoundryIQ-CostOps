@@ -590,8 +590,8 @@ if (Test-Step 'package') {
         $priorPublicNetworkAccess = [string]$networkState.publicNetworkAccess
         $priorDefaultAction = [string]$networkState.defaultAction
         $initialIpRules = @($networkState.ipRules | Where-Object { $_ } | Sort-Object -Unique)
-        $uploadRule = "$UploadIpAddress/32"
-        $hasEquivalentUploadRule = @($initialIpRules | Where-Object { $_ -eq $UploadIpAddress -or $_ -eq $uploadRule }).Count -gt 0
+        $uploadRule = $UploadIpAddress
+        $hasEquivalentUploadRule = @($initialIpRules | Where-Object { $_ -eq $uploadRule -or $_ -eq "$UploadIpAddress/32" }).Count -gt 0
         $needsUploadRule = -not $hasEquivalentUploadRule
         $uploadRuleCreated = $false
         try {

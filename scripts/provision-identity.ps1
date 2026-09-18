@@ -33,7 +33,6 @@ $callerGraphToken = Get-FabricAzAccessToken -TenantId $callerTenantId -Resource 
 $credential = $null
 $credentialStored = $false
 $credentialApplicationId = $null
-$vaultToken = $null
 $managementToken = $null
 
 $resolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
@@ -96,7 +95,7 @@ function Ensure-Application {
     $applications = @((Invoke-Graph -Token $Token -Method GET -Path "applications?`$filter=$filter&`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,spa,passwordCredentials" -Body $null).value)
     if (-not [string]::IsNullOrWhiteSpace($ExpectedObjectId)) {
         $ExpectedObjectId = Assert-FabricGuid -Value $ExpectedObjectId -Name "$DisplayName application object ID"
-        $expectedApplication = Invoke-Graph -Token $Token -Method GET -Path "applications/$ExpectedObjectId?`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,spa,passwordCredentials" -Body $null
+        $expectedApplication = Invoke-Graph -Token $Token -Method GET -Path "applications/${ExpectedObjectId}?`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,spa,passwordCredentials" -Body $null
         if ($expectedApplication.displayName -ne $DisplayName -or @($applications | Where-Object { $_.id -ne $ExpectedObjectId }).Count -gt 0) {
             throw "Application object '$ExpectedObjectId' does not uniquely match '$DisplayName'."
         }
@@ -114,7 +113,7 @@ function Ensure-Application {
 
 function Get-Application {
     param([string] $Token, [string] $ObjectId)
-    return Invoke-Graph -Token $Token -Method GET -Path "applications/$ObjectId?`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,spa,passwordCredentials" -Body $null
+    return Invoke-Graph -Token $Token -Method GET -Path "applications/${ObjectId}?`$select=id,appId,displayName,api,appRoles,requiredResourceAccess,web,spa,passwordCredentials" -Body $null
 }
 
 function Ensure-ServicePrincipal {
@@ -217,32 +216,24 @@ function Ensure-AppRoleAssignment {
     } | Out-Null
 }
 
-function Resolve-KeyVaultAccessIpAddress {
-    param([string] $Value)
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        $Value = ([string](Invoke-RestMethod -Uri 'https://api.ipify.org')).Trim()
+function Invoke-TransientRestMethod {
+    param(
+        [Parameter(Mandatory = $true)] [hashtable] $Arguments,
+        [int] $MaximumAttempts = 12
+    )
+    for ($attempt = 1; $attempt -le $MaximumAttempts; $attempt++) {
+        try {
+            return Invoke-RestMethod @Arguments
+        }
+        catch {
+            $statusCode = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+            $errorText = "$($_.ErrorDetails.Message) $($_.Exception)"
+            $transient = $statusCode -in 408, 429, 500, 502, 503, 504 -or
+                $errorText -match 'No such host|Name or service not known|temporarily unavailable|connection.*(?:closed|reset|timed out)'
+            if (-not $transient -or $attempt -eq $MaximumAttempts) { throw }
+            Start-Sleep -Seconds 5
+        }
     }
-    $parsed = $null
-    if (-not [System.Net.IPAddress]::TryParse($Value, [ref]$parsed) -or $parsed.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
-        throw 'KeyVaultAccessIpAddress must be one IPv4 address without a CIDR suffix.'
-    }
-    return $parsed.ToString()
-}
-
-function Get-KeyVaultNetworkAclFingerprint {
-    param([object] $NetworkAcls)
-    if ($null -eq $NetworkAcls) { return '<null>' }
-    $resourceAccessRules = if ($NetworkAcls.PSObject.Properties['resourceAccessRules']) {
-        @($NetworkAcls.resourceAccessRules | ForEach-Object { "$($_.tenantId)|$($_.resourceId)" } | Sort-Object)
-    }
-    else { @() }
-    return ([ordered]@{
-        bypass = [string]$NetworkAcls.bypass
-        defaultAction = [string]$NetworkAcls.defaultAction
-        ipRules = @($NetworkAcls.ipRules | ForEach-Object { [string]$_.value } | Sort-Object)
-        virtualNetworkRules = @($NetworkAcls.virtualNetworkRules | ForEach-Object { "$($_.id)|$($_.ignoreMissingVnetServiceEndpoint)" } | Sort-Object)
-        resourceAccessRules = $resourceAccessRules
-    } | ConvertTo-Json -Depth 8 -Compress)
 }
 
 try {
@@ -446,40 +437,20 @@ try {
         }
     }
     $ApimPrincipalId = Assert-FabricGuid -Value $ApimPrincipalId -Name 'ApimPrincipalId'
-    $apimPrincipal = Invoke-Graph -Token $callerGraphToken -Method GET -Path "servicePrincipals/$ApimPrincipalId?`$select=id,displayName" -Body $null
+    $apimPrincipal = Invoke-Graph -Token $callerGraphToken -Method GET -Path "servicePrincipals/${ApimPrincipalId}?`$select=id,displayName" -Body $null
     Ensure-AppRoleAssignment -Token $callerGraphToken -ClientPrincipalId $apimPrincipal.id -ResourcePrincipalId $brokerApiPrincipal.id -AppRoleId $brokerRole.id
 
     if (-not [string]::IsNullOrWhiteSpace($KeyVaultName)) {
-        $callerIpAddress = Resolve-KeyVaultAccessIpAddress -Value $KeyVaultAccessIpAddress
-        $vaultArmUri = "https://management.azure.com/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.KeyVault/vaults/${KeyVaultName}?api-version=2023-07-01"
+        $secretArmUri = "https://management.azure.com/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.KeyVault/vaults/${KeyVaultName}/secrets/${OboClientSecretName}?api-version=2025-05-01"
         $managementToken = Get-FabricAzAccessToken -TenantId $resourceTenantId -Resource 'https://management.azure.com/' -SubscriptionId ([string]$config.azure.subscriptionId)
         $managementHeaders = @{ Authorization = "Bearer $managementToken" }
-        $priorVaultState = Invoke-RestMethod -Method GET -Uri $vaultArmUri -Headers $managementHeaders
-        $priorPublicNetworkAccess = if ([string]::IsNullOrWhiteSpace([string]$priorVaultState.properties.publicNetworkAccess)) { 'Enabled' } else { [string]$priorVaultState.properties.publicNetworkAccess }
-        $priorNetworkAcls = $priorVaultState.properties.networkAcls
-        $priorNetworkFingerprint = Get-KeyVaultNetworkAclFingerprint -NetworkAcls $priorNetworkAcls
-        $temporaryIpRule = "$callerIpAddress/32"
-        $existingIpRules = if ($priorNetworkAcls) { @($priorNetworkAcls.ipRules) } else { @() }
-        $existingVirtualNetworkRules = if ($priorNetworkAcls) { @($priorNetworkAcls.virtualNetworkRules) } else { @() }
-        $temporaryIpRules = @($existingIpRules | Where-Object { $_.value -ne $callerIpAddress -and $_.value -ne $temporaryIpRule }) + @([pscustomobject]@{ value = $temporaryIpRule })
-        $temporaryNetworkAcls = [ordered]@{
-            bypass = if ($priorNetworkAcls -and -not [string]::IsNullOrWhiteSpace([string]$priorNetworkAcls.bypass)) { [string]$priorNetworkAcls.bypass } else { 'None' }
-            defaultAction = 'Deny'
-            ipRules = $temporaryIpRules
-            virtualNetworkRules = $existingVirtualNetworkRules
-        }
-        if ($priorNetworkAcls -and $priorNetworkAcls.PSObject.Properties['resourceAccessRules']) {
-            $temporaryNetworkAcls['resourceAccessRules'] = @($priorNetworkAcls.resourceAccessRules)
-        }
-        $temporaryVaultBody = @{ properties = @{ publicNetworkAccess = 'Enabled'; networkAcls = $temporaryNetworkAcls } } | ConvertTo-Json -Depth 20
-        $temporaryAccessAttempted = $false
-        try {
-            $temporaryAccessAttempted = $true
-            Invoke-RestMethod -Method PATCH -Uri $vaultArmUri -Headers $managementHeaders -ContentType 'application/json' -Body $temporaryVaultBody | Out-Null
-            $vaultToken = Get-FabricAzAccessToken -TenantId $resourceTenantId -Resource 'https://vault.azure.net' -SubscriptionId ([string]$config.azure.subscriptionId)
         $secretMetadata = $null
         try {
-            $secretMetadata = Invoke-RestMethod -Method GET -Uri "https://$KeyVaultName.vault.azure.net/secrets/$OboClientSecretName?api-version=7.4" -Headers @{ Authorization = "Bearer $vaultToken" }
+            $secretMetadata = Invoke-TransientRestMethod -Arguments @{
+                Method = 'GET'
+                Uri = $secretArmUri
+                Headers = $managementHeaders
+            }
         }
         catch {
             $statusCode = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
@@ -489,7 +460,7 @@ try {
         $credentialDisplayName = 'Fabric OBO broker Key Vault credential'
         $managedCredentials = @($resourceApi.passwordCredentials | Where-Object { $_.displayName -eq $credentialDisplayName })
         $minimumExpiry = [DateTimeOffset]::UtcNow.AddDays(30)
-        $secretAttributes = if ($secretMetadata -and $secretMetadata.PSObject.Properties['attributes']) { $secretMetadata.attributes } else { $null }
+        $secretAttributes = if ($secretMetadata -and $secretMetadata.properties.PSObject.Properties['attributes']) { $secretMetadata.properties.attributes } else { $null }
         $secretExpires = if ($secretAttributes -and $secretAttributes.PSObject.Properties['exp']) { [DateTimeOffset]::FromUnixTimeSeconds([long]$secretAttributes.exp) } else { [DateTimeOffset]::MinValue }
         $secretTags = if ($secretMetadata -and $secretMetadata.PSObject.Properties['tags']) { $secretMetadata.tags } else { $null }
         $secretApplicationObjectId = if ($secretTags -and $secretTags.PSObject.Properties['applicationObjectId']) { [string]$secretTags.applicationObjectId } else { '' }
@@ -510,11 +481,13 @@ try {
             $newCredentialKeyId = [string]$credential.keyId
             $credentialApplicationId = $resourceApi.id
             try {
-                $vaultBody = @{
-                    value = $credential.secretText
-                    attributes = @{
-                        enabled = $true
-                        exp = $credentialExpiry.ToUnixTimeSeconds()
+                $secretBody = @{
+                    properties = @{
+                        value = $credential.secretText
+                        attributes = @{
+                            enabled = $true
+                            exp = $credentialExpiry.ToUnixTimeSeconds()
+                        }
                     }
                     tags = @{
                         purpose = 'fabric-obo-broker'
@@ -523,11 +496,17 @@ try {
                         credentialKeyId = [string]$credential.keyId
                     }
                 } | ConvertTo-Json -Depth 5
-                Invoke-RestMethod -Method PUT -Uri "https://$KeyVaultName.vault.azure.net/secrets/$OboClientSecretName?api-version=7.4" -Headers @{ Authorization = "Bearer $vaultToken" } -ContentType 'application/json' -Body $vaultBody | Out-Null
+                Invoke-TransientRestMethod -Arguments @{
+                    Method = 'PUT'
+                    Uri = $secretArmUri
+                    Headers = $managementHeaders
+                    ContentType = 'application/json'
+                    Body = $secretBody
+                } | Out-Null
                 $credentialStored = $true
             }
             finally {
-                $vaultBody = $null
+                $secretBody = $null
             }
             if (-not $credentialStored) {
                 throw 'Unable to store the OBO credential in Key Vault.'
@@ -553,22 +532,7 @@ try {
         if ($managedCredentials.Count -ne 1 -or $managedCredentials[0].keyId -ne $secretCredentialKeyId) {
             throw 'The OBO resource application does not have exactly one Key Vault-bound managed credential.'
         }
-        }
-        finally {
-            if ($temporaryAccessAttempted) {
-                $restoreVaultBody = @{ properties = @{ publicNetworkAccess = $priorPublicNetworkAccess; networkAcls = $priorNetworkAcls } } | ConvertTo-Json -Depth 20
-                Invoke-RestMethod -Method PATCH -Uri $vaultArmUri -Headers $managementHeaders -ContentType 'application/json' -Body $restoreVaultBody | Out-Null
-                $restoredVaultState = Invoke-RestMethod -Method GET -Uri $vaultArmUri -Headers $managementHeaders
-                $restoredNetworkFingerprint = Get-KeyVaultNetworkAclFingerprint -NetworkAcls $restoredVaultState.properties.networkAcls
-                if ([string]$restoredVaultState.properties.publicNetworkAccess -ne $priorPublicNetworkAccess -or $restoredNetworkFingerprint -ne $priorNetworkFingerprint) {
-                    throw 'Key Vault network restoration did not reproduce the exact prior state. Inspect the vault before continuing.'
-                }
-            }
-            $temporaryVaultBody = $null
-            $restoreVaultBody = $null
-            $vaultToken = $null
-            $managementToken = $null
-        }
+        $managementToken = $null
     }
 
     $metadata = [ordered]@{
@@ -633,6 +597,5 @@ finally {
     $resourceGraphToken = $null
     $callerGraphToken = $null
     $credential = $null
-    $vaultToken = $null
     $managementToken = $null
 }

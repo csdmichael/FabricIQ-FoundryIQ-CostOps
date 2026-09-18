@@ -4,7 +4,7 @@ import { request as httpsRequest } from 'node:https';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const root = resolve('browser');
-const port = Number(process.env.PORT || 8080);
+const port = process.env.PORT || 8080;
 const apimHost = process.env.APIM_GATEWAY_HOST;
 const tokenomicsApiPath = (process.env.APIM_TOKENOMICS_API_PATH || '').trim().replace(/^\/+|\/+$/g, '');
 const proxyPrefix = tokenomicsApiPath ? `/api/${tokenomicsApiPath}` : '';
@@ -86,4 +86,4 @@ createServer((request, response) => {
     if (response.headersSent) return response.destroy();
     return sendJson(response, 400, { error: 'invalid_url' });
   }
-}).listen(port, '0.0.0.0');
+}).listen(port);

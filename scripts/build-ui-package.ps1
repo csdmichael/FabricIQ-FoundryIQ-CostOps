@@ -20,6 +20,7 @@ Remove-Item -LiteralPath $stageRoot -Recurse -Force -ErrorAction SilentlyContinu
 New-Item -ItemType Directory -Path (Join-Path $stageRoot 'browser') -Force | Out-Null
 Copy-Item -Path (Join-Path $build.OutputPath '*') -Destination (Join-Path $stageRoot 'browser') -Recurse
 Copy-Item -LiteralPath (Join-Path $uiRoot 'server.js') -Destination $stageRoot
+Copy-Item -LiteralPath (Join-Path $uiRoot 'web.config') -Destination $stageRoot
 Copy-Item -LiteralPath (Join-Path $uiRoot 'host-package.json') -Destination (Join-Path $stageRoot 'package.json')
 
 $python = Get-Command python -ErrorAction SilentlyContinue
@@ -32,6 +33,8 @@ Invoke-FabricNative -FilePath $python.Source -ArgumentList @(
     'package.json',
     '--require',
     'server.js',
+    '--require',
+    'web.config',
     '--require',
     'browser/index.html'
 ) -Description 'UI deployment ZIP creation'
