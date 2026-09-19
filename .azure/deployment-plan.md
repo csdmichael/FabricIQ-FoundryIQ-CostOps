@@ -19,6 +19,8 @@ Build, publish, and deploy a customer-portable Microsoft Fabric integration that
 - creates two Prompt Agents with separate custom OAuth MCP connections and least-privilege tool allowlists;
 - reconciles token telemetry with resource-group-scoped Azure Cost Management `ActualCost`;
 - publishes the live-only Angular/Ionic dashboard to a Windows Web App with a same-origin private-APIM proxy;
+- provisions additive Tokenomics Cosmos/Blob child resources, deterministic non-PII sample data, and a dedicated schema-enabled Fabric workspace/Lakehouse;
+- publishes two credential-free Dataflow Gen2 source definitions for Cosmos and Microsoft Foundry Log Analytics ingestion;
 - documents the complete identity and network flow with sanitized live screenshots; and
 - commits and pushes source before publishing and deploying cloud resources.
 
@@ -44,6 +46,9 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 - Power BI semantic model: `sm_part_shortages`
 	(`18be2ce1-3566-437d-971d-c4532e2e3575`)
 - Existing APIM service: `caldova-apim-westus`
+- Tokenomics Cosmos target: `caldova-showcase-dkm7l6ym6ryju/tokenomics/token-consumption`
+- Tokenomics raw Blob target: `genieobodkm7l6ym6ryju/tokenomics-raw/consumption/v1`
+- Tokenomics Fabric workspace: `Fabric AI Tokenomics` on the existing capacity (IDs populated after creation)
 - Copilot Studio environment: `Caldova Private`
 	(`52456fcd-1d20-ecdb-aa2e-8979e3f794f5`, Canada, Managed Environment with Dataverse)
 
@@ -106,6 +111,16 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 - [x] Deploy Azure resources and application code through the validated Bicep recipe.
 - [ ] Publish connectors and both agents only after the target environment resolves.
 - [x] Run delegated-user, denial, MCP handshake, Lakehouse query, and Data Agent query tests.
+- [x] All validation checks pass.
+	- [x] Core validation (CLI, authentication, Bicep build, ARM validation, and what-if).
+	- [x] Bicep linting.
+	- [x] Azure Policy validation against the existing approved resource group and additive child-resource scope.
+- [x] Generate deterministic multi-cloud Tokenomics sample data without PII.
+- [x] Add Cosmos/Blob child-resource Bicep and Terraform parity.
+- [x] Add credential-free Dataflow Gen2 definitions and idempotent Fabric provisioning.
+- [ ] Deploy and verify the Tokenomics database, container, and raw Blob container.
+- [ ] Seed and verify 12,000 Cosmos records from the private managed-identity runner.
+- [ ] Create and publish the two Fabric ML notebooks and Power BI artifacts.
 - [ ] Run deck-generation tests.
 - [ ] Capture sanitized screenshots and publish them in the Fabric README.
 
@@ -122,6 +137,14 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 	its tool returns a live permission-trimmed result.
 
 ## Active Validation Proof
+
+2026-09-19 Tokenomics data-platform validation (current):
+
+- `scripts/validate.ps1 -DeploymentReady -IncludeParity -SkipTerraformInit` passed the shared configuration contract, 21 broker tests, two UI tests, two deterministic Tokenomics generator tests, production dependency audits, Dataflow definition rendering, seven Bicep roots, all Terraform parity modules, and PowerShell/Python/Node syntax.
+- The Bicep recipe helper compiled `bicep/tokenomics-data/main.bicep` and passed target-resource-group ARM validation. An authoritative `FullResourcePayloads` preview reported `Create=3, Ignore=110` with zero modifications, deletions, or unsupported changes.
+- The three creates are limited to `tokenomics`, `token-consumption`, and `tokenomics-raw` child resources under the existing private Cosmos DB and Storage accounts. No account, network, private endpoint, key, or throughput setting is managed by this module.
+- Static RBAC review found no standing role assignments in Bicep or Terraform. Private seeding grants Blob Data Contributor at the storage-account scope and Cosmos Built-in Data Contributor at the target container scope; cleanup now removes only assignments created by that run and always deallocates the runner unless explicitly retained.
+- Generated sample data contains 12,000 deterministic events, 3,000 per non-Microsoft provider, 500 hashed users, governed ML reference datasets, and no prompt text or PII. Live Cosmos seeding remains gated on a pushed source commit.
 
 2026-09-18 live deployment and acceptance (current):
 

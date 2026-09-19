@@ -51,6 +51,11 @@ if ($config.apim.fabricProductId -ne 'fabric' -or $config.apim.foundryProductId 
 if ([bool]$config.deployment.deployWorkspacePrivateLink) {
     throw 'deployment.deployWorkspacePrivateLink must remain false while unsupported semantic models or external Copilot integrations exist.'
 }
+foreach ($flag in 'deployTokenomicsData', 'deployTokenomicsSeed', 'deployTokenomicsFabric') {
+    if ($config.deployment.$flag -isnot [bool]) {
+        throw "deployment.$flag must be a boolean."
+    }
+}
 if ($config.identity.fabricApiScope -ne 'https://api.fabric.microsoft.com/.default' -or $config.identity.powerBiApiScope -ne 'https://analysis.windows.net/powerbi/api/.default') {
     throw 'Fabric and Power BI downstream scopes must use the approved fixed values.'
 }
@@ -73,6 +78,42 @@ if (-not [bool]$config.tokenomics.actualCost.enabled -or $config.tokenomics.actu
     $config.tokenomics.actualCost.queryApiVersion -notmatch '^20\d{2}-\d{2}-\d{2}$' -or [int]$config.tokenomics.actualCost.billingLagHours -lt 1 -or [int]$config.tokenomics.actualCost.billingLagHours -gt 168 -or
     @($config.tokenomics.actualCost.trackedResources).Count -lt 4 -or @($config.tokenomics.actualCost.trackedResources | Where-Object { $_.resourceId -notlike "$($config.tokenomics.actualCost.scope)/providers/*" -or $_.category -notin @('model', 'gateway', 'broker', 'ui') }).Count -gt 0) {
     throw 'Azure ActualCost configuration must be enabled, resource-group scoped, bounded, and contain only tracked deployment resources.'
+}
+$tokenomicsPlatform = $config.tokenomicsPlatform
+foreach ($path in 'tokenomicsPlatform.rawStorage.accountName', 'tokenomicsPlatform.rawStorage.containerName', 'tokenomicsPlatform.rawStorage.prefix', 'tokenomicsPlatform.cosmos.accountName', 'tokenomicsPlatform.cosmos.databaseName', 'tokenomicsPlatform.cosmos.containerName', 'tokenomicsPlatform.fabric.workspaceName', 'tokenomicsPlatform.fabric.lakehouseName', 'tokenomicsPlatform.fabric.cosmosDataflowName', 'tokenomicsPlatform.fabric.logAnalyticsDataflowName', 'tokenomicsPlatform.fabric.trainingNotebookName', 'tokenomicsPlatform.fabric.inferenceNotebookName', 'tokenomicsPlatform.fabric.semanticModelName', 'tokenomicsPlatform.fabric.reportName', 'tokenomicsPlatform.fabric.outputSchema', 'tokenomicsPlatform.logAnalytics.workspaceResourceId') {
+    $null = Get-FabricConfigValue -Config $config -Path $path
+}
+if ($tokenomicsPlatform.rawStorage.accountName -notmatch '^[a-z0-9]{3,24}$' -or
+    $tokenomicsPlatform.rawStorage.containerName -notmatch '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$' -or
+    $tokenomicsPlatform.cosmos.accountName -notmatch '^[a-z0-9-]{3,44}$' -or
+    $tokenomicsPlatform.cosmos.databaseName -notmatch '^[A-Za-z0-9._-]{1,255}$' -or
+    $tokenomicsPlatform.cosmos.containerName -notmatch '^[A-Za-z0-9._-]{1,255}$' -or
+    $tokenomicsPlatform.cosmos.partitionKeyPath -ne '/source_code') {
+    throw 'Tokenomics Storage/Cosmos names or partition key are invalid.'
+}
+if ([int]$tokenomicsPlatform.syntheticData.recordCount -lt 4000 -or [int]$tokenomicsPlatform.syntheticData.recordCount -gt 1000000 -or
+    [int]$tokenomicsPlatform.syntheticData.userCount -lt 100 -or [int]$tokenomicsPlatform.syntheticData.userCount -gt 100000 -or
+    [int]$tokenomicsPlatform.syntheticData.lookbackDays -lt 30 -or [int]$tokenomicsPlatform.syntheticData.lookbackDays -gt 730 -or
+    $tokenomicsPlatform.syntheticData.endDate -notmatch '^20\d{2}-\d{2}-\d{2}$' -or
+    [int64]$tokenomicsPlatform.syntheticData.randomSeed -lt 1) {
+    throw 'Tokenomics synthetic-data scale must remain bounded and production-like.'
+}
+if (@($tokenomicsPlatform.syntheticData.sourceCodes) -join ',' -ne 'aws,gcp,oai,cld' -or
+    @($tokenomicsPlatform.fabric.sourceSchemas) -join ',' -ne 'aws,gcp,oai,cld,msft' -or
+    $tokenomicsPlatform.fabric.outputSchema -ne 'ml') {
+    throw 'Tokenomics source and output schema codes must use aws,gcp,oai,cld,msft and ml.'
+}
+$null = Assert-FabricGuid -Value $tokenomicsPlatform.fabric.capacityId -Name 'tokenomicsPlatform.fabric.capacityId'
+foreach ($path in 'workspaceId', 'lakehouseId', 'sqlEndpointId') {
+    $value = [string]$tokenomicsPlatform.fabric.$path
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+        $null = Assert-FabricGuid -Value $value -Name "tokenomicsPlatform.fabric.$path"
+    }
+}
+$expectedLogAnalyticsPrefix = "/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.OperationalInsights/workspaces/"
+if (-not ([string]$tokenomicsPlatform.logAnalytics.workspaceResourceId).StartsWith($expectedLogAnalyticsPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+    [int]$tokenomicsPlatform.logAnalytics.lookbackDays -lt 1 -or [int]$tokenomicsPlatform.logAnalytics.lookbackDays -gt 365) {
+    throw 'Tokenomics Log Analytics source must be resource-group scoped with a bounded lookback.'
 }
 if ($config.foundry.location -ne $config.apim.location -or $config.foundry.vnetResourceId -ne $config.network.apimVnetResourceId -or
     $config.foundry.privateEndpointSubnetResourceId -ne $config.network.apimPrivateEndpointSubnetResourceId -or
@@ -132,13 +173,31 @@ try {
     }
     Write-Host 'PASS APIM OpenAPI and policy syntax'
 
+    $dataflowFiles = @(
+        'fabric/dataflows/cosmos-token-consumption/dataflow-content.json',
+        'fabric/dataflows/foundry-log-analytics/dataflow-content.json'
+    )
+    foreach ($file in $dataflowFiles) {
+        $dataflow = Get-Content -LiteralPath (Join-Path $repositoryRoot $file) -Raw | ConvertFrom-Json
+        if ([string]::IsNullOrWhiteSpace([string]$dataflow.editingSessionMashup.mashupDocument) -or
+            $null -ne $dataflow.editingSessionMashup.defaultOutputDestinationConfiguration -or
+            @($dataflow.editingSessionMashup.connectionOverrides).Count -ne 0) {
+            throw "Invalid source-only Dataflow definition: $file"
+        }
+    }
+    & (Join-Path $repositoryRoot 'scripts/provision-tokenomics-fabric.ps1') -ValidateOnly | Out-Null
+    Write-Host 'PASS Dataflow Gen2 definitions and Fabric provisioner'
+    Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'scripts/tokenomics') -Description 'Tokenomics data generator tests'
+    Invoke-FabricNative -FilePath 'node' -ArgumentList @('--check', 'scripts/tokenomics/seed-data.mjs') -Description 'Tokenomics private seed syntax'
+
     $bicepFiles = @(
         'bicep/apim/service.bicep',
         'bicep/broker/main.bicep',
         'bicep/apim/main.bicep',
         'bicep/foundry/main.bicep',
         'bicep/foundry/connections.bicep',
-        'bicep/ui/main.bicep'
+        'bicep/ui/main.bicep',
+        'bicep/tokenomics-data/main.bicep'
     )
     foreach ($file in $bicepFiles) {
         $compiled = az bicep build --file $file --stdout

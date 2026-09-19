@@ -1,0 +1,19 @@
+{
+  "name": "fabric-tokenomics-data-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "generate": "node generate-data.mjs",
+    "seed": "node seed-data.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@azure/cosmos": "4.10.1",
+    "@azure/identity": "4.13.3",
+    "@azure/storage-blob": "12.33.0"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "editingSessionMashup": {
+    "mashupName": "",
+    "mashupDocument": "section Section1;\r\nshared token_consumption = let\r\n    Source = DocumentDB.Contents(\"https://${COSMOS_ACCOUNT}.documents.azure.com:443/\", \"${COSMOS_DATABASE}\", \"${COSMOS_CONTAINER}\", \"SELECT * FROM c\"),\r\n    Expanded = if Table.HasColumns(Source, \"Document\") then Table.ExpandRecordColumn(Source, \"Document\", {\"id\", \"event_id\", \"event_ts\", \"usage_date\", \"ingested_at\", \"source_code\", \"account_id\", \"region\", \"request_id\", \"correlation_id\", \"model_family\", \"model_name\", \"model_version\", \"deployment_id\", \"user_id_hash\", \"team_id\", \"department_id\", \"business_unit_id\", \"cost_center_id\", \"project_id\", \"application_id\", \"agent_id\", \"environment\", \"task_id\", \"task_type\", \"prompt_template_id\", \"request_count\", \"input_tokens\", \"cached_input_tokens\", \"cache_write_tokens\", \"output_tokens\", \"total_tokens\", \"context_window_tokens\", \"tool_call_count\", \"tool_success_count\", \"retry_count\", \"failure_count\", \"latency_ms\", \"status_code\", \"is_stream\", \"currency\", \"source_cost\", \"tasks_completed\", \"hours_saved\", \"tickets_reduced\", \"code_generated_lines\", \"quality_score\", \"prompt_char_count\", \"is_anomaly_seed\"}) else Source,\r\n    Selected = Table.SelectColumns(Expanded, {\"id\", \"event_id\", \"event_ts\", \"usage_date\", \"ingested_at\", \"source_code\", \"account_id\", \"region\", \"request_id\", \"correlation_id\", \"model_family\", \"model_name\", \"model_version\", \"deployment_id\", \"user_id_hash\", \"team_id\", \"department_id\", \"business_unit_id\", \"cost_center_id\", \"project_id\", \"application_id\", \"agent_id\", \"environment\", \"task_id\", \"task_type\", \"prompt_template_id\", \"request_count\", \"input_tokens\", \"cached_input_tokens\", \"cache_write_tokens\", \"output_tokens\", \"total_tokens\", \"context_window_tokens\", \"tool_call_count\", \"tool_success_count\", \"retry_count\", \"failure_count\", \"latency_ms\", \"status_code\", \"is_stream\", \"currency\", \"source_cost\", \"tasks_completed\", \"hours_saved\", \"tickets_reduced\", \"code_generated_lines\", \"quality_score\", \"prompt_char_count\", \"is_anomaly_seed\"}, MissingField.UseNull),\r\n    Typed = Table.TransformColumnTypes(Selected, {{\"id\", type text}, {\"event_id\", type text}, {\"event_ts\", type datetimezone}, {\"usage_date\", type date}, {\"ingested_at\", type datetimezone}, {\"source_code\", type text}, {\"account_id\", type text}, {\"region\", type text}, {\"request_id\", type text}, {\"correlation_id\", type text}, {\"model_family\", type text}, {\"model_name\", type text}, {\"model_version\", type text}, {\"deployment_id\", type text}, {\"user_id_hash\", type text}, {\"team_id\", type text}, {\"department_id\", type text}, {\"business_unit_id\", type text}, {\"cost_center_id\", type text}, {\"project_id\", type text}, {\"application_id\", type text}, {\"agent_id\", type text}, {\"environment\", type text}, {\"task_id\", type text}, {\"task_type\", type text}, {\"prompt_template_id\", type text}, {\"request_count\", Int64.Type}, {\"input_tokens\", Int64.Type}, {\"cached_input_tokens\", Int64.Type}, {\"cache_write_tokens\", Int64.Type}, {\"output_tokens\", Int64.Type}, {\"total_tokens\", Int64.Type}, {\"context_window_tokens\", Int64.Type}, {\"tool_call_count\", Int64.Type}, {\"tool_success_count\", Int64.Type}, {\"retry_count\", Int64.Type}, {\"failure_count\", Int64.Type}, {\"latency_ms\", Int64.Type}, {\"status_code\", Int64.Type}, {\"is_stream\", type logical}, {\"currency\", type text}, {\"source_cost\", type number}, {\"tasks_completed\", Int64.Type}, {\"hours_saved\", type number}, {\"tickets_reduced\", Int64.Type}, {\"code_generated_lines\", Int64.Type}, {\"quality_score\", type number}, {\"prompt_char_count\", Int64.Type}, {\"is_anomaly_seed\", type logical}}, \"en-US\")\r\nin\r\n    Typed;\r\n",
+    "queryGroups": [],
+    "documentLocale": "en-US",
+    "gatewayObjectId": null,
+    "queriesMetadata": null,
+    "connectionOverrides": [],
+    "trustedConnections": null,
+    "useHostConnectionProvider": false,
+    "fastCombine": false,
+    "allowNativeQueries": true,
+    "allowedModules": null,
+    "skipAutomaticTypeAndHeaderDetection": false,
+    "disableAutoAnonymousConnectionUpsert": true,
+    "hostProperties": {
+      "DataflowRefreshOutputFileFormat": "Parquet",
+      "EnableDateTimeFieldsForStaging": "true",
+      "EnablePublishWithoutLoadedQueries": "true"
+    },
+    "defaultOutputDestinationConfiguration": null,
+    "stagingDefinition": null
+  }
+}

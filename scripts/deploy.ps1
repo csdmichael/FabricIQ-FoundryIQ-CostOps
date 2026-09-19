@@ -2,7 +2,7 @@
 param(
     [string] $ConfigPath = (Join-Path $PSScriptRoot '../config/deployment.json'),
     [string] $IdentityPath = (Join-Path $PSScriptRoot '../.generated/identity.json'),
-    [ValidateSet('preflight', 'apim-base', 'network-apim', 'network-broker', 'broker-base', 'foundry-base', 'identity', 'package', 'broker-app', 'apim', 'ui', 'foundry-connections', 'foundry-agents', 'all')]
+    [ValidateSet('preflight', 'apim-base', 'network-apim', 'network-broker', 'broker-base', 'foundry-base', 'identity', 'package', 'broker-app', 'apim', 'ui', 'foundry-connections', 'foundry-agents', 'tokenomics-data', 'tokenomics-seed', 'tokenomics-fabric', 'all')]
     [string] $Step = 'preflight',
     [switch] $WhatIf,
     [switch] $InviteConfiguredAdmin,
@@ -18,6 +18,7 @@ param(
     [string] $UploadIpAddress,
     [string] $ApplicationInsightsName = '',
     [string] $ApplicationInsightsResourceGroupName = '',
+    [string] $RepositoryCommit = '',
     [switch] $AllowWhatIfModify,
     [switch] $ReusePrivateDnsZone,
     [switch] $SkipFoundrySmokeTest
@@ -58,6 +59,9 @@ function Test-Step {
         'ui' { [bool]$config.deployment.deployUi }
         'foundry-connections' { [bool]$config.deployment.deployFoundry }
         'foundry-agents' { [bool]$config.deployment.deployFoundry }
+        'tokenomics-data' { [bool]$config.deployment.deployTokenomicsData }
+        'tokenomics-seed' { [bool]$config.deployment.deployTokenomicsSeed }
+        'tokenomics-fabric' { [bool]$config.deployment.deployTokenomicsFabric }
         default { $true }
     }
     if ($Step -eq $Name -and -not $enabled) {
@@ -465,6 +469,7 @@ $apimBaseDeploymentName = "$deploymentPrefix-apim-base"
 $foundryBaseDeploymentName = "$deploymentPrefix-foundry-base"
 $foundryConnectionsDeploymentName = "$deploymentPrefix-foundry-connections"
 $uiDeploymentName = "$deploymentPrefix-ui"
+$tokenomicsDataDeploymentName = "$deploymentPrefix-tokenomics-data"
 $script:LiveApimPrincipalId = $null
 $baseOutputs = $null
 $appOutputs = $null
@@ -751,6 +756,49 @@ if (Test-Step 'foundry-agents') {
     }
 }
 
+if (Test-Step 'tokenomics-data') {
+    $null = Assert-FabricAzureContext -SubscriptionId ([string]$config.azure.subscriptionId) -TenantId ([string]$config.azure.tenantId)
+    Invoke-GroupDeployment -Name $tokenomicsDataDeploymentName -SubscriptionId $config.azure.subscriptionId -ResourceGroup $config.azure.resourceGroup -TemplateFile (Join-Path $fabricRoot 'bicep/tokenomics-data/main.bicep') -ParametersFile '' | Out-Null
+}
+
+if (Test-Step 'tokenomics-seed') {
+    if ($WhatIf) {
+        Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'scripts/tokenomics') -Description 'Tokenomics data generator tests'
+        Write-Host 'SKIP private Tokenomics seed mutation during what-if.'
+    }
+    else {
+        if ([string]::IsNullOrWhiteSpace($RepositoryCommit)) {
+            throw 'RepositoryCommit is required for tokenomics-seed and must be pushed to origin/main.'
+        }
+        $seedParameters = @{ ConfigPath = $ConfigPath; RepositoryCommit = $RepositoryCommit }
+        & (Join-Path $PSScriptRoot 'seed-tokenomics-data.ps1') @seedParameters
+    }
+}
+
+if (Test-Step 'tokenomics-fabric') {
+    if ($WhatIf) {
+        & (Join-Path $PSScriptRoot 'provision-tokenomics-fabric.ps1') -ConfigPath $ConfigPath -ValidateOnly | Out-Null
+        Write-Host 'SKIP Fabric workspace and item mutation during what-if.'
+    }
+    else {
+        $capacityResourceId = [string]$config.migration.targetCapacityResourceId
+        $capacityState = az resource show --ids $capacityResourceId --api-version 2023-11-01 --query properties.state -o tsv
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($capacityState)) {
+            throw 'Unable to read the configured Fabric capacity state.'
+        }
+        if ($capacityState -eq 'Paused') {
+            az resource invoke-action --ids $capacityResourceId --action resume --api-version 2023-11-01 --only-show-errors -o none
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to resume the configured Fabric capacity.' }
+            az resource wait --ids $capacityResourceId --api-version 2023-11-01 --custom "properties.state=='Active'" --interval 10 --timeout 900
+            if ($LASTEXITCODE -ne 0) { throw 'The configured Fabric capacity did not become active.' }
+        }
+        elseif ($capacityState -ne 'Active') {
+            throw "The configured Fabric capacity is in unsupported state '$capacityState'."
+        }
+        & (Join-Path $PSScriptRoot 'provision-tokenomics-fabric.ps1') -ConfigPath $ConfigPath
+    }
+}
+
 [pscustomobject]@{
     Step = $Step
     WhatIf = [bool]$WhatIf
@@ -760,4 +808,5 @@ if (Test-Step 'foundry-agents') {
     FoundryBaseDeployment = $foundryBaseDeploymentName
     FoundryConnectionsDeployment = $foundryConnectionsDeploymentName
     UiDeployment = $uiDeploymentName
+    TokenomicsDataDeployment = $tokenomicsDataDeploymentName
 }

@@ -2,9 +2,48 @@
 
 This guide deploys permission-trimmed Microsoft Fabric Lakehouse and Data Agent tools through [Azure API Management (APIM)](https://learn.microsoft.com/azure/api-management/genai-gateway-capabilities). Copilot Studio and Microsoft Foundry agents preserve the signed-in user through OAuth; the broker never falls back to an application identity for Fabric data. A private Foundry project uses `gpt-5.6-sol` only through attributable APIM AI Gateway routes. The responsive Angular/Ionic CostOps UI reconciles APIM token telemetry with Azure Cost Management `ActualCost` without relabeling rate-card estimates as billed cost.
 
-> **Reference status (2026-09-17):** Fabric data and Power BI artifacts are live. The broker, private Foundry foundation, two APIM model routes, OAuth Prompt Agent workflow, Azure-billed cost reconciliation, and production UI host pass local and isolated Azure what-if gates but are not yet deployed. The deployment plan is reopened to `Approved` for formal validation. Immutable agent links are added only after live publication and smoke tests.
+> **Reference status (2026-09-19):** The private broker, APIM Fabric and Foundry products, REST and MCP surfaces, private Foundry project, two OAuth Prompt Agents, Azure-billed cost reconciliation, and production CostOps UI are deployed and passed private end-to-end acceptance. The additive multi-cloud Tokenomics data platform is tracked in `config/deployment.json` and the deployment plan.
+
+## Contents
+
+- [Architecture](#architecture)
+- [Direct URLs and portals](#direct-urls-and-portals)
+- [Live Caldova workspace and Power BI](#live-caldova-workspace-and-power-bi)
+- [Reference Fabric screenshots](#reference-fabric-screenshots)
+- [Security boundaries](#security-boundaries)
+- [Prerequisites](#prerequisites)
+- [Configuration](#configuration)
+- [Deployment paths](#deployment-paths)
+- [Infrastructure ownership and deployment guardrails](#infrastructure-ownership-and-deployment-guardrails)
+- [Identity and consent](#identity-and-consent)
+- [APIM APIs and MCP](#apim-apis-and-mcp)
+- [Tokenomics and responsive UI](#tokenomics-and-responsive-ui)
+- [Copilot Studio agents](#copilot-studio-agents)
+- [Microsoft Foundry agents](#microsoft-foundry-agents)
+- [Validation and acceptance](#validation-and-acceptance)
+- [Screenshot evidence checklist](#screenshot-evidence-checklist)
+- [Rollback](#rollback)
+- [References](#references)
 
 ## Architecture
+
+![AI Tokenomics architecture and solution overview](docs/AI%20Tokenomics%20Architecture.png)
+
+The main architecture unifies AWS Bedrock, GCP Vertex AI, OpenAI, Claude, and Microsoft Foundry usage into one FinOps control plane. Raw provider events land in private Azure Blob Storage, normalization produces a governed operational record in Cosmos DB, and Fabric Dataflow Gen2 definitions ingest Cosmos and Microsoft Foundry Log Analytics data into a schema-enabled Lakehouse. Source tables use the `aws`, `gcp`, `oai`, `cld`, and `msft` schemas; training and inference notebooks publish all analytical results under the `ml` schema. Power BI consumes the Gold and ML tables for cost, chargeback, segmentation, optimization, capacity, and executive adoption views.
+
+### Medallion data lifecycle
+
+![Medallion architecture from raw ingestion through analytics](docs/Medallion%20Architecture.png)
+
+The medallion view describes the quality boundary inside the Tokenomics platform:
+
+1. **Raw source and Bronze:** immutable provider payloads are retained in Blob Storage and copied into Bronze OneLake paths with ingestion metadata.
+2. **Operational cleansing and Silver:** ETL normalizes provider-specific fields into Cosmos DB and Fabric source schemas, deduplicates events, rejects invalid records, hashes user identifiers, and keeps actual, negotiated, and market costs distinct.
+3. **Business-ready Gold:** Fabric joins effective-dated ownership, budgets, rate cards, outcomes, and capacity signals into auditable FinOps facts.
+4. **Data Science and ML:** PySpark pipelines write predictions, scores, recommendations, model manifests, validation metrics, and run ledgers only to `ml` tables.
+5. **BI and reporting:** Power BI reads governed Gold and ML outputs rather than raw payloads, preserving lineage from dashboard metrics back to source events and model versions.
+
+### Private access and delegated identity
 
 ```mermaid
 flowchart LR
@@ -41,26 +80,6 @@ The token path is:
 6. Fabric applies the user's workspace, item, table, row-level, and column-level permissions.
 
 This delegation follows the [Microsoft identity platform OBO flow](https://learn.microsoft.com/entra/identity-platform/v2-oauth2-on-behalf-of-flow). APIM performs gateway-side JWT validation with [`validate-jwt`](https://learn.microsoft.com/azure/api-management/validate-jwt-policy), obtains the broker token with [`authentication-managed-identity`](https://learn.microsoft.com/azure/api-management/authentication-managed-identity-policy), and enforces per-user throttling with [`rate-limit-by-key`](https://learn.microsoft.com/azure/api-management/rate-limit-by-key-policy).
-
-## Contents
-
-- [Completion prompts and remaining TODOs](docs/prompts.md)
-- [Direct URLs and portals](#direct-urls-and-portals)
-- [Live Caldova workspace and Power BI](#live-caldova-workspace-and-power-bi)
-- [Reference Fabric screenshots](#reference-fabric-screenshots)
-- [Security boundaries](#security-boundaries)
-- [Prerequisites](#prerequisites)
-- [Configuration](#configuration)
-- [Deployment paths](#deployment-paths)
-- [Identity and consent](#identity-and-consent)
-- [APIM APIs and MCP](#apim-apis-and-mcp)
-- [Tokenomics and responsive UI](#tokenomics-and-responsive-ui)
-- [Copilot Studio agents](#copilot-studio-agents)
-- [Microsoft Foundry agents](#microsoft-foundry-agents)
-- [Validation and acceptance](#validation-and-acceptance)
-- [Screenshot evidence checklist](#screenshot-evidence-checklist)
-- [Rollback](#rollback)
-- [References](#references)
 
 ## Direct URLs and portals
 
@@ -218,6 +237,29 @@ Equivalent independent modules are under [terraform](terraform):
 - `ui`
 
 Run `terraform fmt -check`, `terraform init -backend=false`, and `terraform validate` before configuring a real backend. Keep state in customer-controlled remote storage; never commit state or tfvars.
+
+## Infrastructure ownership and deployment guardrails
+
+- Bicep and Terraform are alternative owners of the same logical resources. Never apply both to one environment unless the resources have first been imported into the selected state.
+- Use incremental deployments only. Review `what-if` or `terraform plan` and stop on an unexpected delete, replacement, APIM service mutation, shared VNet change, or App Service plan change.
+- Deploy the broker in two stages: infrastructure with `deployFunction=false`, then identity/package provisioning, then the application with `deployFunction=true` and nonempty generated IDs and allowlists.
+- The broker UAMI receives only Storage Blob Data Owner, Storage Table Data Contributor, Key Vault Secrets User, Log Analytics Reader, and the resource-group-scoped read-only cost roles documented below. It receives no storage key, queue, generic write, or Key Vault write role.
+- The OBO credential is written through the write-only ARM `vaults/secrets` child resource. Key Vault remains private and the secret never enters source, logs, generated metadata, Terraform state, or command output.
+- Package and seed uploads to private Storage/Cosmos resources should run from an in-VNet managed identity. Shared-key access remains disabled. Temporary runner roles must be resource-scoped and deleted after verification.
+- Blob, Table, Vault, Sites, Cosmos, APIM, and Foundry private DNS links stay scoped to the configured VNets. Workspace-level Fabric Private Link remains disabled while incompatible semantic models and external integrations exist.
+- APIM MCP and product features use the preview resource API pinned in the infrastructure source. Application Insights logger/API diagnostics are omitted when no component name is configured.
+- The existing Cosmos account is serverless; the Tokenomics child module deliberately sets no manual or autoscale throughput.
+- Cross-tenant peering modules, when enabled, must be authenticated and applied independently in their owning subscriptions. Peering is not complete until both sides report `Connected`.
+
+Core validation commands:
+
+```powershell
+pwsh scripts/validate.ps1 -DeploymentReady -IncludeParity
+az bicep build --file bicep/tokenomics-data/main.bicep
+terraform -chdir=terraform/tokenomics-data fmt -check
+terraform -chdir=terraform/tokenomics-data init -backend=false
+terraform -chdir=terraform/tokenomics-data validate
+```
 
 ## Identity and consent
 

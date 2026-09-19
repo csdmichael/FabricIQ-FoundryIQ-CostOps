@@ -1,0 +1,25 @@
+{
+  "editingSessionMashup": {
+    "mashupName": "",
+    "mashupDocument": "section Section1;\r\nshared RunLogAnalyticsQuery = (query as text) as table => let\r\n    Source = Json.Document(Web.Contents(\"https://api.loganalytics.io/v1/workspaces/${LOG_ANALYTICS_WORKSPACE_ID}/query\", [Query=[query=query, timespan=\"P${LOOKBACK_DAYS}D\", #\"x-ms-app\"=\"FabricTokenomicsDataflow\", prefer=\"ai.response-thinning=true\"], Timeout=#duration(0, 0, 4, 0)])),\r\n    TypeMap = #table({\"AnalyticsTypes\", \"Type\"}, {{\"string\", Text.Type}, {\"int\", Int32.Type}, {\"long\", Int64.Type}, {\"real\", Double.Type}, {\"timespan\", Duration.Type}, {\"datetime\", DateTimeZone.Type}, {\"bool\", Logical.Type}, {\"guid\", Text.Type}, {\"dynamic\", Text.Type}}),\r\n    DataTable = Source[tables]{0},\r\n    Columns = Table.FromRecords(DataTable[columns]),\r\n    ColumnsWithType = Table.Join(Columns, {\"type\"}, TypeMap, {\"AnalyticsTypes\"}),\r\n    Rows = Table.FromRows(DataTable[rows], Columns[name]),\r\n    Result = Table.TransformColumnTypes(Rows, Table.ToList(ColumnsWithType, each {_{0}, _{3}}))\r\nin\r\n    Result;\r\nshared msft_token_consumption = RunLogAnalyticsQuery(\"ApiManagementGatewayLlmLog\\n| where TimeGenerated >= ago(${LOOKBACK_DAYS}d) and TotalTokens > 0\\n| extend NormalizedModel=replace_regex(tostring(ModelName), @'-\\\\d{4}-\\\\d{2}-\\\\d{2}$', '')\\n| project id=strcat('msft-', hash_sha256(strcat(tostring(TimeGenerated), '|', tostring(CorrelationId)))), event_id=strcat('msft-', hash_sha256(strcat(tostring(TimeGenerated), '|', tostring(CorrelationId)))), event_ts=TimeGenerated, usage_date=startofday(TimeGenerated), ingested_at=now(), source_code='msft', account_id='azure', region='', request_id=tostring(CorrelationId), correlation_id=tostring(CorrelationId), model_family=NormalizedModel, model_name=NormalizedModel, model_version='', deployment_id=NormalizedModel, user_id_hash='unattributed', team_id='unassigned', department_id='unassigned', business_unit_id='unassigned', cost_center_id='unassigned', project_id='fabric-parts-shortages', application_id='apim', agent_id='', environment='customer', task_id='', task_type='inference', prompt_template_id='', request_count=long(1), input_tokens=tolong(PromptTokens), cached_input_tokens=long(0), cache_write_tokens=long(0), output_tokens=tolong(CompletionTokens), total_tokens=tolong(TotalTokens), context_window_tokens=long(0), tool_call_count=long(0), tool_success_count=long(0), retry_count=long(0), failure_count=long(0), latency_ms=long(0), status_code=long(200), is_stream=tobool(IsStreamCompletion), currency='USD', source_cost=real(0), tasks_completed=long(0), hours_saved=real(0), tickets_reduced=long(0), code_generated_lines=long(0), quality_score=real(0), prompt_char_count=long(0), is_anomaly_seed=false\");\r\nshared msft_platform_metric_5m = RunLogAnalyticsQuery(\"union isfuzzy=true\\n    (datatable(event_ts:datetime, service:string, region:string, project_id:string, team_id:string, model_name:string, metric_name:string, metric_value:real, unit:string, capacity_limit:real)[]),\\n    (ApiManagementGatewayLogs\\n      | where TimeGenerated >= ago(${LOOKBACK_DAYS}d)\\n      | summarize metric_value=count() by event_ts=bin(TimeGenerated, 5m), region=tostring(Region), project_id='fabric-parts-shortages', team_id='unassigned'\\n      | extend service='azure-api-management', model_name='', metric_name='request_count', unit='requests', capacity_limit=real(null)\\n      | project event_ts, service, region, project_id, team_id, model_name, metric_name, metric_value=toreal(metric_value), unit, capacity_limit),\\n    (AppRequests\\n      | where TimeGenerated >= ago(${LOOKBACK_DAYS}d)\\n      | summarize metric_value=percentile(DurationMs, 95) by event_ts=bin(TimeGenerated, 5m), project_id='fabric-parts-shortages', team_id='unassigned'\\n      | extend service='obo-broker', region='', model_name='', metric_name='p95_latency_ms', unit='milliseconds', capacity_limit=real(null)\\n      | project event_ts, service, region, project_id, team_id, model_name, metric_name, metric_value=toreal(metric_value), unit, capacity_limit)\");\r\n",
+    "queryGroups": [],
+    "documentLocale": "en-US",
+    "gatewayObjectId": null,
+    "queriesMetadata": null,
+    "connectionOverrides": [],
+    "trustedConnections": null,
+    "useHostConnectionProvider": false,
+    "fastCombine": false,
+    "allowNativeQueries": true,
+    "allowedModules": null,
+    "skipAutomaticTypeAndHeaderDetection": false,
+    "disableAutoAnonymousConnectionUpsert": true,
+    "hostProperties": {
+      "DataflowRefreshOutputFileFormat": "Parquet",
+      "EnableDateTimeFieldsForStaging": "true",
+      "EnablePublishWithoutLoadedQueries": "true"
+    },
+    "defaultOutputDestinationConfiguration": null,
+    "stagingDefinition": null
+  }
+}

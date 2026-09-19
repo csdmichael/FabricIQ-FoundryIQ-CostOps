@@ -223,6 +223,58 @@
       ]
     }
   },
+  "tokenomicsPlatform": {
+    "rawStorage": {
+      "accountName": "genieobodkm7l6ym6ryju",
+      "containerName": "tokenomics-raw",
+      "prefix": "consumption/v1"
+    },
+    "cosmos": {
+      "accountName": "caldova-showcase-dkm7l6ym6ryju",
+      "databaseName": "tokenomics",
+      "containerName": "token-consumption",
+      "partitionKeyPath": "/source_code"
+    },
+    "syntheticData": {
+      "recordCount": 12000,
+      "userCount": 500,
+      "lookbackDays": 180,
+      "endDate": "2026-09-18",
+      "randomSeed": 20260919,
+      "sourceCodes": [
+        "aws",
+        "gcp",
+        "oai",
+        "cld"
+      ]
+    },
+    "fabric": {
+      "workspaceName": "Fabric AI Tokenomics",
+      "workspaceId": "",
+      "capacityId": "37fcefa2-236a-47c0-a528-2c80137dfec0",
+      "lakehouseName": "lh_tokenomics",
+      "lakehouseId": "",
+      "sqlEndpointId": "",
+      "cosmosDataflowName": "dfg2_cosmos_token_consumption",
+      "logAnalyticsDataflowName": "dfg2_foundry_log_analytics",
+      "trainingNotebookName": "Tokenomics - Feature Engineering and Training",
+      "inferenceNotebookName": "Tokenomics - Inference and Predictions",
+      "semanticModelName": "Tokenomics FinOps Model",
+      "reportName": "Tokenomics FinOps Executive Dashboard",
+      "sourceSchemas": [
+        "aws",
+        "gcp",
+        "oai",
+        "cld",
+        "msft"
+      ],
+      "outputSchema": "ml"
+    },
+    "logAnalytics": {
+      "workspaceResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.OperationalInsights/workspaces/log-caldova-fabric-obo-fn",
+      "lookbackDays": 90
+    }
+  },
   "ui": {
     "appName": "caldova-fabric-costops-ui",
     "existingPlanName": "caldova-showcase-plan",
@@ -260,6 +312,9 @@
     "deployApimApis": true,
     "deployFoundry": true,
     "deployUi": true,
+    "deployTokenomicsData": true,
+    "deployTokenomicsSeed": true,
+    "deployTokenomicsFabric": true,
     "createCopilotStudioAgents": true
   },
   "tags": {
