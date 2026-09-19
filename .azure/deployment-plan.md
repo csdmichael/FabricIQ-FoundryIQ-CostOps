@@ -103,9 +103,10 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 - [x] Validate the live Cost Management `ActualCost` response schema at resource-group scope.
 - [x] Re-run Azure validation and what-if for the single-tenant Caldova target; record proof below.
 - [x] Commit and push source.
-- [ ] Deploy Azure resources and application code through the validated Bicep recipe.
+- [x] Deploy Azure resources and application code through the validated Bicep recipe.
 - [ ] Publish connectors and both agents only after the target environment resolves.
-- [ ] Run delegated-user, denial, MCP handshake, Lakehouse query, and deck-generation tests.
+- [x] Run delegated-user, denial, MCP handshake, Lakehouse query, and Data Agent query tests.
+- [ ] Run deck-generation tests.
 - [ ] Capture sanitized screenshots and publish them in the Fabric README.
 
 ## Deployment Gates
@@ -121,6 +122,33 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 	its tool returns a live permission-trimmed result.
 
 ## Active Validation Proof
+
+2026-09-18 live deployment and acceptance (current):
+
+- Source commits `458424b` and `5ef5dec` were pushed to `origin/main` before their
+	corresponding cloud mutations. The recovery suite passed 21 broker tests, two UI tests,
+	all Bicep/Terraform roots, APIM policy/OpenAPI parsing, packaging, and safety checks.
+- The private Foundry account/project, `gpt-5.6-sol` deployment, delegated `/24` agent
+	subnet, private endpoint/DNS, broker Function, production UI, APIM APIs/products, and two
+	Foundry AI-gateway connections all reached `Succeeded`. UI `/health` returns `{"status":"ok"}`.
+- Live APIM inventory confirms five Fabric REST/inference APIs plus two `type=mcp` APIs.
+	The published `fabric` product has five links (Lakehouse/Data Agent REST, both MCP APIs,
+	and tokenomics); `foundry` has both inference links. Lakehouse MCP exposes `tables` and
+	`query`; Data Agent MCP exposes `query`.
+- Foundry Prompt Agents `fabric-lakehouse-costops:1` and `fabric-data-agent-costops:1`
+	use separate APIM model connections and separate OAuth MCP connections. The configured
+	administrator completed user OAuth consent for both connections.
+- In-VNet acceptance passed private DNS, anonymous REST denial (`401`), denied
+	unauthenticated MCP tool calls, Lakehouse `tables`, a bounded read-only SQL `query` against
+	`INFORMATION_SCHEMA.TABLES`, and a live Fabric Data Agent `query`. Both agents completed
+	their expected MCP calls and returned final response text; no business rows were retained
+	in validation artifacts.
+- Final network posture: APIM, Foundry, Key Vault, Storage, and the broker Function retain
+	public access disabled; Key Vault, Storage, and Foundry contain zero temporary IP rules.
+	The temporary VM Blob/Foundry roles were deleted and the private runner was deallocated.
+- OBO secret creation now uses the write-only ARM `Microsoft.KeyVault/vaults/secrets`
+	resource, so identity provisioning never opens public Key Vault access. Broker package
+	upload was performed over the Blob private endpoint by an in-VNet managed identity.
 
 2026-09-18 resumed deployment validation (current):
 
@@ -247,9 +275,8 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 	web/Blob links by configured name and validates that each targets the broker VNet with
 	registration disabled; Bicep and Terraform manage only the table/vault links.
 - The recovery template keeps the dedicated Key Vault at `publicNetworkAccess=Disabled`.
-	Identity provisioning snapshots the complete vault network ACL object, temporarily opens
-	one caller IPv4 `/32` with default deny, writes the in-memory OBO credential, restores the
-	exact prior public-access and ACL state in `finally`, and verifies the restoration.
+	Identity provisioning writes the in-memory OBO credential through the write-only ARM
+	secret child resource and never changes the vault's network ACL or public-access state.
 - Recovery what-if contains `Ignore=86, Modify=11, NoChange=14`. Every modification is on
 	a deployment-owned resource. Four role-assignment deltas were verified against live UAMI
 	principal `c64f65bb-0c99-4409-aa75-4b37777d79c4`; three DNS-zone-group deltas remove only

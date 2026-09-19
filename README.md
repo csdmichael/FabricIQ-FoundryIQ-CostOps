@@ -146,7 +146,7 @@ The MCP view confirms the server name, published endpoint, and single tool ident
 - The resource app requests only `DataAgent.Execute.All`, `Lakehouse.Read.All`, and `SQLEndpoint.Read.All` delegated permissions.
 - Lakehouse SQL accepts one read-only `SELECT` or CTE, rejects multiple statements and write primitives, and caps input length and returned rows.
 - Tokens and bodies are not logged. Responses are marked `no-store`.
-- The OBO client secret is written directly to Key Vault and never to source, generated metadata, command output, Terraform state, or screenshots.
+- The OBO client secret is written through the write-only Key Vault ARM child resource while the vault remains private; it never enters source, generated metadata, command output, Terraform state, or screenshots.
 - Connector credentials are generated in memory and sent directly to Power Platform.
 
 The connector design follows [Copilot Studio OBO authentication for custom connectors](https://learn.microsoft.com/microsoft-copilot-studio/advanced-custom-connector-on-behalf-of), and Foundry connections must use [OAuth identity passthrough for MCP authentication](https://learn.microsoft.com/azure/foundry/agents/how-to/mcp-authentication). Neither path may substitute a shared application identity for the signed-in user.
@@ -233,7 +233,7 @@ Run `terraform fmt -check`, `terraform init -backend=false`, and `terraform vali
 
 A Caldova user must exist as a redeemed guest in the Fabric resource tenant before it can receive principal-scoped consent or pass the broker allowlist. Do not replace that requirement with tenant-wide consent.
 
-The script writes only nonsecret IDs to the ignored `.generated` directory. With `-KeyVaultName`, a new resource-API credential goes directly from Microsoft Graph to Key Vault and is cleared from process variables.
+The script writes only nonsecret IDs to the ignored `.generated` directory. With `-KeyVaultName`, a new resource-API credential goes directly from Microsoft Graph to the write-only Key Vault ARM secret resource and is cleared from process variables. It never enables public vault access.
 
 ## APIM APIs and MCP
 

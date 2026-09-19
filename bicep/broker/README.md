@@ -46,14 +46,14 @@ The working parameter file is the deployment script's output and must not contai
 ## Two-stage deployment
 
 1. Deploy with `deployFunction=false`. This creates the UAMI, storage account, private deployment container, Key Vault, Log Analytics workspace, Application Insights, RBAC, private DNS, and the Blob/Table/Vault private endpoints. The current deployer receives Key Vault Secrets Officer and Storage Blob Data Contributor at their resource scopes.
-2. Put the OBO credential in the output vault using an approved secret-management process. The template never creates or reads a secret resource.
-3. Build the package outside this template. A config-driven deployment script may temporarily enable storage public network access, allow only the deployer's current public `<IP>/32`, upload to the configured container/blob with `az storage blob upload --auth-mode login`, remove the rule, and restore public network access to `Disabled` in a `finally` block. Do not use account keys or connection strings. The package must exist before stage 2.
+2. Put the OBO credential in the output vault using an approved secret-management process. The repository provisioner writes the secret through the write-only ARM `vaults/secrets` child resource, so the vault remains private. The template never reads a secret value.
+3. Build the package outside this template. Prefer an in-VNet runner with managed identity and Storage Blob Data Contributor on only this storage account. A config-driven fallback may temporarily enable storage public network access, allow only one bare caller IPv4 address, upload the configured blob, remove the rule, and restore public network access to `Disabled` in a `finally` block. Do not use account keys or connection strings. The package must exist before stage 2.
 4. Complete the Entra/APIM identity provisioning and populate all generated ID parameters plus both nonempty allowlists.
 5. Deploy with `deployFunction=true`. The `generated-input-guard.bicep` module rejects empty generated IDs or allowlists before the Function App is created.
 
 `OBO_CLIENT_SECRET` is a versionless `@Microsoft.KeyVault(...)` reference. `keyVaultReferenceIdentity`, identity-based `AzureWebJobsStorage__*`, and `WEBSITE_RUN_FROM_PACKAGE_BLOB_MI_RESOURCE_ID` all use the UAMI. `WEBSITE_RUN_FROM_PACKAGE` is the HTTPS URL emitted as `packageBlobUrl`, without a SAS token. The UAMI has the repository-required storage and Key Vault roles; role-assignment names are deterministic ARM `guid()` values.
 
-Key Vault intentionally keeps `publicNetworkAccess=Enabled` as required for this broker workflow while also exposing a private endpoint. Storage and the Function App have public network access disabled.
+Key Vault, Storage, and the Function App keep public network access disabled. Key Vault secret provisioning uses ARM; broker runtime access uses the vault private endpoint and UAMI.
 
 The HTTP-only Function UAMI receives Storage Blob Data Owner for required host/package storage, Storage Table Data Contributor for optional host diagnostics, and Key Vault Secrets User for the OBO reference. It receives no Queue, Metrics Publisher, duplicate Blob Contributor, or Key Vault write role. The Function App waits for these roles plus the Blob/Table/Vault private DNS paths before startup.
 
