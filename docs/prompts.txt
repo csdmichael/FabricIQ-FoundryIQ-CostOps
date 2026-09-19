@@ -15,6 +15,8 @@ In Fabric, create a new workspace for Tokenomics that has the following data in 
 
 Implement Dataflow Gen 2 to copy token consumption from Cosmos DB and Log Analytics workspace to fabric lakehouse
 
+Also in tokenomics lakehouse, create table(s) for model prices based on time-series as model prices change and leverage pricing apis to store this data. The pricing data need to be merge with token consumption data so the reports and dashboards in powerbi by user, team, project, cost center, model family, model provider can show token consumption as well as dollar amount
+
 Create a folder in same workspace for ML Notebooks as follows:
     - Use PySpark to handle large scale
     - Implement one ML notebook for training / feature engineering / etc and another one for inference / predictions
@@ -175,3 +177,7 @@ Also, other tables for token consumption needs to be schema prefixed by source (
 Implement powerbi dashboards with tables, hierarchies, graphs / charts to demo ML outputs and handle whole finops
 
 Include Medallion Architecture png file under docs in readme and explain it in the context of this business problem. The raw data for token consumption lives in Azure Blob Storage then it gets cleanized / ETL to Cosmos DB then Fabric
+
+
+-------------------------
+build 2 foundry agents in this proj: https://ai.azure.com/nextgen/r/z4JFcKi6SXqhhApS8YMKqQ,m365-myaacoub,,foundry-myaacoub-private,sales-poc/build/agents . They need to use mcp servers: https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp, https://caldova-apim-westus.azure-api.net/fabric-lakehouse-mcp/mcp respectively. It is an obo flow to authenticate. If needed, add subscribption key in APIM for fabric product and reflect it in foundry agents.

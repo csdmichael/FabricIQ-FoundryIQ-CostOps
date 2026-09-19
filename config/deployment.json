@@ -257,10 +257,135 @@
       "sqlEndpointId": "",
       "cosmosDataflowName": "dfg2_cosmos_token_consumption",
       "logAnalyticsDataflowName": "dfg2_foundry_log_analytics",
-      "trainingNotebookName": "Tokenomics - Feature Engineering and Training",
-      "inferenceNotebookName": "Tokenomics - Inference and Predictions",
+      "mlFolderName": "ML",
+      "mlUseCases": [
+        {
+          "key": "anomaly-detection",
+          "displayName": "Anomaly Detection",
+          "folderName": "01 - Anomaly Detection",
+          "trainingNotebookName": "01 - Anomaly Detection - Training",
+          "inferenceNotebookName": "01 - Anomaly Detection - Inference",
+          "outputTableName": "anomaly_detection_output"
+        },
+        {
+          "key": "cost-forecasting",
+          "displayName": "Cost Forecasting",
+          "folderName": "02 - Cost Forecasting",
+          "trainingNotebookName": "02 - Cost Forecasting - Training",
+          "inferenceNotebookName": "02 - Cost Forecasting - Inference",
+          "outputTableName": "cost_forecast_output"
+        },
+        {
+          "key": "cost-attribution-chargeback",
+          "displayName": "Cost Attribution and Chargeback",
+          "folderName": "03 - Cost Attribution and Chargeback",
+          "trainingNotebookName": "03 - Cost Attribution and Chargeback - Training",
+          "inferenceNotebookName": "03 - Cost Attribution and Chargeback - Inference",
+          "outputTableName": "cost_attribution_chargeback_output"
+        },
+        {
+          "key": "user-segmentation",
+          "displayName": "User Segmentation",
+          "folderName": "04 - User Segmentation",
+          "trainingNotebookName": "04 - User Segmentation - Training",
+          "inferenceNotebookName": "04 - User Segmentation - Inference",
+          "outputTableName": "user_segmentation_output"
+        },
+        {
+          "key": "token-efficiency-scoring",
+          "displayName": "Token Efficiency Scoring",
+          "folderName": "05 - Token Efficiency Scoring",
+          "trainingNotebookName": "05 - Token Efficiency Scoring - Training",
+          "inferenceNotebookName": "05 - Token Efficiency Scoring - Inference",
+          "outputTableName": "token_efficiency_output"
+        },
+        {
+          "key": "budget-overrun-prediction",
+          "displayName": "Budget Overrun Prediction",
+          "folderName": "06 - Budget Overrun Prediction",
+          "trainingNotebookName": "06 - Budget Overrun Prediction - Training",
+          "inferenceNotebookName": "06 - Budget Overrun Prediction - Inference",
+          "outputTableName": "budget_overrun_output"
+        },
+        {
+          "key": "model-optimization-recommendation",
+          "displayName": "Model Optimization Recommendation Engine",
+          "folderName": "07 - Model Optimization Recommendation Engine",
+          "trainingNotebookName": "07 - Model Optimization Recommendation Engine - Training",
+          "inferenceNotebookName": "07 - Model Optimization Recommendation Engine - Inference",
+          "outputTableName": "model_optimization_output"
+        },
+        {
+          "key": "agent-roi-analytics",
+          "displayName": "Agent ROI Analytics",
+          "folderName": "08 - Agent ROI Analytics",
+          "trainingNotebookName": "08 - Agent ROI Analytics - Training",
+          "inferenceNotebookName": "08 - Agent ROI Analytics - Inference",
+          "outputTableName": "agent_roi_output"
+        },
+        {
+          "key": "intelligent-quota-management",
+          "displayName": "Intelligent Quota Management",
+          "folderName": "09 - Intelligent Quota Management",
+          "trainingNotebookName": "09 - Intelligent Quota Management - Training",
+          "inferenceNotebookName": "09 - Intelligent Quota Management - Inference",
+          "outputTableName": "quota_management_output"
+        },
+        {
+          "key": "prompt-quality-analytics",
+          "displayName": "Prompt Quality Analytics",
+          "folderName": "10 - Prompt Quality Analytics",
+          "trainingNotebookName": "10 - Prompt Quality Analytics - Training",
+          "inferenceNotebookName": "10 - Prompt Quality Analytics - Inference",
+          "outputTableName": "prompt_quality_output"
+        },
+        {
+          "key": "capacity-planning",
+          "displayName": "Capacity Planning",
+          "folderName": "11 - Capacity Planning",
+          "trainingNotebookName": "11 - Capacity Planning - Training",
+          "inferenceNotebookName": "11 - Capacity Planning - Inference",
+          "outputTableName": "capacity_planning_output"
+        },
+        {
+          "key": "executive-ai-adoption-scorecard",
+          "displayName": "Executive AI Adoption Scorecard",
+          "folderName": "12 - Executive AI Adoption Scorecard",
+          "trainingNotebookName": "12 - Executive AI Adoption Scorecard - Training",
+          "inferenceNotebookName": "12 - Executive AI Adoption Scorecard - Inference",
+          "outputTableName": "executive_adoption_output"
+        }
+      ],
+      "dataAgentName": "Tokenomics FinOps Analyst",
+      "dataAgentDescription": "Governed AI usage, market and negotiated cost, actual billed cost, forecast, anomaly, budget, quota, and optimization analysis across providers and business dimensions.",
       "semanticModelName": "Tokenomics FinOps Model",
-      "reportName": "Tokenomics FinOps Executive Dashboard",
+      "reportName": "Tokenomics Consumption and Cost Analytics",
+      "mlReportName": "Tokenomics ML Insights",
+      "dashboardName": "Tokenomics FinOps Executive Dashboard",
+      "mlDashboardName": "Tokenomics ML Operations Dashboard",
+      "reportingTables": {
+        "usageFact": "tokenomics_usage_fact",
+        "insightFact": "ml_insight_fact",
+        "priceHistory": "model_price_history",
+        "runLedger": "model_run_ledger"
+      },
+      "reportDimensions": [
+        "event_ts",
+        "usage_date",
+        "team_id",
+        "user_id_hash",
+        "project_id",
+        "department_id",
+        "business_unit_id",
+        "cost_center_id",
+        "application_id",
+        "environment",
+        "source_code",
+        "model_family",
+        "model_name",
+        "model_version",
+        "task_type"
+      ],
       "sourceSchemas": [
         "aws",
         "gcp",
@@ -269,6 +394,51 @@
         "msft"
       ],
       "outputSchema": "ml"
+    },
+    "pricing": {
+      "requestTimeoutSeconds": 120,
+      "maxPages": 100,
+      "negotiatedDiscountPercent": 12,
+      "sources": [
+        {
+          "sourceCode": "aws",
+          "sourceType": "catalog_api",
+          "sourceName": "AWS Price List Bulk API",
+          "sourceUri": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrock/current/index.json",
+          "parser": "aws_bedrock_bulk",
+          "authenticationMode": "anonymous",
+          "enabled": true
+        },
+        {
+          "sourceCode": "gcp",
+          "sourceType": "catalog_api",
+          "sourceName": "Google Cloud Billing Catalog API",
+          "sourceUri": "https://cloudbilling.googleapis.com/v1/services",
+          "parser": "gcp_cloud_billing",
+          "authenticationMode": "api_key_or_oauth",
+          "apiKeyEnvironmentVariable": "GCP_BILLING_API_KEY",
+          "bearerTokenEnvironmentVariable": "GCP_BILLING_BEARER_TOKEN",
+          "enabled": true
+        },
+        {
+          "sourceCode": "oai",
+          "sourceType": "published_price",
+          "sourceName": "OpenAI API pricing",
+          "sourceUri": "https://openai.com/api/pricing/",
+          "parser": "approved_snapshot",
+          "authenticationMode": "none",
+          "enabled": true
+        },
+        {
+          "sourceCode": "cld",
+          "sourceType": "published_price",
+          "sourceName": "Anthropic Claude pricing",
+          "sourceUri": "https://platform.claude.com/docs/en/about-claude/pricing",
+          "parser": "approved_snapshot",
+          "authenticationMode": "none",
+          "enabled": true
+        }
+      ]
     },
     "logAnalytics": {
       "workspaceResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.OperationalInsights/workspaces/log-caldova-fabric-obo-fn",
@@ -315,6 +485,7 @@
     "deployTokenomicsData": true,
     "deployTokenomicsSeed": true,
     "deployTokenomicsFabric": true,
+    "deployTokenomicsPowerBi": true,
     "createCopilotStudioAgents": true
   },
   "tags": {

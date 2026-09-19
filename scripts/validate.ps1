@@ -51,7 +51,7 @@ if ($config.apim.fabricProductId -ne 'fabric' -or $config.apim.foundryProductId 
 if ([bool]$config.deployment.deployWorkspacePrivateLink) {
     throw 'deployment.deployWorkspacePrivateLink must remain false while unsupported semantic models or external Copilot integrations exist.'
 }
-foreach ($flag in 'deployTokenomicsData', 'deployTokenomicsSeed', 'deployTokenomicsFabric') {
+foreach ($flag in 'deployTokenomicsData', 'deployTokenomicsSeed', 'deployTokenomicsFabric', 'deployTokenomicsPowerBi') {
     if ($config.deployment.$flag -isnot [bool]) {
         throw "deployment.$flag must be a boolean."
     }
@@ -80,7 +80,7 @@ if (-not [bool]$config.tokenomics.actualCost.enabled -or $config.tokenomics.actu
     throw 'Azure ActualCost configuration must be enabled, resource-group scoped, bounded, and contain only tracked deployment resources.'
 }
 $tokenomicsPlatform = $config.tokenomicsPlatform
-foreach ($path in 'tokenomicsPlatform.rawStorage.accountName', 'tokenomicsPlatform.rawStorage.containerName', 'tokenomicsPlatform.rawStorage.prefix', 'tokenomicsPlatform.cosmos.accountName', 'tokenomicsPlatform.cosmos.databaseName', 'tokenomicsPlatform.cosmos.containerName', 'tokenomicsPlatform.fabric.workspaceName', 'tokenomicsPlatform.fabric.lakehouseName', 'tokenomicsPlatform.fabric.cosmosDataflowName', 'tokenomicsPlatform.fabric.logAnalyticsDataflowName', 'tokenomicsPlatform.fabric.trainingNotebookName', 'tokenomicsPlatform.fabric.inferenceNotebookName', 'tokenomicsPlatform.fabric.semanticModelName', 'tokenomicsPlatform.fabric.reportName', 'tokenomicsPlatform.fabric.outputSchema', 'tokenomicsPlatform.logAnalytics.workspaceResourceId') {
+foreach ($path in 'tokenomicsPlatform.rawStorage.accountName', 'tokenomicsPlatform.rawStorage.containerName', 'tokenomicsPlatform.rawStorage.prefix', 'tokenomicsPlatform.cosmos.accountName', 'tokenomicsPlatform.cosmos.databaseName', 'tokenomicsPlatform.cosmos.containerName', 'tokenomicsPlatform.fabric.workspaceName', 'tokenomicsPlatform.fabric.lakehouseName', 'tokenomicsPlatform.fabric.cosmosDataflowName', 'tokenomicsPlatform.fabric.logAnalyticsDataflowName', 'tokenomicsPlatform.fabric.mlFolderName', 'tokenomicsPlatform.fabric.semanticModelName', 'tokenomicsPlatform.fabric.reportName', 'tokenomicsPlatform.fabric.mlReportName', 'tokenomicsPlatform.fabric.dashboardName', 'tokenomicsPlatform.fabric.mlDashboardName', 'tokenomicsPlatform.fabric.outputSchema', 'tokenomicsPlatform.logAnalytics.workspaceResourceId') {
     $null = Get-FabricConfigValue -Config $config -Path $path
 }
 if ($tokenomicsPlatform.rawStorage.accountName -notmatch '^[a-z0-9]{3,24}$' -or
@@ -102,6 +102,26 @@ if (@($tokenomicsPlatform.syntheticData.sourceCodes) -join ',' -ne 'aws,gcp,oai,
     @($tokenomicsPlatform.fabric.sourceSchemas) -join ',' -ne 'aws,gcp,oai,cld,msft' -or
     $tokenomicsPlatform.fabric.outputSchema -ne 'ml') {
     throw 'Tokenomics source and output schema codes must use aws,gcp,oai,cld,msft and ml.'
+}
+$mlUseCases = @($tokenomicsPlatform.fabric.mlUseCases)
+$mlOutputTables = @($mlUseCases.outputTableName)
+if ($mlUseCases.Count -ne 12 -or @($mlUseCases.key | Select-Object -Unique).Count -ne 12 -or
+    @($mlUseCases.folderName | Select-Object -Unique).Count -ne 12 -or
+    @($mlUseCases.trainingNotebookName | Select-Object -Unique).Count -ne 12 -or
+    @($mlUseCases.inferenceNotebookName | Select-Object -Unique).Count -ne 12 -or
+    @($mlOutputTables | Select-Object -Unique).Count -ne 12 -or
+    @($mlOutputTables | Where-Object { $_ -notmatch '^[a-z][a-z0-9_]{0,127}$' }).Count -gt 0) {
+    throw 'Tokenomics ML configuration must contain 12 unique use cases, folders, notebook pairs, and output tables.'
+}
+$reportingTables = @($tokenomicsPlatform.fabric.reportingTables.PSObject.Properties.Value)
+$requiredReportDimensions = @('event_ts', 'usage_date', 'team_id', 'user_id_hash', 'project_id', 'department_id', 'business_unit_id', 'cost_center_id', 'application_id', 'environment', 'source_code', 'model_family', 'model_name', 'model_version', 'task_type')
+$configuredReportDimensions = @($tokenomicsPlatform.fabric.reportDimensions)
+if ($reportingTables.Count -ne 4 -or @($reportingTables | Select-Object -Unique).Count -ne 4 -or
+    @($reportingTables | Where-Object { $_ -notmatch '^[a-z][a-z0-9_]{0,127}$' }).Count -gt 0 -or
+    ($configuredReportDimensions -join ',') -ne ($requiredReportDimensions -join ',') -or
+    @(@($config.tokenomicsPlatform.fabric.reportName, $config.tokenomicsPlatform.fabric.mlReportName) | Select-Object -Unique).Count -ne 2 -or
+    @(@($config.tokenomicsPlatform.fabric.dashboardName, $config.tokenomicsPlatform.fabric.mlDashboardName) | Select-Object -Unique).Count -ne 2) {
+    throw 'Tokenomics Power BI reporting tables or required slicing dimensions are invalid.'
 }
 $null = Assert-FabricGuid -Value $tokenomicsPlatform.fabric.capacityId -Name 'tokenomicsPlatform.fabric.capacityId'
 foreach ($path in 'workspaceId', 'lakehouseId', 'sqlEndpointId') {
@@ -188,6 +208,8 @@ try {
     & (Join-Path $repositoryRoot 'scripts/provision-tokenomics-fabric.ps1') -ValidateOnly | Out-Null
     Write-Host 'PASS Dataflow Gen2 definitions and Fabric provisioner'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'scripts/tokenomics') -Description 'Tokenomics data generator tests'
+    & (Join-Path $repositoryRoot 'scripts/publish-tokenomics-powerbi.ps1') -DefinitionOnly | Out-Null
+    Write-Host 'PASS Tokenomics Power BI semantic model and report definitions'
     Invoke-FabricNative -FilePath 'node' -ArgumentList @('--check', 'scripts/tokenomics/seed-data.mjs') -Description 'Tokenomics private seed syntax'
 
     $bicepFiles = @(

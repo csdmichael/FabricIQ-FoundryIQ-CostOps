@@ -139,14 +139,15 @@ function Get-FabricCollection {
         foreach ($item in @($page.value)) {
             $items.Add($item)
         }
-        $nextUri = [string]$page.continuationUri
+        $continuationProperty = $page.PSObject.Properties['continuationUri']
+        $nextUri = if ($null -ne $continuationProperty) { [string]$continuationProperty.Value } else { '' }
     }
-    Write-Output -NoEnumerate $items.ToArray()
+    $items.ToArray()
 }
 
 function Find-UniqueFabricObject {
     param(
-        [Parameter(Mandatory = $true)] [object[]] $Items,
+        [Parameter(Mandatory = $true)] [AllowEmptyCollection()] [object[]] $Items,
         [Parameter(Mandatory = $true)] [string] $DisplayName,
         [Parameter(Mandatory = $true)] [string] $Kind
     )
@@ -263,8 +264,11 @@ try {
             capacityId = [string]$fabric.capacityId
         })
         Wait-FabricOperation -Response $createWorkspaceResponse -Headers $headers -Description 'Tokenomics workspace creation'
-        $workspaces = @(Get-FabricCollection -Uri "$fabricApi/workspaces" -Headers $headers)
-        $workspace = Find-UniqueFabricObject -Items $workspaces -DisplayName ([string]$fabric.workspaceName) -Kind 'workspace'
+        for ($attempt = 1; $attempt -le 12 -and $null -eq $workspace; $attempt++) {
+            $workspaces = @(Get-FabricCollection -Uri "$fabricApi/workspaces" -Headers $headers)
+            $workspace = Find-UniqueFabricObject -Items $workspaces -DisplayName ([string]$fabric.workspaceName) -Kind 'workspace'
+            if ($null -eq $workspace) { Wait-RetryDelay -Seconds 5 }
+        }
         if ($null -eq $workspace) {
             throw 'Tokenomics workspace creation completed, but the workspace cannot be resolved.'
         }

@@ -2,11 +2,14 @@
 
 This guide deploys permission-trimmed Microsoft Fabric Lakehouse and Data Agent tools through [Azure API Management (APIM)](https://learn.microsoft.com/azure/api-management/genai-gateway-capabilities). Copilot Studio and Microsoft Foundry agents preserve the signed-in user through OAuth; the broker never falls back to an application identity for Fabric data. A private Foundry project uses `gpt-5.6-sol` only through attributable APIM AI Gateway routes. The responsive Angular/Ionic CostOps UI reconciles APIM token telemetry with Azure Cost Management `ActualCost` without relabeling rate-card estimates as billed cost.
 
-> **Reference status (2026-09-19):** The private broker, APIM Fabric and Foundry products, REST and MCP surfaces, private Foundry project, two OAuth Prompt Agents, Azure-billed cost reconciliation, and production CostOps UI are deployed and passed private end-to-end acceptance. The additive multi-cloud Tokenomics data platform is tracked in `config/deployment.json` and the deployment plan.
+> **Reference status (2026-09-19):** The private broker, APIM Fabric and Foundry products, REST and MCP surfaces, private Foundry project, two OAuth Prompt Agents, Azure-billed cost reconciliation, and production CostOps UI are deployed and passed private end-to-end acceptance. The Tokenomics workspace, Lakehouse/SQL endpoint, and two source-only Dataflow Gen2 items also exist. Pricing history, the 12-use-case ML manifest, a 16-table semantic model, two reports with 18 total pages, and two dashboard contracts are implemented and tested locally. Live Tokenomics publication is blocked intentionally because the Lakehouse currently has no tables; Dataflow binding, live price acquisition, the 24 notebooks and their outputs, the Data Agent, semantic model, reports, and dashboard tiles remain pending.
 
 ## Contents
 
 - [Architecture](#architecture)
+- [Data flow and model pricing ingestion](#data-flow-and-model-pricing-ingestion)
+- [Tokenomics data platform](#tokenomics-data-platform)
+- [ML notebooks](#ml-notebooks)
 - [Direct URLs and portals](#direct-urls-and-portals)
 - [Live Caldova workspace and Power BI](#live-caldova-workspace-and-power-bi)
 - [Reference Fabric screenshots](#reference-fabric-screenshots)
@@ -42,6 +45,167 @@ The medallion view describes the quality boundary inside the Tokenomics platform
 3. **Business-ready Gold:** Fabric joins effective-dated ownership, budgets, rate cards, outcomes, and capacity signals into auditable FinOps facts.
 4. **Data Science and ML:** PySpark pipelines write predictions, scores, recommendations, model manifests, validation metrics, and run ledgers only to `ml` tables.
 5. **BI and reporting:** Power BI reads governed Gold and ML outputs rather than raw payloads, preserving lineage from dashboard metrics back to source events and model versions.
+
+## Data flow and model pricing ingestion
+
+The Tokenomics platform coordinates multi-cloud telemetry ingestion, model pricing synchronization, Medallion Lakehouse transformations, PySpark ML analytics, and governed Power BI and Data Agent consumption.
+
+```mermaid
+flowchart TD
+    subgraph MultiCloud["1. Multi-Cloud Ingestion"]
+        APIM["Azure API Management / Foundry"] -->|Gateway Logs| LA["Log Analytics"]
+        AWS_GW["AWS Bedrock / Anthropic / OpenAI / Vertex"] -->|Payloads| RawBlob["Azure Blob Storage (raw)"]
+        RawBlob -->|ETL Normalization| Cosmos["Azure Cosmos DB (token-consumption)"]
+    end
+
+    subgraph PricingSync["2. Model Pricing Synchronization"]
+        AWS_Price["AWS Price List Bulk API"] --> Snap["model_price_snapshot\n(SHA-256 Provenance)"]
+        GCP_Price["Google Cloud Billing API"] --> Snap
+        Azure_Price["Azure Retail Prices API"] --> Snap
+        OAI_Price["OpenAI Pricing Catalog"] --> Snap
+        CLD_Price["Anthropic Claude Pricing"] --> Snap
+        Snap --> RateHist["model_price_history\n(Nonoverlapping Intervals)"]
+    end
+
+    subgraph FabricMedallion["3. Fabric Medallion & ML"]
+        Cosmos -->|dfg2_cosmos_token_consumption| Bronze["Lakehouse Bronze/Silver\n(aws, gcp, oai, cld, msft)"]
+        LA -->|dfg2_foundry_log_analytics| Bronze
+        Bronze & RateHist -->|As-Of Timestamp Join| Fact["ml.tokenomics_usage_fact"]
+        Fact --> ML["12 ML Use Cases (Training & Inference)"]
+        ML --> MLTables["12 ml.* Output Tables\nml.ml_insight_fact\nml.model_run_ledger"]
+    end
+
+    subgraph Serving["4. BI & Conversational Serving"]
+        Fact & MLTables --> SQL["Fabric SQL Endpoint"]
+        SQL --> DirectQuery["Power BI DirectQuery\n(Tokenomics FinOps Model)"]
+        DirectQuery --> Dashboards["Reports & Executive Dashboards"]
+        SQL --> DataAgent["Tokenomics FinOps Analyst\n(Fabric Data Agent via APIM)"]
+    end
+```
+
+### Model pricing API endpoints
+
+Model pricing ingestion queries official catalog and published endpoints, computes SHA-256 provenance hashes for auditable snapshot storage in `model_price_snapshot`, and builds contiguous, nonoverlapping `[effective_from, effective_to)` rate records with market and negotiated discount pricing in `model_price_history`:
+
+| Provider / Cloud | Source name | Endpoint URI | Type / Protocol | Auth mode | Parser / Contract |
+| --- | --- | --- | --- | --- | --- |
+| AWS Bedrock (`aws`) | AWS Price List Bulk API | `https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrock/current/index.json` | Catalog REST API / JSON | Anonymous | `aws_bedrock_bulk` |
+| Google Cloud Vertex AI (`gcp`) | Google Cloud Billing Catalog API | `https://cloudbilling.googleapis.com/v1/services` | Catalog REST API / JSON | API Key or OAuth 2.0 | `gcp_cloud_billing` |
+| Microsoft Azure / Foundry (`msft`) | Azure Retail Prices API | `https://prices.azure.com/api/retail/prices` | Public REST API / OData JSON | Anonymous | `azure_retail_prices` |
+| OpenAI (`oai`) | OpenAI API Pricing Catalog | `https://openai.com/api/pricing/` | Published catalog / Structured Markdown | Anonymous / Curated snapshot | `approved_snapshot` |
+| Anthropic Claude (`cld`) | Anthropic Claude Pricing | `https://platform.claude.com/docs/en/about-claude/pricing` | Published catalog / Structured Markdown | Anonymous / Curated snapshot | `approved_snapshot` |
+
+### Pipeline data flow stages
+
+1. **Ingestion & Raw Landing:**
+   - Multi-cloud AI invocations outside Azure are streamed into private Azure Blob Storage container `raw` under directory prefixes per provider (`aws`, `gcp`, `oai`, `cld`).
+   - Azure API Management captures streaming and non-streaming model telemetry (input/cached/output tokens, latency, status codes, client headers) and streams logs into Azure Log Analytics.
+2. **Operational Normalization:**
+   - Cleansing pipelines validate schemas, eliminate duplicates, pseudonymize sensitive identities into `user_id_hash`, and write normalized documents to Azure Cosmos DB container `token-consumption` partitioned by `/source_code`.
+3. **Price Polling & Provenance Preservation:**
+   - Automated price refresh retrieves rates across all five provider endpoints.
+   - Raw HTTP responses are hashed with SHA-256 and committed into `model_price_snapshot`.
+   - Rates are normalized into effective-dated intervals per model and version in `model_price_history`, capturing input, cached input, cache write, and output token costs per million for both market list prices and negotiated enterprise discount tiers.
+4. **Lakehouse Medallion Staging:**
+   - Dataflow Gen2 item `dfg2_cosmos_token_consumption` stages Cosmos DB operational data into Lakehouse Delta tables partitioned by source schema (`aws`, `gcp`, `oai`, `cld`).
+   - Dataflow Gen2 item `dfg2_foundry_log_analytics` extracts and normalizes Azure Foundry gateway invocations into the `msft` schema.
+5. **Effective-Dated As-Of Cost Enrichment:**
+   - PySpark transformations join each token consumption event with `model_price_history` where `event_ts >= effective_from AND (effective_to IS NULL OR event_ts < effective_to)`.
+   - Enriched events are committed to `ml.tokenomics_usage_fact`, distinguishing `reported_cost_usd`, `market_cost_usd`, `negotiated_cost_usd`, and `actual_cost_usd`.
+6. **Machine Learning Feature Engineering & Scoring:**
+   - The 12 use-case training notebooks generate features, train models, and register artifacts.
+   - The 12 inference notebooks load approved models and generate predictions, scores, allocations, or recommendations into dedicated `ml` tables (e.g., `ml.anomaly_detection_output`, `ml.cost_forecast_output`), centralized in `ml.ml_insight_fact`, with run metadata logged to `ml.model_run_ledger`.
+7. **Downstream Analytics & Delivery:**
+   - The Fabric SQL analytics endpoint exposes all 16 tables via DirectQuery to `Tokenomics FinOps Model`.
+   - Power BI renders `Tokenomics Consumption and Cost Analytics` (with date, team, user, project, provider, and model slicers) and `Tokenomics ML Insights` reports and dashboards.
+   - The Fabric Data Agent (`Tokenomics FinOps Analyst`) serves conversational queries over the governed ML facts through the private APIM gateway.
+
+## Tokenomics data platform
+
+The additive Tokenomics data plane is configured in [config/deployment.json](config/deployment.json). It standardizes AWS Bedrock (`aws`), Google Vertex AI (`gcp`), OpenAI (`oai`), Anthropic Claude (`cld`), and Microsoft Foundry (`msft`) usage without mixing provider-reported, estimated, negotiated, and billed costs.
+
+| Capability | Implemented state | Live state |
+| --- | --- | --- |
+| Fabric foundation | Idempotent workspace, capacity, Lakehouse, SQL endpoint, and Dataflow provisioning in [scripts/provision-tokenomics-fabric.ps1](scripts/provision-tokenomics-fabric.ps1) | `Fabric AI Tokenomics`, `lh_tokenomics`, and both Dataflow items are live; the current table inventory is empty |
+| Source ingestion | Source-only Cosmos DB and Log Analytics Dataflow Gen2 definitions | Items exist; credentials, private connectivity, Lakehouse destinations, and publication still require portal completion |
+| Synthetic usage | Deterministic 12,000-event, 500-user generator with balanced providers, hashed users, anomaly seeds, business outcomes, budgets, quotas, capacity, and model benchmarks | Generator and tests are implemented; a live seed must be verified per deployment |
+| Model pricing | Provider source registry, immutable snapshots, effective-dated history, provenance hashes, and deterministic as-of enrichment | Seed contracts are implemented; live API/page retrieval and scheduled persistence remain pending |
+| ML | Twelve use cases, one training and one inference notebook per use case, source schema contract, and `ml` output schema contract | The 24 target notebook names are configured but not yet generated and published |
+| Governed analytics | `Tokenomics FinOps Model`, two Power BI reports, two service dashboards, and `Tokenomics FinOps Analyst` contracts | Definitions are implemented; publication is blocked until all 16 required `ml` tables pass preflight |
+
+Pricing is deliberately effective-dated and auditable, governed by the pipeline in [Data flow and model pricing ingestion](#data-flow-and-model-pricing-ingestion):
+
+- Synthetic `reported_cost_usd` is calculated with the one price interval effective at the event timestamp. It is test data, not Azure `ActualCost` and not proof of a negotiated invoice amount.
+- Rate cards maintain separate market and negotiated tiers across nonoverlapping intervals, ensuring auditability and reproducible historical cost reconstruction.
+
+Run the deterministic contract checks with Node.js 22:
+
+```powershell
+npm ci --prefix scripts/tokenomics --no-audit --no-fund
+npm test --prefix scripts/tokenomics
+node scripts/tokenomics/generate-data.mjs --config config/deployment.json
+pwsh scripts/provision-tokenomics-fabric.ps1 -ValidateOnly
+```
+
+## ML notebooks
+
+The target Fabric hierarchy is `ML/<use-case folder>/<notebook>`. Each use case has a PySpark training/feature-engineering notebook and a separate inference/prediction notebook, for 24 notebooks across 12 folders.
+
+> **Implementation status:** The exact hierarchy and names below are validated in [config/deployment.json](config/deployment.json). At this checkpoint, the repository contains only a bootstrap training draft; generation, folder reconciliation, and publication of the complete 24-notebook set are still pending. The manifest is the source of truth until Fabric inventory readback confirms every item.
+
+| Use case | Folder under `ML` | Training notebook | Inference notebook |
+| --- | --- | --- | --- |
+| Anomaly Detection | `01 - Anomaly Detection` | `01 - Anomaly Detection - Training` | `01 - Anomaly Detection - Inference` |
+| Cost Forecasting | `02 - Cost Forecasting` | `02 - Cost Forecasting - Training` | `02 - Cost Forecasting - Inference` |
+| Cost Attribution and Chargeback | `03 - Cost Attribution and Chargeback` | `03 - Cost Attribution and Chargeback - Training` | `03 - Cost Attribution and Chargeback - Inference` |
+| User Segmentation | `04 - User Segmentation` | `04 - User Segmentation - Training` | `04 - User Segmentation - Inference` |
+| Token Efficiency Scoring | `05 - Token Efficiency Scoring` | `05 - Token Efficiency Scoring - Training` | `05 - Token Efficiency Scoring - Inference` |
+| Budget Overrun Prediction | `06 - Budget Overrun Prediction` | `06 - Budget Overrun Prediction - Training` | `06 - Budget Overrun Prediction - Inference` |
+| Model Optimization Recommendation Engine | `07 - Model Optimization Recommendation Engine` | `07 - Model Optimization Recommendation Engine - Training` | `07 - Model Optimization Recommendation Engine - Inference` |
+| Agent ROI Analytics | `08 - Agent ROI Analytics` | `08 - Agent ROI Analytics - Training` | `08 - Agent ROI Analytics - Inference` |
+| Intelligent Quota Management | `09 - Intelligent Quota Management` | `09 - Intelligent Quota Management - Training` | `09 - Intelligent Quota Management - Inference` |
+| Prompt Quality Analytics | `10 - Prompt Quality Analytics` | `10 - Prompt Quality Analytics - Training` | `10 - Prompt Quality Analytics - Inference` |
+| Capacity Planning | `11 - Capacity Planning` | `11 - Capacity Planning - Training` | `11 - Capacity Planning - Inference` |
+| Executive AI Adoption Scorecard | `12 - Executive AI Adoption Scorecard` | `12 - Executive AI Adoption Scorecard - Training` | `12 - Executive AI Adoption Scorecard - Inference` |
+
+All notebook pairs share these contracts:
+
+- Read governed Delta inputs from `aws`, `gcp`, `oai`, `cld`, and `msft`; resolve ownership and price history as of each event timestamp.
+- Use the built-in Microsoft Fabric Spark session and PySpark transformations suitable for distributed data. Do not create a standalone `SparkSession`.
+- Training notebooks publish feature definitions, validation metrics, model manifests, and run ledgers. Inference notebooks load an approved model version and publish repeatable scores, forecasts, classifications, recommendations, or allocations.
+- Write analytical outputs only under the `ml` schema with run ID, model version, scoring timestamp, and source lineage so Power BI and the Data Agent can explain each result.
+- Keep actual billed cost, provider-reported cost, market estimates, negotiated estimates, and predicted savings as separately named measures.
+
+### Power BI reports and dashboards
+
+[scripts/tokenomics/generate-powerbi.mjs](scripts/tokenomics/generate-powerbi.mjs) deterministically generates the semantic model and report definitions. [scripts/publish-tokenomics-powerbi.ps1](scripts/publish-tokenomics-powerbi.ps1) validates every required Lakehouse table and column before it creates or updates any Power BI artifact.
+
+| Artifact | Coverage | Current state |
+| --- | --- | --- |
+| `Tokenomics FinOps Model` | Four shared reporting tables plus one table for each of the 12 ML outputs | 16-table TMSL definition implemented; not live because the Lakehouse tables do not exist yet |
+| `Tokenomics Consumption and Cost Analytics` | Executive Overview, Usage and Cost Explorer, Chargeback and Allocation, and Model Economics | Four-page PBIR-Legacy definition implemented; live publication pending |
+| `Tokenomics ML Insights` | Portfolio overview, one detailed page per ML use case, and Model Governance | Fourteen-page PBIR-Legacy definition implemented; live publication pending |
+| `Tokenomics FinOps Executive Dashboard` | Live Executive Overview page from the consumption/cost report | Dashboard contract and idempotent shell creation implemented; live-page pin pending |
+| `Tokenomics ML Operations Dashboard` | Live ML Portfolio Overview page from the ML report | Dashboard contract and idempotent shell creation implemented; live-page pin pending |
+
+The consumption model and report expose date/time, team, hashed user, project, department, business unit, cost center, application, environment, provider, model family, model, model version, and task type. Measures keep requests, input/cached/output/total tokens, reported cost, market cost, negotiated cost, allocated actual cost, and predicted savings separate.
+
+The configured slicer fields are `event_ts`, `usage_date`, `team_id`, `user_id_hash`, `project_id`, `department_id`, `business_unit_id`, `cost_center_id`, `application_id`, `environment`, `source_code`, `model_family`, `model_name`, `model_version`, and `task_type`.
+
+The ML report reads a standardized output contract for every algorithm: run/scoring timestamps, entity, business and model dimensions, metric/value/unit, risk score, probability, predicted cost, estimated savings, recommendation, scoring model version, and source lineage. Its 12 detailed pages are generated directly from the configured use-case manifest, so an algorithm cannot be omitted without failing tests.
+
+Power BI dashboards are service-only artifacts. The REST API can create dashboard shells, but it does not create a new live report-page tile. After report publication, the publisher verifies the expected source-report tile and emits the exact **Pin live** portal action until each dashboard is complete.
+
+```powershell
+# Generate and validate all definitions without cloud mutation.
+pwsh scripts/publish-tokenomics-powerbi.ps1 -DefinitionOnly
+
+# Validate the live Lakehouse tables and columns without publishing.
+pwsh scripts/publish-tokenomics-powerbi.ps1 -PreflightOnly
+
+# Publish only after ingestion and all 12 inference outputs pass preflight.
+pwsh scripts/publish-tokenomics-powerbi.ps1
+```
 
 ### Private access and delegated identity
 
@@ -88,23 +252,25 @@ The status column is intentional. **Live** links identify deployed artifacts. **
 | Surface | Direct URL | Status |
 | --- | --- | --- |
 | CostOps tokenomics UI | [http://localhost:4200/](http://localhost:4200/) | Local development |
-| UI production URL | [https://caldova-fabric-costops-ui.azurewebsites.net](https://caldova-fabric-costops-ui.azurewebsites.net) | Post-deploy; public host, authenticated data |
+| UI production URL | [https://caldova-fabric-costops-ui.azurewebsites.net](https://caldova-fabric-costops-ui.azurewebsites.net) | Live; public host, authenticated data |
+| Tokenomics Fabric workspace | [Fabric AI Tokenomics](https://app.fabric.microsoft.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e?ctid=12a4b86b-e64c-43f9-af05-d9130a72dfd2) | Live foundation |
+| Tokenomics Lakehouse | [lh_tokenomics](https://app.fabric.microsoft.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e/lakehouses/2963b5a6-900d-4364-b141-16913bf4548b?ctid=12a4b86b-e64c-43f9-af05-d9130a72dfd2) | Live; SQL endpoint ready, tables pending |
 | APIM service in Azure portal | [caldova-apim-westus overview](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.ApiManagement/service/caldova-apim-westus/overview) | Live shared service |
-| APIM `fabric` product | [fabric product](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.ApiManagement/service/caldova-apim-westus/products/fabric) | Post-deploy; published |
-| APIM `foundry` product | [foundry product](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.ApiManagement/service/caldova-apim-westus/products/foundry) | Post-deploy; published |
+| APIM `fabric` product | [fabric product](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.ApiManagement/service/caldova-apim-westus/products/fabric) | Live; published |
+| APIM `foundry` product | [foundry product](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.ApiManagement/service/caldova-apim-westus/products/foundry) | Live; published |
 | APIM private gateway | [https://caldova-apim-westus.azure-api.net](https://caldova-apim-westus.azure-api.net) | Live gateway; private access |
-| Lakehouse table discovery | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse/tables](https://caldova-apim-westus.azure-api.net/fabric-lakehouse/tables) | Post-deploy |
-| Lakehouse read-only query | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse/query](https://caldova-apim-westus.azure-api.net/fabric-lakehouse/query) | Post-deploy |
-| Lakehouse MCP | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse-mcp/mcp](https://caldova-apim-westus.azure-api.net/fabric-lakehouse-mcp/mcp) | Post-deploy |
-| Data Agent query | [https://caldova-apim-westus.azure-api.net/fabric-data-agent/query](https://caldova-apim-westus.azure-api.net/fabric-data-agent/query) | Post-deploy |
-| Data Agent MCP | [https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp](https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp) | Post-deploy |
-| Tokenomics summary API | [https://caldova-apim-westus.azure-api.net/fabric-tokenomics/summary](https://caldova-apim-westus.azure-api.net/fabric-tokenomics/summary) | Post-deploy |
-| Lakehouse model gateway | [https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/lakehouse](https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/lakehouse) | Post-deploy; project managed identity only |
-| Data Agent model gateway | [https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/data-agent](https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/data-agent) | Post-deploy; project managed identity only |
-| Private Foundry account | [foundry-fabric-costops overview](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.CognitiveServices/accounts/foundry-fabric-costops/overview) | Post-deploy |
-| Foundry project endpoint | [https://foundry-fabric-costops.services.ai.azure.com/api/projects/fabric-costops](https://foundry-fabric-costops.services.ai.azure.com/api/projects/fabric-costops) | Post-deploy; private access |
-| Broker Function in Azure portal | [caldova-fabric-obo-fn overview](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Web/sites/caldova-fabric-obo-fn/overview) | Post-deploy |
-| Broker private health endpoint | [https://caldova-fabric-obo-fn.azurewebsites.net/api/health](https://caldova-fabric-obo-fn.azurewebsites.net/api/health) | Post-deploy; private access |
+| Lakehouse table discovery | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse/tables](https://caldova-apim-westus.azure-api.net/fabric-lakehouse/tables) | Live; delegated access |
+| Lakehouse read-only query | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse/query](https://caldova-apim-westus.azure-api.net/fabric-lakehouse/query) | Live; delegated access |
+| Lakehouse MCP | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse-mcp/mcp](https://caldova-apim-westus.azure-api.net/fabric-lakehouse-mcp/mcp) | Live; delegated access |
+| Data Agent query | [https://caldova-apim-westus.azure-api.net/fabric-data-agent/query](https://caldova-apim-westus.azure-api.net/fabric-data-agent/query) | Live; delegated access |
+| Data Agent MCP | [https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp](https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp) | Live; delegated access |
+| Tokenomics summary API | [https://caldova-apim-westus.azure-api.net/fabric-tokenomics/summary](https://caldova-apim-westus.azure-api.net/fabric-tokenomics/summary) | Live; delegated access |
+| Lakehouse model gateway | [https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/lakehouse](https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/lakehouse) | Live; project managed identity only |
+| Data Agent model gateway | [https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/data-agent](https://caldova-apim-westus.azure-api.net/fabric-foundry-inference/data-agent) | Live; project managed identity only |
+| Private Foundry account | [foundry-fabric-costops overview](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.CognitiveServices/accounts/foundry-fabric-costops/overview) | Live; private access |
+| Foundry project endpoint | [https://foundry-fabric-costops.services.ai.azure.com/api/projects/fabric-costops](https://foundry-fabric-costops.services.ai.azure.com/api/projects/fabric-costops) | Live; private access |
+| Broker Function in Azure portal | [caldova-fabric-obo-fn overview](https://portal.azure.com/#@12a4b86b-e64c-43f9-af05-d9130a72dfd2/resource/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Web/sites/caldova-fabric-obo-fn/overview) | Live; private access |
+| Broker private health endpoint | [https://caldova-fabric-obo-fn.azurewebsites.net/api/health](https://caldova-fabric-obo-fn.azurewebsites.net/api/health) | Live; private access |
 | Native Fabric Data Agent MCP | [https://api.fabric.microsoft.com/v1/mcp/workspaces/53829079-597d-4c27-9897-6a2042473761/dataagents/25696ea2-a91e-4b18-9846-5d045c6a082e/agent](https://api.fabric.microsoft.com/v1/mcp/workspaces/53829079-597d-4c27-9897-6a2042473761/dataagents/25696ea2-a91e-4b18-9846-5d045c6a082e/agent) | Live; Fabric bearer token required |
 | Power Platform environment | [Caldova Private in Power Apps](https://make.powerapps.com/environments/52456fcd-1d20-ecdb-aa2e-8979e3f794f5/home) | Live environment |
 | Copilot Studio environment | [Caldova Private in Copilot Studio](https://copilotstudio.microsoft.com/environments/52456fcd-1d20-ecdb-aa2e-8979e3f794f5/home) | Live environment |
@@ -198,6 +364,7 @@ Before deployment, replace or resolve:
 - dedicated Foundry account/project, exclusive agent subnet, pinned model, and per-agent connections;
 - existing Windows App Service plan, broker/UI integration subnet, and production UI URL;
 - resource-group `ActualCost` scope, billing lag, and tracked resources;
+- Tokenomics workspace/capacity, Lakehouse, Dataflow, pricing-source, ML-use-case, Data Agent, semantic-model, and report settings;
 - Power Platform environment ID;
 - allowed Fabric-tenant user object IDs.
 
@@ -237,6 +404,27 @@ Equivalent independent modules are under [terraform](terraform):
 - `ui`
 
 Run `terraform fmt -check`, `terraform init -backend=false`, and `terraform validate` before configuring a real backend. Keep state in customer-controlled remote storage; never commit state or tfvars.
+
+### Tokenomics Fabric data plane
+
+The Fabric provisioner currently reconciles the workspace, capacity assignment, schema-enabled Lakehouse/SQL endpoint, and two source-only Dataflow Gen2 definitions. It writes nonsecret item IDs and remaining portal actions to the ignored `.generated/tokenomics/fabric.json` file.
+
+```powershell
+# Validate templates and emit local Dataflow definitions without cloud mutation.
+pwsh scripts/provision-tokenomics-fabric.ps1 -ValidateOnly
+
+# Reconcile the implemented live Fabric foundation.
+pwsh scripts/provision-tokenomics-fabric.ps1
+```
+
+This command does not yet create the `ML` folder tree, publish the 24 notebooks, or configure the Tokenomics Data Agent. Those capabilities must not be marked live until the provisioner implements them and a Fabric inventory readback succeeds.
+
+Power BI is a separate, fail-closed deployment step. `-WhatIf` generates and validates definitions only; a live run first verifies all four shared reporting tables and all 12 algorithm output tables, then reconciles the semantic model, both reports, and both dashboard shells.
+
+```powershell
+pwsh scripts/deploy.ps1 -Step tokenomics-powerbi -WhatIf
+pwsh scripts/deploy.ps1 -Step tokenomics-powerbi
+```
 
 ## Infrastructure ownership and deployment guardrails
 
@@ -316,8 +504,7 @@ pwsh scripts/build-ui.ps1
 npm start --prefix ui -- --host 127.0.0.1 --port 4200
 ```
 
-Open [http://localhost:4200/](http://localhost:4200/) for the local UI. No production UI host is currently configured, so the README intentionally does not claim a public UI URL.
-The production host is [https://caldova-fabric-costops-ui.azurewebsites.net](https://caldova-fabric-costops-ui.azurewebsites.net). It serves compiled assets from the existing Windows B1 plan and proxies only `/api/fabric-tokenomics/summary` over the existing VNet peering/private DNS path. The browser still obtains and sends the delegated token; the host stores no credential and the shared APIM remains private.
+Open [http://localhost:4200/](http://localhost:4200/) for local development. The production host is [https://caldova-fabric-costops-ui.azurewebsites.net](https://caldova-fabric-costops-ui.azurewebsites.net). It serves compiled assets from the existing Windows B1 plan and proxies only `/api/fabric-tokenomics/summary` over the existing VNet peering/private DNS path. The browser still obtains and sends the delegated token; the host stores no credential and the shared APIM remains private.
 
 ## Copilot Studio agents
 
@@ -359,6 +546,9 @@ Run local validation:
 
 ```powershell
 pwsh scripts/validate.ps1 -IncludeParity
+npm test --prefix scripts/tokenomics
+pwsh scripts/provision-tokenomics-fabric.ps1 -ValidateOnly
+pwsh scripts/publish-tokenomics-powerbi.ps1 -DefinitionOnly
 ```
 
 Add `-DeploymentReady` only after the Power Platform environment and user allowlist are resolved.
@@ -374,6 +564,13 @@ Live acceptance requires all of the following:
 - The Data Agent MCP handshake initializes, lists exactly the expected tool, and returns a permission-trimmed answer.
 - The denied-user test returns `403` and no downstream data.
 - Azure Cost Management returns `ActualCost`; billing lag and unavailable states remain visible and rate-card estimates are never labeled billed.
+- Every model-price row has immutable provenance, each model's effective-date intervals are contiguous and nonoverlapping, and each usage event resolves to exactly one as-of price.
+- Fabric inventory contains the `ML` root, 12 uniquely named use-case folders, and exactly the 24 configured training/inference notebooks before notebook publication is called complete.
+- Every ML output table is in the `ml` schema and includes run, model-version, scoring-time, and source-lineage columns.
+- Power BI preflight validates all 16 reporting tables and their required columns before any semantic model or report mutation.
+- The consumption/cost report exposes all configured business and model dimensions and keeps reported, market, negotiated, actual, and predicted dollar measures separate.
+- The ML report contains the portfolio overview, exactly 12 algorithm pages, and model-run governance; both dashboards contain a live page tile from their configured source report.
+- The Tokenomics Data Agent is bound only to governed Gold/ML tables, and the semantic model/report keep billed, reported, estimated, negotiated, and predicted-savings measures distinct.
 - Both Foundry Prompt Agents route model and MCP traffic through their own APIM API IDs and expose only their configured tools.
 - Both Copilot Studio agents use user OAuth connections and publish successfully.
 - Each agent creates a `.pptx` that contains `ppt/presentation.xml`, native evidence visuals, source notes, and no invented values.
@@ -385,6 +582,9 @@ Capture screenshots only after the corresponding live check passes. Put sanitize
 - [x] Fabric Lakehouse item and schema view.
 - [x] Fabric Data Agent and bound data view.
 - [x] Fabric Data Agent MCP settings.
+- [ ] Tokenomics workspace, schema-enabled Lakehouse, SQL endpoint, and both Dataflow Gen2 items.
+- [ ] `ML` root with 12 use-case folders and all 24 published notebooks.
+- [ ] Tokenomics Data Agent, semantic model, report, and executive dashboard.
 - [ ] Resource API overview, Expose an API, v2 token manifest, and least-privilege delegated permissions.
 - [ ] Both connector app overviews, generated redirect URIs, and delegated `Fabric.Access` permissions.
 - [ ] Broker Function plan, identity, Key Vault reference settings, VNet integration, and sites private endpoint.

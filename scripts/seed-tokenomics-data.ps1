@@ -48,7 +48,7 @@ try {
         $storageAssignmentCreated = $true
     }
 
-    $cosmosScope = "/dbs/$($platform.cosmos.databaseName)/colls/$($platform.cosmos.containerName)"
+    $cosmosScope = '/'
     az cosmosdb sql role assignment create --subscription $subscriptionId --resource-group $resourceGroup --account-name $platform.cosmos.accountName --role-assignment-id $cosmosAssignmentId --role-definition-id '00000000-0000-0000-0000-000000000002' --principal-id $runnerPrincipalId --scope $cosmosScope --only-show-errors -o none
     if ($LASTEXITCODE -ne 0) { throw 'Unable to grant the temporary Cosmos data role.' }
     $cosmosAssignmentCreated = $true

@@ -6,6 +6,29 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $work = 'C:\TokenomicsSeed'
+
+function Invoke-LoggedNativeCommand {
+    param(
+        [Parameter(Mandatory = $true)] [string] $FilePath,
+        [Parameter(Mandatory = $true)] [string[]] $ArgumentList,
+        [Parameter(Mandatory = $true)] [string] $LogPath,
+        [Parameter(Mandatory = $true)] [string] $Description
+    )
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $FilePath @ArgumentList 2>&1 | Out-File -LiteralPath $LogPath -Encoding utf8
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($exitCode -ne 0) {
+        throw "$Description failed with exit code $exitCode. $((Get-Content $LogPath -Tail 20) -join ' ')"
+    }
+}
+
 if (Test-Path $work) {
     Remove-Item $work -Recurse -Force
 }
@@ -42,14 +65,8 @@ try {
 
     $toolRoot = Join-Path $repo 'scripts\tokenomics'
     $log = Join-Path $work 'seed.log'
-    & npm.cmd ci --prefix $toolRoot *> $log
-    if ($LASTEXITCODE -ne 0) {
-        throw "Tokenomics dependency installation failed. $((Get-Content $log -Tail 20) -join ' ')"
-    }
-    & npm.cmd test --prefix $toolRoot *> $log
-    if ($LASTEXITCODE -ne 0) {
-        throw "Tokenomics generator tests failed. $((Get-Content $log -Tail 20) -join ' ')"
-    }
+    Invoke-LoggedNativeCommand -FilePath 'npm.cmd' -ArgumentList @('ci', '--prefix', $toolRoot, '--no-audit', '--no-fund') -LogPath $log -Description 'Tokenomics dependency installation'
+    Invoke-LoggedNativeCommand -FilePath 'npm.cmd' -ArgumentList @('test', '--prefix', $toolRoot, '--no-audit', '--no-fund') -LogPath $log -Description 'Tokenomics generator tests'
     & node.exe (Join-Path $toolRoot 'seed-data.mjs') --config (Join-Path $repo 'config\deployment.json')
     if ($LASTEXITCODE -ne 0) {
         throw 'Tokenomics private seed failed.'

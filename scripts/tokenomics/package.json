@@ -8,6 +8,7 @@
   },
   "scripts": {
     "generate": "node generate-data.mjs",
+    "powerbi": "node generate-powerbi.mjs",
     "seed": "node seed-data.mjs",
     "test": "node --test test/*.test.mjs"
   },

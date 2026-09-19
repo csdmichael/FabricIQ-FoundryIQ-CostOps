@@ -27,6 +27,37 @@ const MODEL_CATALOG = {
   ],
 };
 
+const PRICE_SOURCES = {
+  aws: {
+    source_type: 'catalog_api',
+    source_name: 'AWS Price List Bulk API',
+    source_uri: 'https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrock/current/index.json',
+    source_api_version: 'current',
+    authentication_mode: 'anonymous',
+  },
+  gcp: {
+    source_type: 'catalog_api',
+    source_name: 'Google Cloud Billing Catalog API',
+    source_uri: 'https://cloudbilling.googleapis.com/v1/services',
+    source_api_version: 'v1',
+    authentication_mode: 'api_key_or_oauth',
+  },
+  oai: {
+    source_type: 'published_price',
+    source_name: 'OpenAI API pricing',
+    source_uri: 'https://openai.com/api/pricing/',
+    source_api_version: null,
+    authentication_mode: 'none',
+  },
+  cld: {
+    source_type: 'published_price',
+    source_name: 'Anthropic Claude pricing',
+    source_uri: 'https://platform.claude.com/docs/en/about-claude/pricing',
+    source_api_version: null,
+    authentication_mode: 'none',
+  },
+};
+
 const PERSONAS = ['casual_user', 'heavy_researcher', 'agent_builder', 'developer', 'executive_user'];
 const TASK_TYPES = ['summarization', 'research', 'code_generation', 'agent_orchestration', 'document_analysis', 'customer_support'];
 const ENVIRONMENTS = ['dev', 'test', 'prod'];
@@ -56,12 +87,107 @@ function round(value, precision = 6) {
   return Number(value.toFixed(precision));
 }
 
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
 function hash(value) {
-  return createHash('sha256').update(value).digest('hex').slice(0, 32);
+  return sha256(value).slice(0, 32);
 }
 
 function isoDate(value) {
   return value.toISOString().slice(0, 10);
+}
+
+function createPricePeriods(start, endExclusive) {
+  const dayCount = Math.max(3, Math.round((endExclusive.getTime() - start.getTime()) / 86400000));
+  const offsets = [0, Math.floor(dayCount / 3), Math.floor((dayCount * 2) / 3)];
+  const factors = [1.18, 1.08, 1];
+  return offsets.map((offset, index) => {
+    const effectiveFrom = new Date(start.getTime() + offset * 86400000);
+    const effectiveTo = index === offsets.length - 1
+      ? null
+      : new Date(start.getTime() + offsets[index + 1] * 86400000);
+    return {
+      effective_from: effectiveFrom.toISOString(),
+      effective_to: effectiveTo?.toISOString() ?? null,
+      factor: factors[index],
+    };
+  });
+}
+
+function createModelPricing(pricePeriods) {
+  const modelPriceSnapshot = [];
+  const modelPriceHistory = [];
+
+  for (const [sourceCode, models] of Object.entries(MODEL_CATALOG)) {
+    const source = PRICE_SOURCES[sourceCode];
+    for (const model of models) {
+      for (const [periodIndex, period] of pricePeriods.entries()) {
+        const rates = {
+          input_usd_per_million: round(model.input * period.factor, 6),
+          cached_input_usd_per_million: round(model.cached * period.factor, 6),
+          cache_write_usd_per_million: round(model.input * 1.25 * period.factor, 6),
+          output_usd_per_million: round(model.output * period.factor, 6),
+        };
+        const sourceRecordId = [sourceCode, model.name, model.version, period.effective_from].join('|');
+        const sourcePayload = JSON.stringify({ source_record_id: sourceRecordId, ...rates });
+        const snapshotId = `${sourceCode}-price-${hash(sourcePayload)}`;
+
+        modelPriceSnapshot.push({
+          snapshot_id: snapshotId,
+          observed_at: period.effective_from,
+          source_code: sourceCode,
+          model_family: model.family,
+          model_name: model.name,
+          model_version: model.version,
+          provider_price_record_id: sourceRecordId,
+          source_type: source.source_type,
+          source_name: source.source_name,
+          source_uri: source.source_uri,
+          source_api_version: source.source_api_version,
+          authentication_mode: source.authentication_mode,
+          retrieval_mode: source.source_type === 'catalog_api' ? 'dynamic_api_seed' : 'approved_published_snapshot',
+          source_payload_sha256: sha256(sourcePayload),
+          currency: 'USD',
+          unit_scale: 1000000,
+          ...rates,
+        });
+
+        const marketInput = rates.input_usd_per_million;
+        const marketCachedInput = rates.cached_input_usd_per_million;
+        const marketCacheWrite = rates.cache_write_usd_per_million;
+        const marketOutput = rates.output_usd_per_million;
+        modelPriceHistory.push({
+          price_id: `${sourceCode}-${hash(`price-history|${sourceRecordId}`)}`,
+          snapshot_id: snapshotId,
+          source_code: sourceCode,
+          model_family: model.family,
+          model_name: model.name,
+          model_version: model.version,
+          effective_from: period.effective_from,
+          effective_to: period.effective_to,
+          is_current: periodIndex === pricePeriods.length - 1,
+          currency: 'USD',
+          unit_scale: 1000000,
+          market_input_usd_per_million: marketInput,
+          market_cached_input_usd_per_million: marketCachedInput,
+          market_cache_write_usd_per_million: marketCacheWrite,
+          market_output_usd_per_million: marketOutput,
+          negotiated_input_usd_per_million: round(marketInput * 0.88, 6),
+          negotiated_cached_input_usd_per_million: round(marketCachedInput * 0.88, 6),
+          negotiated_cache_write_usd_per_million: round(marketCacheWrite * 0.88, 6),
+          negotiated_output_usd_per_million: round(marketOutput * 0.88, 6),
+          source_type: source.source_type,
+          source_name: source.source_name,
+          source_uri: source.source_uri,
+          source_payload_sha256: sha256(sourcePayload),
+        });
+      }
+    }
+  }
+
+  return { modelPriceSnapshot, modelPriceHistory };
 }
 
 function createUsers(count, random) {
@@ -98,6 +224,8 @@ export function generateDataset(config) {
   const endExclusive = new Date(`${settings.endDate}T00:00:00.000Z`);
   endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
   const start = new Date(endExclusive.getTime() - Number(settings.lookbackDays) * 86400000);
+  const pricePeriods = createPricePeriods(start, endExclusive);
+  const { modelPriceSnapshot, modelPriceHistory } = createModelPricing(pricePeriods);
   const users = createUsers(Number(settings.userCount), random);
   const events = [];
 
@@ -119,8 +247,19 @@ export function generateDataset(config) {
     const toolCallCount = Math.max(0, integer(random, 0, profile.calls));
     const toolSuccessCount = Math.max(0, toolCallCount - (random() < 0.08 ? 1 : 0));
     const eventTime = new Date(start.getTime() + Math.floor(random() * (endExclusive.getTime() - start.getTime())));
+    const eventPrice = modelPriceHistory.find(rate =>
+      rate.source_code === sourceCode
+      && rate.model_name === model.name
+      && rate.model_version === model.version
+      && eventTime.toISOString() >= rate.effective_from
+      && (rate.effective_to === null || eventTime.toISOString() < rate.effective_to));
     const billableInput = inputTokens - cachedInputTokens;
-    const sourceCost = ((billableInput * model.input) + (cachedInputTokens * model.cached) + (outputTokens * model.output)) / 1000000;
+    const reportedCost = (
+      (billableInput * eventPrice.market_input_usd_per_million)
+      + (cachedInputTokens * eventPrice.market_cached_input_usd_per_million)
+      + (cacheWriteTokens * eventPrice.market_cache_write_usd_per_million)
+      + (outputTokens * eventPrice.market_output_usd_per_million)
+    ) / eventPrice.unit_scale;
     const taskCompleted = failed ? 0 : 1;
     const taskId = `task-${String(index + 1).padStart(7, '0')}`;
 
@@ -166,7 +305,7 @@ export function generateDataset(config) {
       status_code: failed ? pick(random, [429, 500, 503]) : 200,
       is_stream: random() < 0.62,
       currency: 'USD',
-      source_cost: round(sourceCost, 8),
+      reported_cost_usd: round(reportedCost, 8),
       tasks_completed: taskCompleted,
       hours_saved: taskCompleted ? round(integer(random, 2, 90) / 60, 3) : 0,
       tickets_reduced: taskType === 'customer_support' && taskCompleted ? integer(random, 0, 3) : 0,
@@ -249,24 +388,6 @@ export function generateDataset(config) {
     };
   });
 
-  const modelRateCard = Object.entries(MODEL_CATALOG).flatMap(([sourceCode, models]) => models.map(model => ({
-    source_code: sourceCode,
-    model_family: model.family,
-    model_name: model.name,
-    model_version: model.version,
-    effective_from: isoDate(start),
-    effective_to: null,
-    currency: 'USD',
-    market_input_usd_per_million: model.input,
-    market_cached_input_usd_per_million: model.cached,
-    market_cache_write_usd_per_million: round(model.input * 1.25, 6),
-    market_output_usd_per_million: model.output,
-    negotiated_input_usd_per_million: round(model.input * 0.88, 6),
-    negotiated_cached_input_usd_per_million: round(model.cached * 0.88, 6),
-    negotiated_cache_write_usd_per_million: round(model.input * 1.1, 6),
-    negotiated_output_usd_per_million: round(model.output * 0.88, 6),
-  })));
-
   return {
     events,
     references: {
@@ -277,15 +398,18 @@ export function generateDataset(config) {
       release_calendar: releaseCalendar,
       quota_policy: quotaPolicies,
       capacity_metric: capacityMetrics,
-      model_rate_card: modelRateCard,
+      model_price_snapshot: modelPriceSnapshot,
+      model_price_history: modelPriceHistory,
     },
     manifest: {
-      schema_version: 1,
+      schema_version: 2,
       generated_at: endExclusive.toISOString(),
       random_seed: Number(settings.randomSeed),
       record_count: events.length,
       user_count: users.length,
       source_counts: Object.fromEntries(settings.sourceCodes.map(code => [code, events.filter(event => event.source_code === code).length])),
+      price_snapshot_count: modelPriceSnapshot.length,
+      price_history_count: modelPriceHistory.length,
       contains_pii: false,
     },
   };
