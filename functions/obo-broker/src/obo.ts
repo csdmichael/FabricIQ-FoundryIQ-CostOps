@@ -12,6 +12,10 @@ export interface OboClient {
   acquireTokenOnBehalfOf(request: { oboAssertion: string; scopes: string[]; skipCache: boolean }): Promise<AuthenticationResult | null>;
 }
 
+function diagnosticValue(value: unknown): string {
+  return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,128}$/.test(value) ? value : 'unknown';
+}
+
 export function createOboClient(config: BrokerConfig): OboClient {
   return new ConfidentialClientApplication({
     auth: {
@@ -35,7 +39,14 @@ export function createTokenExchanger(config: BrokerConfig, client = createOboCli
         }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('OBO timeout')), config.tokenExchangeTimeoutMs)),
       ]);
-    } catch {
+    } catch (error) {
+      const details = error as { errorCode?: unknown; subError?: unknown; correlationId?: unknown };
+      console.warn(JSON.stringify({
+        event: 'fabric_obo_exchange_rejected',
+        errorCode: diagnosticValue(details.errorCode),
+        subError: diagnosticValue(details.subError),
+        correlationId: diagnosticValue(details.correlationId),
+      }));
       throw new BrokerError(403, 'exchange_rejected');
     }
     if (!result?.accessToken || /[\r\n]/.test(result.accessToken) || result.accessToken.length > 32768) {

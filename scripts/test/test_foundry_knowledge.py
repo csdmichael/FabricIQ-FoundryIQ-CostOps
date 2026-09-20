@@ -1,133 +1,92 @@
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from foundry_knowledge import ensure_file_search_knowledge, ensure_lakehouse_capabilities
+from foundry_knowledge import build_foundry_iq_capabilities, ensure_foundry_iq_connection
 
 
-class FakeVectorStoreFiles:
-    def __init__(self, existing_files=None):
-        self.uploads = []
-        self.existing_files = existing_files or []
-
-    def list(self, vector_store_id, limit):
-        return self.existing_files
-
-    def upload_and_poll(self, *, vector_store_id, file, attributes):
-        self.uploads.append((vector_store_id, file.name, attributes))
-        return SimpleNamespace(id=f"file-{len(self.uploads)}", status="completed")
+class FakeCredential:
+    def get_token(self, scope):
+        if scope != "https://management.azure.com/.default":
+            raise AssertionError(f"Unexpected token scope: {scope}")
+        return SimpleNamespace(token="management-token")
 
 
-class FakeVectorStores:
-    def __init__(self, existing_store=None, existing_files=None):
-        self.files = FakeVectorStoreFiles(existing_files)
-        self.existing_store = existing_store
-        self.created = []
-        self.deleted = []
+class FakeResponse:
+    def raise_for_status(self):
+        return None
 
-    def list(self, *, limit):
-        return [self.existing_store] if self.existing_store else []
-
-    def create(self, *, name, metadata):
-        self.created.append((name, metadata))
-        return SimpleNamespace(id="vs-knowledge", name=name)
-
-    def delete(self, vector_store_id):
-        self.deleted.append(vector_store_id)
+    def json(self):
+        return {
+            "id": "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account/projects/project/connections/parts-shortages-kb",
+            "name": "parts-shortages-kb",
+        }
 
 
-class FakeOpenAI:
-    def __init__(self, existing_store=None, existing_files=None):
-        self.vector_stores = FakeVectorStores(existing_store, existing_files)
-        self.deleted_files = []
-        self.files = SimpleNamespace(delete=self.deleted_files.append)
+class FakeHttpClient:
+    def __init__(self):
+        self.requests = []
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return False
-
-
-class FakeProject:
-    def __init__(self, existing_store=None, existing_files=None):
-        self.openai = FakeOpenAI(existing_store, existing_files)
-
-    def get_openai_client(self):
-        return self.openai
+    def put(self, url, *, headers, json, timeout):
+        self.requests.append({
+            "url": url,
+            "headers": headers,
+            "json": json,
+            "timeout": timeout,
+        })
+        return FakeResponse()
 
 
 class FoundryKnowledgeTests(unittest.TestCase):
-    def test_creates_hash_addressed_file_search_knowledge(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            knowledge = root / "agents" / "lakehouse" / "knowledge" / "files"
-            knowledge.mkdir(parents=True)
-            (knowledge / "guidance.md").write_text("governed guidance\n", encoding="utf-8")
-            project = FakeProject()
+    def test_creates_project_managed_identity_knowledge_connection(self):
+        client = FakeHttpClient()
 
-            tool, metadata = ensure_file_search_knowledge(project, root, "lakehouse-agent")
+        connection = ensure_foundry_iq_connection(
+            credential=FakeCredential(),
+            project_resource_id="/subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account/projects/project",
+            connection_name="parts-shortages-kb",
+            search_endpoint="https://search.search.windows.net/",
+            knowledge_base_name="parts-shortages-lakehouse-kb",
+            http_client=client,
+        )
 
-            self.assertEqual(tool.vector_store_ids, ["vs-knowledge"])
-            self.assertEqual(metadata["type"], "file_search")
-            self.assertEqual(metadata["files"], ["agents/lakehouse/knowledge/files/guidance.md"])
-            self.assertTrue(metadata["vectorStoreName"].startswith("lakehouse-agent-knowledge-"))
-            self.assertEqual(len(project.openai.vector_stores.files.uploads), 1)
+        self.assertEqual(connection["name"], "parts-shortages-kb")
+        self.assertEqual(len(client.requests), 1)
+        request = client.requests[0]
+        self.assertEqual(
+            request["url"],
+            "https://management.azure.com/subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account/projects/project/connections/parts-shortages-kb?api-version=2025-10-01-preview",
+        )
+        self.assertEqual(request["headers"]["Authorization"], "Bearer management-token")
+        self.assertEqual(request["json"]["properties"]["category"], "RemoteTool")
+        self.assertEqual(request["json"]["properties"]["authType"], "ProjectManagedIdentity")
+        self.assertEqual(request["json"]["properties"]["audience"], "https://search.azure.com/")
+        self.assertEqual(
+            request["json"]["properties"]["target"],
+            "https://search.search.windows.net/knowledgebases/parts-shortages-lakehouse-kb/mcp?api-version=2026-08-01-preview",
+        )
 
-    def test_lakehouse_capabilities_include_file_search_and_code_interpreter(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            knowledge = root / "agents" / "lakehouse" / "knowledge" / "files"
-            knowledge.mkdir(parents=True)
-            (knowledge / "guidance.md").write_text("governed guidance\n", encoding="utf-8")
+    def test_capabilities_use_only_native_knowledge_retrieval_and_code_interpreter(self):
+        tools, metadata = build_foundry_iq_capabilities(
+            connection_id="parts-shortages-kb",
+            search_endpoint="https://search.search.windows.net",
+            knowledge_base_name="parts-shortages-lakehouse-kb",
+        )
 
-            tools, metadata = ensure_lakehouse_capabilities(FakeProject(), root, "lakehouse-agent")
-
-            self.assertEqual([tool.type for tool in tools], ["file_search", "code_interpreter"])
-            self.assertEqual(metadata["type"], "file_search")
-
-    def test_reuses_complete_hash_addressed_store(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            knowledge = root / "agents" / "lakehouse" / "knowledge" / "files"
-            knowledge.mkdir(parents=True)
-            relative_path = "agents/lakehouse/knowledge/files/guidance.md"
-            (knowledge / "guidance.md").write_text("governed guidance\n", encoding="utf-8")
-            existing_store = SimpleNamespace(id="vs-existing", name="placeholder")
-            existing_file = SimpleNamespace(id="file-existing", status="completed", attributes={"source_path": relative_path})
-            project = FakeProject(existing_store, [existing_file])
-
-            _, expected_metadata = ensure_file_search_knowledge(FakeProject(), root, "lakehouse-agent")
-            existing_store.name = expected_metadata["vectorStoreName"]
-            tool, metadata = ensure_file_search_knowledge(project, root, "lakehouse-agent")
-
-            self.assertEqual(tool.vector_store_ids, ["vs-existing"])
-            self.assertEqual(metadata["vectorStoreId"], "vs-existing")
-            self.assertEqual(project.openai.vector_stores.created, [])
-            self.assertEqual(project.openai.vector_stores.files.uploads, [])
-
-    def test_repairs_incomplete_hash_addressed_store(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            knowledge = root / "agents" / "lakehouse" / "knowledge" / "files"
-            knowledge.mkdir(parents=True)
-            (knowledge / "guidance.md").write_text("governed guidance\n", encoding="utf-8")
-            probe_project = FakeProject()
-            _, expected_metadata = ensure_file_search_knowledge(probe_project, root, "lakehouse-agent")
-            existing_store = SimpleNamespace(id="vs-incomplete", name=expected_metadata["vectorStoreName"])
-            existing_file = SimpleNamespace(id="file-incomplete", status="failed", attributes={})
-            project = FakeProject(existing_store, [existing_file])
-
-            tool, _ = ensure_file_search_knowledge(project, root, "lakehouse-agent")
-
-            self.assertEqual(tool.vector_store_ids, ["vs-knowledge"])
-            self.assertEqual(project.openai.vector_stores.deleted, ["vs-incomplete"])
-            self.assertEqual(project.openai.deleted_files, ["file-incomplete"])
-            self.assertEqual(len(project.openai.vector_stores.files.uploads), 1)
+        self.assertEqual([tool.type for tool in tools], ["mcp", "code_interpreter"])
+        self.assertEqual(tools[0].server_label, "parts-shortages-knowledge")
+        self.assertEqual(tools[0].allowed_tools, ["knowledge_base_retrieve"])
+        self.assertEqual(tools[0].project_connection_id, "parts-shortages-kb")
+        self.assertEqual(
+            tools[0].server_url,
+            "https://search.search.windows.net/knowledgebases/parts-shortages-lakehouse-kb/mcp?api-version=2026-08-01-preview",
+        )
+        self.assertNotIn("file_search", [tool.type for tool in tools])
+        self.assertEqual(metadata["type"], "foundry_iq")
+        self.assertEqual(metadata["knowledgeBaseName"], "parts-shortages-lakehouse-kb")
 
 
 if __name__ == "__main__":

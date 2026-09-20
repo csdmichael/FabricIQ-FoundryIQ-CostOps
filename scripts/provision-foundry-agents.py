@@ -7,7 +7,7 @@ from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import MCPTool, PromptAgentDefinition
 from azure.identity import AzureCliCredential
 
-from foundry_knowledge import ensure_lakehouse_capabilities
+from foundry_knowledge import build_foundry_iq_capabilities, ensure_foundry_iq_connection
 
 
 def retryable(error: Exception) -> bool:
@@ -81,6 +81,12 @@ def main() -> None:
     connection_by_kind = {item["kind"]: item for item in connection_metadata["connections"]}
     foundry = config["foundry"]
     project_endpoint = f"https://{foundry['accountName']}.services.ai.azure.com/api/projects/{foundry['projectName']}"
+    project_resource_id = (
+        f"/subscriptions/{config['azure']['subscriptionId']}"
+        f"/resourceGroups/{config['azure']['resourceGroup']}"
+        f"/providers/Microsoft.CognitiveServices/accounts/{foundry['accountName']}"
+        f"/projects/{foundry['projectName']}"
+    )
     output_path = Path(args.output).resolve()
 
     definitions = [
@@ -105,23 +111,34 @@ def main() -> None:
         credential=credential,
     ) as project:
         for item in definitions:
-            mcp = foundry["mcpConnections"][item["kind"]]
-            connection = connection_by_kind[item["kind"]]
-            tools = [MCPTool(
-                server_label=mcp["serverLabel"],
-                server_url=f"{config['apim']['gatewayUrl']}/{mcp['apiPath']}",
-                project_connection_id=connection["id"],
-                allowed_tools=mcp["allowedTools"],
-                require_approval="never",
-            )]
-            knowledge_source = None
             if item["kind"] == "lakehouse":
-                lakehouse_tools, knowledge_source = ensure_lakehouse_capabilities(
-                    project,
-                    root,
-                    item["name"],
+                knowledge_config = foundry["knowledgeBases"]["lakehouse"]
+                connection = ensure_foundry_iq_connection(
+                    credential=credential,
+                    project_resource_id=project_resource_id,
+                    connection_name=knowledge_config["connectionName"],
+                    search_endpoint=knowledge_config["searchEndpoint"],
+                    knowledge_base_name=knowledge_config["knowledgeBaseName"],
                 )
-                tools.extend(lakehouse_tools)
+                tools, knowledge_source = build_foundry_iq_capabilities(
+                    connection_id=connection["id"],
+                    search_endpoint=knowledge_config["searchEndpoint"],
+                    knowledge_base_name=knowledge_config["knowledgeBaseName"],
+                    server_label=knowledge_config["serverLabel"],
+                )
+                tool_names = ["foundry_iq_knowledge", "code_interpreter"]
+            else:
+                mcp = foundry["mcpConnections"][item["kind"]]
+                connection = connection_by_kind[item["kind"]]
+                tools = [MCPTool(
+                    server_label=mcp["serverLabel"],
+                    server_url=f"{config['apim']['gatewayUrl']}/{mcp['apiPath']}",
+                    project_connection_id=connection["id"],
+                    allowed_tools=mcp["allowedTools"],
+                    require_approval="never",
+                )]
+                knowledge_source = None
+                tool_names = ["mcp"]
             agent = create_agent(
                 project,
                 item["name"],
@@ -137,11 +154,14 @@ def main() -> None:
                 "name": agent.name,
                 "version": agent.version,
                 "model": item["model"],
-                "mcpConnectionId": connection["id"],
-                "tools": ["mcp"] + (["file_search", "code_interpreter"] if knowledge_source else []),
+                "tools": tool_names,
                 "knowledgeSource": knowledge_source,
                 "smokeTest": "pending",
             }
+            if knowledge_source:
+                result["knowledgeConnectionId"] = connection["id"]
+            else:
+                result["mcpConnectionId"] = connection["id"]
             results.append(result)
             write_checkpoint(output_path, project_endpoint, foundry, results, "in-progress")
             if not args.skip_smoke_test:

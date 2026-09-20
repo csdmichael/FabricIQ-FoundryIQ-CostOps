@@ -181,6 +181,10 @@ try {
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'ui', '--', '--watch=false') -Description 'Tokenomics UI tests'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('audit', '--prefix', 'ui', '--omit=dev') -Description 'Tokenomics UI production dependency audit'
     Invoke-FabricNative -FilePath 'node' -ArgumentList @('--check', 'ui/server.js') -Description 'Production UI host syntax'
+    $brokerBicep = Get-Content -LiteralPath (Join-Path $repositoryRoot 'bicep/broker/main.bicep') -Raw
+    if ($brokerBicep -match "keyVaultName\}\.\$\{environment\(\)\.suffixes\.keyvaultDns") {
+        throw 'Broker Key Vault references must not add a dot before environment().suffixes.keyvaultDns.'
+    }
     Invoke-FabricNative -FilePath 'python' -ArgumentList @(
         '-m', 'py_compile',
         'scripts/foundry_knowledge.py',
@@ -195,6 +199,8 @@ try {
     $parseErrors = $null
     [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $repositoryRoot 'scripts/export-tokenomics-loganalytics.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
     if (@($parseErrors).Count -gt 0) { throw 'Microsoft telemetry export helper has PowerShell parse errors.' }
+    [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $repositoryRoot 'scripts/sync-parts-shortages-foundry-iq.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
+    if (@($parseErrors).Count -gt 0) { throw 'Foundry IQ parts-shortage snapshot helper has PowerShell parse errors.' }
 
     foreach ($file in Get-ChildItem (Join-Path $repositoryRoot 'apim/openapi/*.json')) {
         $null = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json

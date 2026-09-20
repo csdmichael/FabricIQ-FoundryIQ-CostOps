@@ -31,4 +31,33 @@ test('fails closed when Entra rejects OBO or returns no token', async () => {
         await assert.rejects(createTokenExchanger(config, client)('assertion', 'fabric', Math.ceil(Date.now() / 1000) + 300), (error) => error instanceof BrokerError && [403, 502].includes(error.status));
     }
 });
+test('logs only sanitized Entra diagnostics when OBO is rejected', async () => {
+    const messages = [];
+    const originalWarn = console.warn;
+    console.warn = message => messages.push(String(message));
+    try {
+        const client = {
+            async acquireTokenOnBehalfOf() {
+                throw {
+                    errorCode: 'invalid_grant',
+                    subError: 'consent_required',
+                    correlationId: '01234567-89ab-4cde-8fab-0123456789ab',
+                    errorMessage: 'must-not-be-logged secret-value',
+                };
+            },
+        };
+        await assert.rejects(createTokenExchanger(config, client)('assertion', 'fabric', Math.ceil(Date.now() / 1000) + 300), (error) => error instanceof BrokerError && error.code === 'exchange_rejected');
+    }
+    finally {
+        console.warn = originalWarn;
+    }
+    assert.equal(messages.length, 1);
+    assert.deepEqual(JSON.parse(messages[0]), {
+        event: 'fabric_obo_exchange_rejected',
+        errorCode: 'invalid_grant',
+        subError: 'consent_required',
+        correlationId: '01234567-89ab-4cde-8fab-0123456789ab',
+    });
+    assert.doesNotMatch(messages[0], /secret-value/);
+});
 //# sourceMappingURL=obo.test.js.map

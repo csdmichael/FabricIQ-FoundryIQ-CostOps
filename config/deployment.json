@@ -110,6 +110,21 @@
       "lakehouse": "lakehouse-ai-gateway",
       "dataAgent": "data-agent-ai-gateway"
     },
+    "knowledgeBases": {
+      "lakehouse": {
+        "searchEndpoint": "https://semiconductor-search-myaacoub.search.windows.net",
+        "searchServiceName": "semiconductor-search-myaacoub",
+        "knowledgeSourceName": "parts-shortages-lakehouse",
+        "knowledgeBaseName": "parts-shortages-lakehouse-kb",
+        "connectionName": "parts-shortages-lakehouse-kb",
+        "serverLabel": "parts-shortages-knowledge",
+        "embeddingDeployment": "text-embedding-3-small-iq",
+        "outputMode": "extractiveData",
+        "retrievalReasoningEffort": "minimal",
+        "snapshotPath": "Files/foundry-iq/parts-shortages/open",
+        "batchSize": 100
+      }
+    },
     "mcpConnections": {
       "lakehouse": {
         "name": "lakehouse-mcp-oauth",

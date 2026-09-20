@@ -185,7 +185,7 @@ var webPrivateDnsZoneName = 'privatelink.azurewebsites.net'
 var blobPrivateDnsZoneName = 'privatelink.blob.${environment().suffixes.storage}'
 var tablePrivateDnsZoneName = 'privatelink.table.${environment().suffixes.storage}'
 var vaultPrivateDnsZoneName = 'privatelink.vaultcore.azure.net'
-var keyVaultSecretReference = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.${environment().suffixes.keyvaultDns}/secrets/${oboClientSecretName})'
+var keyVaultSecretReference = '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/${oboClientSecretName})'
 var deploymentPackageBlobUrl = 'https://${storageAccountName}.blob.${environment().suffixes.storage}/${deploymentContainerName}/${packageBlobName}'
 
 var storageBlobDataContributorRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')

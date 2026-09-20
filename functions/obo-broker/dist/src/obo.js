@@ -1,6 +1,9 @@
 import { ConfidentialClientApplication } from '@azure/msal-node';
 import { downstreamScope } from './config.js';
 import { BrokerError } from './errors.js';
+function diagnosticValue(value) {
+    return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,128}$/.test(value) ? value : 'unknown';
+}
 export function createOboClient(config) {
     return new ConfidentialClientApplication({
         auth: {
@@ -24,7 +27,14 @@ export function createTokenExchanger(config, client = createOboClient(config)) {
                 new Promise((_, reject) => setTimeout(() => reject(new Error('OBO timeout')), config.tokenExchangeTimeoutMs)),
             ]);
         }
-        catch {
+        catch (error) {
+            const details = error;
+            console.warn(JSON.stringify({
+                event: 'fabric_obo_exchange_rejected',
+                errorCode: diagnosticValue(details.errorCode),
+                subError: diagnosticValue(details.subError),
+                correlationId: diagnosticValue(details.correlationId),
+            }));
             throw new BrokerError(403, 'exchange_rejected');
         }
         if (!result?.accessToken || /[\r\n]/.test(result.accessToken) || result.accessToken.length > 32768) {
