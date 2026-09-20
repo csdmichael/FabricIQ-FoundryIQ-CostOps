@@ -21,6 +21,13 @@ test('generates deterministic provider-balanced token consumption without PII', 
   assert.equal(new Set(first.events.map(event => event.id)).size, settings.recordCount);
   assert.ok(first.events.some(event => event.is_anomaly_seed));
   assert.ok(first.events.every(event => event.reported_cost_usd >= 0 && event.total_tokens === event.input_tokens + event.output_tokens));
+  assert.ok(first.events.every(event => event.request_count >= Math.floor(settings.requestsPerRecord * 0.5)));
+  assert.ok(first.events.reduce((total, event) => total + event.request_count, 0) > 10_000_000);
+  assert.ok(first.events.reduce((total, event) => total + event.total_tokens, 0) > 50_000_000_000);
+    assert.equal(first.manifest.request_count, first.events.reduce((total, event) => total + event.request_count, 0));
+    assert.equal(first.manifest.total_tokens, first.events.reduce((total, event) => total + event.total_tokens, 0));
+    assert.match(first.manifest.event_set_sha256, /^[0-9a-f]{64}$/);
+    assert.equal(first.manifest.event_set_sha256, second.manifest.event_set_sha256);
   assert.ok(first.events.every(event => !('market_cost_usd' in event) && !('negotiated_cost_usd' in event)));
   assert.ok(first.events.every(event => /^[a-f0-9]{32}$/.test(event.user_id_hash)));
   assert.ok(first.events.every(event => !('user_name' in event) && !('prompt_text' in event)));

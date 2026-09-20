@@ -64,14 +64,34 @@ test('generates consumption and cost pages with every requested slicing dimensio
   assert.equal(binding.datasetReference.byConnection.connectionString, `semanticmodelid=${semanticModelId}`);
   assert.deepEqual(report.sections.map(section => section.displayName), [
     'Executive Overview',
+    'Consumption by User',
+    'Consumption by Provider',
     'Usage and Cost Explorer',
     'Chargeback and Allocation',
     'Model Economics',
   ]);
+
+  const expectedDrilldowns = new Map([
+    ['Consumption by User', ['user_id_hash', 'model_family', 'source_code', 'model_name', 'model_version']],
+    ['Consumption by Provider', ['source_code', 'model_family', 'model_name', 'model_version', 'user_id_hash']],
+  ]);
+  for (const [pageName, expectedRows] of expectedDrilldowns) {
+    const page = report.sections.find(section => section.displayName === pageName);
+    const visuals = page.visualContainers.map(container => JSON.parse(container.config).singleVisual);
+    const matrix = visuals.find(visual => visual.visualType === 'pivotTable');
+    assert.ok(matrix, `${pageName} is missing its drilldown matrix.`);
+    assert.deepEqual(matrix.projections.Rows.map(row => row.queryRef), expectedRows.map(row => `Usage.${row}`));
+    assert.deepEqual(matrix.projections.Values.map(value => value.queryRef), [
+      'Usage.Total Tokens',
+      'Usage.Reported Cost',
+      'Usage.Market Cost',
+      'Usage.Negotiated Cost',
+    ]);
+  }
   for (const dimension of config.tokenomicsPlatform.fabric.reportDimensions) {
     assert.ok(serialized.includes(`Usage.${dimension}`), `Consumption report is missing '${dimension}'.`);
   }
-  for (const measure of ['Usage.Total Tokens', 'Usage.Reported Cost', 'Usage.Market Cost', 'Usage.Negotiated Cost', 'Usage.Actual Cost']) {
+  for (const measure of ['Usage.Total Tokens', 'Usage.Reported Cost', 'Usage.Market Cost', 'Usage.Negotiated Cost']) {
     assert.ok(serialized.includes(measure), `Consumption report is missing '${measure}'.`);
   }
 });

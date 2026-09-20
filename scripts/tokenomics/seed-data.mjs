@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generateDataset } from './generate-data.mjs';
+import { eventSetFingerprint } from './generate-data.mjs';
 
 function argument(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -98,6 +99,24 @@ async function main() {
     connectionPolicy: { requestTimeout: 120000, enableEndpointDiscovery: true },
   });
   const items = cosmos.database(platform.cosmos.databaseName).container(platform.cosmos.containerName).items;
+  const desiredKeys = new Set(dataset.events.map(event => `${event.source_code}\0${event.id}`));
+  const existingResponse = await retry('list existing Cosmos seed rows', () => items.query({
+    query: 'SELECT c.id, c.source_code FROM c',
+  }).fetchAll());
+  const staleByPartition = Map.groupBy(
+    existingResponse.resources.filter(item => !desiredKeys.has(`${item.source_code}\0${item.id}`)),
+    item => item.source_code,
+  );
+  for (const [sourceCode, staleItems] of staleByPartition) {
+    for (let offset = 0; offset < staleItems.length; offset += 100) {
+      const operations = staleItems.slice(offset, offset + 100).map(item => ({
+        operationType: 'Delete',
+        partitionKey: sourceCode,
+        id: item.id,
+      }));
+      await executeBulkWithRetry(items, operations, `Cosmos stale-row cleanup ${sourceCode} ${offset}`);
+    }
+  }
   for (let offset = 0; offset < dataset.events.length; offset += 100) {
     const operations = dataset.events.slice(offset, offset + 100).map(item => ({
       operationType: 'Upsert',
@@ -108,21 +127,34 @@ async function main() {
   }
 
   const container = cosmos.database(platform.cosmos.databaseName).container(platform.cosmos.containerName);
-  const verification = {};
+  const verificationResponse = await retry('verify complete Cosmos seed', () => container.items.query({
+    query: 'SELECT * FROM c',
+  }).fetchAll());
+  const cosmosEvents = verificationResponse.resources.map(item => Object.fromEntries(
+    Object.entries(item).filter(([name]) => !name.startsWith('_')),
+  ));
+  if (cosmosEvents.length !== dataset.events.length) {
+    throw new Error(`Cosmos verification expected ${dataset.events.length} total rows but found ${cosmosEvents.length}.`);
+  }
+  const verification = Object.fromEntries(platform.syntheticData.sourceCodes.map(sourceCode => [
+    sourceCode,
+    cosmosEvents.filter(event => event.source_code === sourceCode).length,
+  ]));
   for (const sourceCode of platform.syntheticData.sourceCodes) {
-    const query = {
-      query: 'SELECT VALUE COUNT(1) FROM c WHERE c.source_code = @sourceCode',
-      parameters: [{ name: '@sourceCode', value: sourceCode }],
-    };
-    const response = await retry(`verify ${sourceCode}`, () => container.items.query(query, { partitionKey: sourceCode }).fetchAll());
-    verification[sourceCode] = Number(response.resources[0]);
     if (verification[sourceCode] !== dataset.manifest.source_counts[sourceCode]) {
       throw new Error(`Cosmos verification mismatch for ${sourceCode}.`);
     }
   }
+  const cosmosFingerprint = eventSetFingerprint(cosmosEvents);
+  if (cosmosFingerprint !== dataset.manifest.event_set_sha256) {
+    throw new Error('Cosmos verification fingerprint does not match the generated event set.');
+  }
 
   process.stdout.write(`${JSON.stringify({
     recordCount: dataset.events.length,
+    requestCount: dataset.manifest.request_count,
+    totalTokens: dataset.manifest.total_tokens,
+    eventSetSha256: cosmosFingerprint,
     sourceCounts: verification,
     rawPrefix: `${platform.rawStorage.containerName}/${platform.rawStorage.prefix}`,
     cosmosDatabase: platform.cosmos.databaseName,

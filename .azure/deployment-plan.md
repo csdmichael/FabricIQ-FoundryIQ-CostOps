@@ -138,6 +138,16 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 
 ## Active Validation Proof
 
+2026-09-20 CostOps drilldown, enterprise sample, Fabric sync, and agent validation:
+
+- `scripts/validate.ps1 -DeploymentReady -IncludeParity -SkipTerraformInit` passed the configuration contract, 21 broker tests, UI production build and tests, dependency audits, six Tokenomics generator/report tests, OneLake transaction tests, empty-source Delta schema test, seven Bicep roots, Terraform parity, PowerShell syntax, and deployment safety tests.
+- The deterministic 12,000-interval sample contains 13,660,618 requests and 85,341,422,485 tokens across 500 hashed users. A full-container Cosmos readback must match SHA-256 `28a7cd544a5a1e39b656bf82c75826b91242c666e0fbcbdce77fdda13277f1e8` before Fabric synchronization can run.
+- OneLake replacement uploads and verifies staged Delta files before live swaps, journals each rename, retains backups through SQL acceptance, supports idempotent rollback, and resumes finalization after interruption. Power BI publication requires the matching sync checkpoint and exact live SQL row/request/token totals.
+- The Microsoft telemetry export joins LLM logs only to the two configured Foundry inference API IDs and includes a full-result row-count marker. The current scoped 90-day query returned zero rows and produced a checkpointed, schema-valid empty `msft` Delta table; no Microsoft usage was fabricated.
+- The consumption report definition contains expandable `User > Model Family > Provider > Model > Version` and `Provider > Model Family > Model > Version > User` matrices with total tokens plus reported, market, and negotiated dollars. Synthetic `actual_cost_usd` remains blank and the notebook run ledger remains empty until verified billing and notebook execution occur.
+- Foundry unit tests passed hash-addressed vector-store creation/reuse/repair and verified the Lakehouse agent capability bundle includes MCP, file search, and Code Interpreter; the Data Agent definition retains its dedicated Fabric Data Agent MCP query tool.
+- The Tokenomics child-resource what-if contains only two reviewed deployment-owned Azure read-model defaults (`/_ts` conflict resolution and account encryption defaults). It contains no resource deletes or replacements; no infrastructure deployment is required for this application-only release.
+
 2026-09-19 Tokenomics data-platform validation (current):
 
 - `scripts/validate.ps1 -DeploymentReady -IncludeParity -SkipTerraformInit` passed the shared configuration contract, 21 broker tests, two UI tests, two deterministic Tokenomics generator tests, production dependency audits, Dataflow definition rendering, seven Bicep roots, all Terraform parity modules, and PowerShell/Python/Node syntax.

@@ -2,6 +2,7 @@
 param(
     [string] $ConfigPath = (Join-Path $PSScriptRoot '../config/deployment.json'),
     [string] $RunnerVmName = 'caldova-jump',
+    [string] $OutputPath = (Join-Path $PSScriptRoot '../.generated/tokenomics/cosmos-seed.json'),
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[0-9a-f]{40}$')]
     [string] $RepositoryCommit,
@@ -37,6 +38,9 @@ $storageAssignmentId = $null
 $storageAssignmentCreated = $false
 $cosmosAssignmentId = [guid]::NewGuid().ToString()
 $cosmosAssignmentCreated = $false
+$checkpoint = $null
+$resolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
+Remove-Item -LiteralPath $resolvedOutputPath -Force -ErrorAction SilentlyContinue
 
 try {
     $storageAssignmentId = az role assignment list --subscription $subscriptionId --assignee-object-id $runnerPrincipalId --role 'Storage Blob Data Contributor' --scope $storageScope --query '[0].id' -o tsv
@@ -68,7 +72,25 @@ try {
     if ([int]$verification.recordCount -ne [int]$platform.syntheticData.recordCount) {
         throw 'The private seed verification count does not match configuration.'
     }
-    $verification
+    if ([string]$verification.eventSetSha256 -notmatch '^[0-9a-f]{64}$' -or
+        [int64]$verification.requestCount -lt [int]$verification.recordCount -or
+        [int64]$verification.totalTokens -lt [int64]$verification.requestCount) {
+        throw 'The private seed verification fingerprint or aggregate totals are invalid.'
+    }
+    $checkpoint = [ordered]@{
+        schemaVersion = 1
+        verifiedAt = [DateTimeOffset]::UtcNow.ToString('o')
+        configFingerprint = Get-FabricConfigFingerprint -Path $ConfigPath
+        repositoryCommit = $RepositoryCommit
+        recordCount = [int]$verification.recordCount
+        requestCount = [int64]$verification.requestCount
+        totalTokens = [int64]$verification.totalTokens
+        eventSetSha256 = [string]$verification.eventSetSha256
+        sourceCounts = $verification.sourceCounts
+        cosmosDatabase = [string]$verification.cosmosDatabase
+        cosmosContainer = [string]$verification.cosmosContainer
+        rawPrefix = [string]$verification.rawPrefix
+    }
 }
 finally {
     $cleanupFailures = @()
@@ -88,3 +110,10 @@ finally {
         throw "Tokenomics seed cleanup failed: $($cleanupFailures -join ', ')."
     }
 }
+
+if ($null -eq $checkpoint) { throw 'Tokenomics seed completed without a verification checkpoint.' }
+New-Item -ItemType Directory -Path (Split-Path -Parent $resolvedOutputPath) -Force | Out-Null
+$temporaryOutputPath = "$resolvedOutputPath.tmp"
+$checkpoint | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $temporaryOutputPath -Encoding utf8
+Move-Item -LiteralPath $temporaryOutputPath -Destination $resolvedOutputPath -Force
+Get-Content -LiteralPath $resolvedOutputPath -Raw | ConvertFrom-Json

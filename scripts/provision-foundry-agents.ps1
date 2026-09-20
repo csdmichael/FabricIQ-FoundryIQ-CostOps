@@ -219,6 +219,8 @@ try {
     }
     & $venvPython -m pip install --disable-pip-version-check --quiet -r (Join-Path $PSScriptRoot 'requirements-foundry.txt')
     if ($LASTEXITCODE -ne 0) { throw 'Unable to install pinned Foundry provisioning dependencies.' }
+    & $venvPython (Join-Path $PSScriptRoot 'test/test_foundry_knowledge.py')
+    if ($LASTEXITCODE -ne 0) { throw 'Foundry knowledge-source tests failed.' }
     $pythonArguments = @(
         (Join-Path $PSScriptRoot 'provision-foundry-agents.py'),
         '--config', $ConfigPath,

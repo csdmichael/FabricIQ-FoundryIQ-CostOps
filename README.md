@@ -126,9 +126,9 @@ The additive Tokenomics data plane is configured in [config/deployment.json](con
 
 | Capability | Implemented state | Live state |
 | --- | --- | --- |
-| Fabric foundation | Idempotent workspace, capacity, Lakehouse, SQL endpoint, and Dataflow provisioning in [scripts/provision-tokenomics-fabric.ps1](scripts/provision-tokenomics-fabric.ps1) | `Fabric AI Tokenomics`, `lh_tokenomics`, and both Dataflow items are live; the current table inventory is empty |
-| Source ingestion | Source-only Cosmos DB and Log Analytics Dataflow Gen2 definitions | Items exist; credentials, private connectivity, Lakehouse destinations, and publication still require portal completion |
-| Synthetic usage | Deterministic 12,000-event, 500-user generator with balanced providers, hashed users, anomaly seeds, business outcomes, budgets, quotas, capacity, and model benchmarks | Generator and tests are implemented; a live seed must be verified per deployment |
+| Fabric foundation | Idempotent workspace, capacity, Lakehouse, SQL endpoint, and Dataflow provisioning in [scripts/provision-tokenomics-fabric.ps1](scripts/provision-tokenomics-fabric.ps1) | `Fabric AI Tokenomics`, `lh_tokenomics`, and both Dataflow items are live |
+| Source ingestion | Cosmos readback fingerprint, config-driven Delta materialization, replace-safe OneLake upload, and SQL endpoint verification in [scripts/sync-tokenomics-to-fabric.ps1](scripts/sync-tokenomics-to-fabric.ps1) | The executable sync promotes only the exact snapshot verified in Cosmos; source-only Dataflows remain available for future managed refresh |
+| Synthetic usage | Deterministic 12,000-interval, 500-user generator representing 13.6 million requests and 85.3 billion tokens, with balanced providers, hashed users, anomaly seeds, business outcomes, budgets, quotas, capacity, and model benchmarks | Large-enterprise sample scale is enforced by tests; each live seed is fingerprinted after Cosmos readback |
 | Model pricing | Provider source registry, immutable snapshots, effective-dated history, provenance hashes, and deterministic as-of enrichment | Seed contracts are implemented; live API/page retrieval and scheduled persistence remain pending |
 | ML | Twelve use cases, one training and one inference notebook per use case, source schema contract, and `ml` output schema contract | The 24 target notebook names are configured but not yet generated and published |
 | Governed analytics | `Tokenomics FinOps Model`, two Power BI reports, two service dashboards, and `Tokenomics FinOps Analyst` contracts | Definitions are implemented; publication is blocked until all 16 required `ml` tables pass preflight |
@@ -183,12 +183,14 @@ All notebook pairs share these contracts:
 | Artifact | Coverage | Current state |
 | --- | --- | --- |
 | `Tokenomics FinOps Model` | Four shared reporting tables plus one table for each of the 12 ML outputs | 16-table TMSL definition implemented; not live because the Lakehouse tables do not exist yet |
-| `Tokenomics Consumption and Cost Analytics` | Executive Overview, Usage and Cost Explorer, Chargeback and Allocation, and Model Economics | Four-page PBIR-Legacy definition implemented; live publication pending |
+| `Tokenomics Consumption and Cost Analytics` | Executive Overview; expandable User > Model Family > Provider > Model > Version and Provider > Model Family > Model > Version > User matrices; Usage and Cost Explorer; Chargeback and Allocation; Model Economics | Six-page PBIR-Legacy definition implemented; live publication pending |
 | `Tokenomics ML Insights` | Portfolio overview, one detailed page per ML use case, and Model Governance | Fourteen-page PBIR-Legacy definition implemented; live publication pending |
 | `Tokenomics FinOps Executive Dashboard` | Live Executive Overview page from the consumption/cost report | Dashboard contract and idempotent shell creation implemented; live-page pin pending |
 | `Tokenomics ML Operations Dashboard` | Live ML Portfolio Overview page from the ML report | Dashboard contract and idempotent shell creation implemented; live-page pin pending |
 
-The consumption model and report expose date/time, team, hashed user, project, department, business unit, cost center, application, environment, provider, model family, model, model version, and task type. Measures keep requests, input/cached/output/total tokens, reported cost, market cost, negotiated cost, allocated actual cost, and predicted savings separate.
+The consumption model and report expose date/time, team, hashed user, project, department, business unit, cost center, application, environment, provider, model family, model, model version, and task type. Sample-data visuals keep requests, input/cached/output/total tokens, reported cost, market cost, negotiated cost, and predicted savings separate. `actual_cost_usd` remains blank until a verified Azure billing allocation is loaded.
+
+The user and provider matrix pages start with high-level totals and expose expand/collapse controls for each hierarchy level. Every level retains `Total Tokens`, `Reported Cost`, `Market Cost`, and `Negotiated Cost`, with date, team, and project slicers available on both pages.
 
 The configured slicer fields are `event_ts`, `usage_date`, `team_id`, `user_id_hash`, `project_id`, `department_id`, `business_unit_id`, `cost_center_id`, `application_id`, `environment`, `source_code`, `model_family`, `model_name`, `model_version`, and `task_type`.
 
@@ -422,6 +424,12 @@ This command does not yet create the `ML` folder tree, publish the 24 notebooks,
 Power BI is a separate, fail-closed deployment step. `-WhatIf` generates and validates definitions only; a live run first verifies all four shared reporting tables and all 12 algorithm output tables, then reconciles the semantic model, both reports, and both dashboard shells.
 
 ```powershell
+# Seed Cosmos from a commit already pushed to origin/main.
+pwsh scripts/deploy.ps1 -Step tokenomics-seed -RepositoryCommit <commit-sha>
+
+# Materialize and upload only the snapshot whose fingerprint was read back from Cosmos.
+pwsh scripts/deploy.ps1 -Step tokenomics-sync
+
 pwsh scripts/deploy.ps1 -Step tokenomics-powerbi -WhatIf
 pwsh scripts/deploy.ps1 -Step tokenomics-powerbi
 ```
@@ -535,10 +543,10 @@ Both Prompt Agents use pinned `gpt-5.6-sol` version `2026-07-09` through a disti
 
 | Prompt Agent | Model connection | MCP connection | Allowed tools |
 | --- | --- | --- | --- |
-| `fabric-lakehouse-costops` | `lakehouse-ai-gateway/gpt-5.6-sol` | `lakehouse-mcp-oauth` | `tables`, `query` |
+| `fabric-lakehouse-costops` | `lakehouse-ai-gateway/gpt-5.6-sol` | `lakehouse-mcp-oauth` | `tables`, `query`, file-search knowledge from `agents/lakehouse/knowledge/files`, and Code Interpreter for downloadable artifacts |
 | `fabric-data-agent-costops` | `data-agent-ai-gateway/gpt-5.6-sol` | `data-agent-mcp-oauth` | `query` |
 
-[scripts/provision-foundry-agents.ps1](scripts/provision-foundry-agents.ps1) creates one custom OAuth client and `RemoteTool` connection per MCP endpoint, requests only `Fabric.Access offline_access`, registers each Foundry-generated redirect URI, and rotates credentials directly into the connection store. It checkpoints every verified connection and agent version so an idempotent rerun can resume after a partial failure without exposing credentials. [The Python helper](scripts/provision-foundry-agents.py) creates idempotent agent versions and runs a model-only gateway smoke test. Full tool acceptance still requires the allowed user to complete the per-connection OAuth consent flow described in [Set up MCP server authentication](https://learn.microsoft.com/azure/foundry/agents/how-to/mcp-authentication).
+[scripts/provision-foundry-agents.ps1](scripts/provision-foundry-agents.ps1) creates one custom OAuth client and `RemoteTool` connection per MCP endpoint, requests only `Fabric.Access offline_access`, registers each Foundry-generated redirect URI, and rotates credentials directly into the connection store. It checkpoints every verified connection and agent version so an idempotent rerun can resume after a partial failure without exposing credentials. [The Python helper](scripts/provision-foundry-agents.py) creates idempotent agent versions, attaches hash-addressed file-search knowledge to the Lakehouse agent, records the effective tool list, and runs a model-only gateway smoke test. Full MCP acceptance still requires the allowed user to complete the per-connection OAuth consent flow described in [Set up MCP server authentication](https://learn.microsoft.com/azure/foundry/agents/how-to/mcp-authentication).
 
 ## Validation and acceptance
 

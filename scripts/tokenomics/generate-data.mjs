@@ -91,6 +91,22 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export function eventSetFingerprint(events) {
+  const canonicalEvents = [...events]
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map(canonicalJson)
+    .join('\n');
+  return sha256(canonicalEvents);
+}
+
 function hash(value) {
   return sha256(value).slice(0, 32);
 }
@@ -237,8 +253,12 @@ export function generateDataset(config) {
     const profile = tokenProfile(user.persona);
     const anomaly = random() < 0.018;
     const multiplier = anomaly ? integer(random, 5, 14) : 1;
-    const inputTokens = integer(random, Math.floor(profile.input * 0.25), Math.floor(profile.input * 1.8)) * multiplier;
-    const outputTokens = integer(random, Math.floor(profile.output * 0.2), Math.floor(profile.output * 1.5)) * multiplier;
+    const requestsPerRecord = Math.max(1, Number(settings.requestsPerRecord ?? 1));
+    const requestCount = integer(random, Math.floor(requestsPerRecord * 0.5), Math.ceil(requestsPerRecord * 1.5)) * multiplier;
+    const inputTokensPerRequest = integer(random, Math.floor(profile.input * 0.25), Math.floor(profile.input * 1.8));
+    const outputTokensPerRequest = integer(random, Math.floor(profile.output * 0.2), Math.floor(profile.output * 1.5));
+    const inputTokens = inputTokensPerRequest * requestCount;
+    const outputTokens = outputTokensPerRequest * requestCount;
     const cacheRatio = Math.min(0.85, Math.max(0, random() * 0.75 - (taskType === 'agent_orchestration' ? 0.08 : 0)));
     const cachedInputTokens = Math.floor(inputTokens * cacheRatio);
     const cacheWriteTokens = Math.floor(inputTokens * random() * 0.08);
@@ -290,13 +310,13 @@ export function generateDataset(config) {
       task_id: taskId,
       task_type: taskType,
       prompt_template_id: `prompt-${taskType}-${String((index % 12) + 1).padStart(2, '0')}`,
-      request_count: 1,
+      request_count: requestCount,
       input_tokens: inputTokens,
       cached_input_tokens: cachedInputTokens,
       cache_write_tokens: cacheWriteTokens,
       output_tokens: outputTokens,
       total_tokens: inputTokens + outputTokens,
-      context_window_tokens: Math.min(model.context, inputTokens + outputTokens + integer(random, 0, 5000)),
+      context_window_tokens: Math.min(model.context, inputTokensPerRequest + outputTokensPerRequest + integer(random, 0, 5000)),
       tool_call_count: toolCallCount,
       tool_success_count: toolSuccessCount,
       retry_count: retryCount,
@@ -406,6 +426,9 @@ export function generateDataset(config) {
       generated_at: endExclusive.toISOString(),
       random_seed: Number(settings.randomSeed),
       record_count: events.length,
+      request_count: events.reduce((total, event) => total + event.request_count, 0),
+      total_tokens: events.reduce((total, event) => total + event.total_tokens, 0),
+      event_set_sha256: eventSetFingerprint(events),
       user_count: users.length,
       source_counts: Object.fromEntries(settings.sourceCodes.map(code => [code, events.filter(event => event.source_code === code).length])),
       price_snapshot_count: modelPriceSnapshot.length,

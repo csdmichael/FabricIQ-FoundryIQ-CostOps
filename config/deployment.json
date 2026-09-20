@@ -238,6 +238,7 @@
     "syntheticData": {
       "recordCount": 12000,
       "userCount": 500,
+      "requestsPerRecord": 1000,
       "lookbackDays": 180,
       "endDate": "2026-09-18",
       "randomSeed": 20260919,
@@ -485,6 +486,7 @@
     "deployTokenomicsData": true,
     "deployTokenomicsSeed": true,
     "deployTokenomicsFabric": true,
+    "deployTokenomicsSync": true,
     "deployTokenomicsPowerBi": true,
     "createCopilotStudioAgents": true
   },

@@ -391,6 +391,18 @@ function tableVisual(context, { entity, columns = [], measures = [], title, x, y
   });
 }
 
+function matrixVisual(context, { entity, rows, measures, title, x, y, width, height, z }) {
+  return visualContainer({
+    ...context,
+    visualType: 'pivotTable', title, x, y, width, height, z, entity,
+    projections: {
+      Rows: rows.map((name, index) => projection(entity, name, index === 0)),
+      Values: measures.map(name => projection(entity, name)),
+    },
+    select: [...rows.map(name => columnSelect(entity, name)), ...measures.map(name => measureSelect(entity, name))],
+  });
+}
+
 function slicer(context, entity, property, title, x, y, z, width = 152) {
   return visualContainer({
     ...context,
@@ -462,11 +474,11 @@ function consumptionReport(config, semanticModelId) {
   const executiveVisuals = [
     card(executiveContext, 'Usage', 'Total Tokens', 'Total Tokens', 16, 16, 1000),
     card(executiveContext, 'Usage', 'Market Cost', 'Market Cost', 224, 16, 2000),
-    card(executiveContext, 'Usage', 'Actual Cost', 'Actual Billed Cost', 432, 16, 3000),
+    card(executiveContext, 'Usage', 'Negotiated Cost', 'Negotiated Cost', 432, 16, 3000),
     card(executiveContext, 'Usage', 'Potential Savings', 'Potential Savings', 640, 16, 4000),
     card(executiveContext, 'Usage', 'Active Users', 'Active Users', 848, 16, 5000),
     card(executiveContext, 'Usage', 'Active Projects', 'Active Projects', 1056, 16, 6000),
-    chart(executiveContext, { visualType: 'lineChart', entity: 'Usage', category: 'usage_date', measures: ['Market Cost', 'Actual Cost', 'Reported Cost'], title: 'Cost Across Date', x: 16, y: 120, width: 816, height: 280, z: 7000 }),
+    chart(executiveContext, { visualType: 'lineChart', entity: 'Usage', category: 'usage_date', measures: ['Market Cost', 'Negotiated Cost', 'Reported Cost'], title: 'Cost Across Date', x: 16, y: 120, width: 816, height: 280, z: 7000 }),
     chart(executiveContext, { visualType: 'pieChart', entity: 'Usage', category: 'source_code', measures: ['Market Cost'], title: 'Cost by Model Provider', x: 848, y: 120, width: 416, height: 280, z: 8000 }),
     chart(executiveContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'team_id', measures: ['Market Cost'], title: 'Cost by Team', x: 16, y: 416, width: 608, height: 288, z: 9000 }),
     chart(executiveContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'project_id', measures: ['Total Tokens'], title: 'Tokens by Project', x: 640, y: 416, width: 624, height: 288, z: 10000 }),
@@ -487,7 +499,7 @@ function consumptionReport(config, semanticModelId) {
   );
   explorerVisuals.push(
     chart(explorerContext, { visualType: 'lineChart', entity: 'Usage', category: 'event_ts', measures: ['Total Tokens', 'Market Cost'], title: 'Token Consumption and Dollars Across Time', x: 16, y: 184, width: 1248, height: 220, z: 3000 }),
-    tableVisual(explorerContext, { entity: 'Usage', columns: reportDimensions, measures: ['Total Requests', 'Total Tokens', 'Market Cost', 'Negotiated Cost', 'Actual Cost'], title: 'Governed Consumption and Cost Detail', x: 16, y: 420, width: 1248, height: 284, z: 4000 }),
+    tableVisual(explorerContext, { entity: 'Usage', columns: reportDimensions, measures: ['Total Requests', 'Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost'], title: 'Governed Consumption and Cost Detail', x: 16, y: 420, width: 1248, height: 284, z: 4000 }),
   );
 
   const chargeback = 'Chargeback and Allocation';
@@ -495,21 +507,57 @@ function consumptionReport(config, semanticModelId) {
   const chargebackVisuals = [
     card(chargebackContext, 'Usage', 'Market Cost', 'Market Cost', 16, 16, 1000),
     card(chargebackContext, 'Usage', 'Negotiated Cost', 'Negotiated Cost', 224, 16, 2000),
-    card(chargebackContext, 'Usage', 'Actual Cost', 'Allocated Actual Cost', 432, 16, 3000),
+    card(chargebackContext, 'Usage', 'Reported Cost', 'Reported Cost', 432, 16, 3000),
     card(chargebackContext, 'Usage', 'Cost per 1K Tokens', 'Cost per 1K Tokens', 640, 16, 4000),
-    chart(chargebackContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'team_id', measures: ['Actual Cost', 'Market Cost'], title: 'Dollars by Team', x: 16, y: 120, width: 608, height: 272, z: 5000 }),
-    chart(chargebackContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'project_id', measures: ['Actual Cost', 'Market Cost'], title: 'Dollars by Project', x: 640, y: 120, width: 624, height: 272, z: 6000 }),
-    tableVisual(chargebackContext, { entity: 'Usage', columns: ['usage_date', 'business_unit_id', 'department_id', 'cost_center_id', 'team_id', 'user_id_hash', 'project_id', 'application_id', 'environment'], measures: ['Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost', 'Actual Cost'], title: 'Allocation Detail', x: 16, y: 408, width: 1248, height: 296, z: 7000 }),
+    chart(chargebackContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'team_id', measures: ['Reported Cost', 'Market Cost'], title: 'Dollars by Team', x: 16, y: 120, width: 608, height: 272, z: 5000 }),
+    chart(chargebackContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'project_id', measures: ['Reported Cost', 'Market Cost'], title: 'Dollars by Project', x: 640, y: 120, width: 624, height: 272, z: 6000 }),
+    tableVisual(chargebackContext, { entity: 'Usage', columns: ['usage_date', 'business_unit_id', 'department_id', 'cost_center_id', 'team_id', 'user_id_hash', 'project_id', 'application_id', 'environment'], measures: ['Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost'], title: 'Allocation Detail', x: 16, y: 408, width: 1248, height: 296, z: 7000 }),
   ];
 
   const economics = 'Model Economics';
   const economicsContext = pageContext(economics);
   const economicsVisuals = [
-    chart(economicsContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'source_code', measures: ['Market Cost', 'Negotiated Cost', 'Actual Cost'], title: 'Dollars by Provider', x: 16, y: 16, width: 608, height: 256, z: 1000 }),
+    chart(economicsContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'source_code', measures: ['Reported Cost', 'Market Cost', 'Negotiated Cost'], title: 'Dollars by Provider', x: 16, y: 16, width: 608, height: 256, z: 1000 }),
     chart(economicsContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'model_family', measures: ['Market Cost'], title: 'Dollars by Model Family', x: 640, y: 16, width: 624, height: 256, z: 2000 }),
     chart(economicsContext, { visualType: 'clusteredColumnChart', entity: 'Usage', category: 'model_name', series: 'model_version', measures: ['Total Tokens'], title: 'Tokens by Model and Version', x: 16, y: 288, width: 608, height: 240, z: 3000 }),
     chart(economicsContext, { visualType: 'lineChart', entity: 'Price History', category: 'effective_from', measures: ['Market Input Rate', 'Market Output Rate', 'Negotiated Input Rate', 'Negotiated Output Rate'], title: 'Effective-Dated Price History', x: 640, y: 288, width: 624, height: 240, z: 4000 }),
     tableVisual(economicsContext, { entity: 'Price History', columns: ['source_code', 'model_family', 'model_name', 'model_version', 'effective_from', 'effective_to', 'is_current', 'source_name'], measures: ['Market Input Rate', 'Market Output Rate', 'Negotiated Input Rate', 'Negotiated Output Rate'], title: 'Auditable Model Rates', x: 16, y: 544, width: 1248, height: 160, z: 5000 }),
+  ];
+
+  const userDrilldown = 'Consumption by User';
+  const userDrilldownContext = pageContext(userDrilldown);
+  const userDrilldownVisuals = [
+    card(userDrilldownContext, 'Usage', 'Total Tokens', 'Total Tokens', 16, 16, 1000),
+    card(userDrilldownContext, 'Usage', 'Market Cost', 'Market Cost', 224, 16, 2000),
+    card(userDrilldownContext, 'Usage', 'Reported Cost', 'Reported Cost', 432, 16, 3000),
+    slicer(userDrilldownContext, 'Usage', 'usage_date', 'Date', 656, 16, 4000, 192),
+    slicer(userDrilldownContext, 'Usage', 'team_id', 'Team', 864, 16, 4100, 192),
+    slicer(userDrilldownContext, 'Usage', 'project_id', 'Project', 1072, 16, 4200, 192),
+    matrixVisual(userDrilldownContext, {
+      entity: 'Usage',
+      rows: ['user_id_hash', 'model_family', 'source_code', 'model_name', 'model_version'],
+      measures: ['Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost'],
+      title: 'User > Model Family > Provider > Model > Version',
+      x: 16, y: 120, width: 1248, height: 584, z: 5000,
+    }),
+  ];
+
+  const providerDrilldown = 'Consumption by Provider';
+  const providerDrilldownContext = pageContext(providerDrilldown);
+  const providerDrilldownVisuals = [
+    card(providerDrilldownContext, 'Usage', 'Total Tokens', 'Total Tokens', 16, 16, 1000),
+    card(providerDrilldownContext, 'Usage', 'Market Cost', 'Market Cost', 224, 16, 2000),
+    card(providerDrilldownContext, 'Usage', 'Reported Cost', 'Reported Cost', 432, 16, 3000),
+    slicer(providerDrilldownContext, 'Usage', 'usage_date', 'Date', 656, 16, 4000, 192),
+    slicer(providerDrilldownContext, 'Usage', 'team_id', 'Team', 864, 16, 4100, 192),
+    slicer(providerDrilldownContext, 'Usage', 'project_id', 'Project', 1072, 16, 4200, 192),
+    matrixVisual(providerDrilldownContext, {
+      entity: 'Usage',
+      rows: ['source_code', 'model_family', 'model_name', 'model_version', 'user_id_hash'],
+      measures: ['Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost'],
+      title: 'Provider > Model Family > Model > Version > User',
+      x: 16, y: 120, width: 1248, height: 584, z: 5000,
+    }),
   ];
 
   return reportDefinition({
@@ -518,6 +566,8 @@ function consumptionReport(config, semanticModelId) {
     semanticModelId,
     pages: [
       reportPage(executive, executiveVisuals),
+      reportPage(userDrilldown, userDrilldownVisuals),
+      reportPage(providerDrilldown, providerDrilldownVisuals),
       reportPage(explorer, explorerVisuals),
       reportPage(chargeback, chargebackVisuals),
       reportPage(economics, economicsVisuals),
@@ -644,7 +694,7 @@ export function generatePowerBiArtifacts(config, metadata, semanticModelId = PLA
       tableCount: 4 + fabric.mlUseCases.length,
     },
     reports: [
-      { name: fabric.reportName, pageNames: ['Executive Overview', 'Usage and Cost Explorer', 'Chargeback and Allocation', 'Model Economics'] },
+      { name: fabric.reportName, pageNames: ['Executive Overview', 'Consumption by User', 'Consumption by Provider', 'Usage and Cost Explorer', 'Chargeback and Allocation', 'Model Economics'] },
       { name: fabric.mlReportName, pageNames: ['ML Portfolio Overview', ...fabric.mlUseCases.map((useCase, index) => `${String(index + 1).padStart(2, '0')} ${useCase.displayName}`), 'Model Governance'] },
     ],
     dashboards: [

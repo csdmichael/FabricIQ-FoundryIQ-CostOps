@@ -2,6 +2,7 @@
 param(
     [string] $ConfigPath = (Join-Path $PSScriptRoot '../config/deployment.json'),
     [string] $FabricMetadataPath = (Join-Path $PSScriptRoot '../.generated/tokenomics/fabric.json'),
+    [string] $FabricSyncPath = (Join-Path $PSScriptRoot '../.generated/tokenomics/fabric-sync.json'),
     [string] $OutputDirectory = (Join-Path $PSScriptRoot '../.generated/tokenomics/powerbi'),
     [switch] $DefinitionOnly,
     [switch] $PreflightOnly
@@ -11,10 +12,12 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'config.ps1')
 
 $config = Get-FabricDeploymentConfig -Path $ConfigPath
+$configFingerprint = Get-FabricConfigFingerprint -Path $ConfigPath
 $tenantId = Assert-FabricGuid -Value $config.azure.tenantId -Name 'azure.tenantId'
 $subscriptionId = Assert-FabricGuid -Value $config.azure.subscriptionId -Name 'azure.subscriptionId'
 $fabricConfig = $config.tokenomicsPlatform.fabric
 $resolvedMetadataPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($FabricMetadataPath)
+$resolvedFabricSyncPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($FabricSyncPath)
 $resolvedOutputDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 $fabricApi = 'https://api.fabric.microsoft.com/v1'
 $powerBiApi = 'https://api.powerbi.com/v1.0/myorg'
@@ -244,13 +247,17 @@ function Get-GeneratedArtifacts {
 }
 
 function Assert-LakehouseReportingContract {
-    param([Parameter(Mandatory = $true)] [object[]] $TableContracts)
+    param(
+        [Parameter(Mandatory = $true)] [object[]] $TableContracts,
+        [Parameter(Mandatory = $true)] [object] $SyncCheckpoint
+    )
 
     Add-Type -AssemblyName System.Data
     $sqlToken = Get-FabricAzAccessToken -TenantId $tenantId -SubscriptionId $subscriptionId -Resource 'https://database.windows.net/'
     $connection = [System.Data.SqlClient.SqlConnection]::new("Server=tcp:$sqlEndpointHost,1433;Initial Catalog=$($fabricConfig.lakehouseName);Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;")
     $connection.AccessToken = $sqlToken
     $available = @{}
+    $summary = $null
     try {
         $connection.Open()
         $command = $connection.CreateCommand()
@@ -265,6 +272,20 @@ function Assert-LakehouseReportingContract {
             }
         }
         finally { $reader.Dispose() }
+
+        $summaryCommand = $connection.CreateCommand()
+        $summaryCommand.CommandTimeout = 120
+        $summaryCommand.CommandText = 'SELECT COUNT_BIG(*) AS row_count, SUM(CAST(request_count AS bigint)) AS request_count, SUM(CAST(total_tokens AS bigint)) AS total_tokens FROM ml.tokenomics_usage_fact'
+        $summaryReader = $summaryCommand.ExecuteReader()
+        try {
+            if (-not $summaryReader.Read()) { throw 'The Tokenomics usage fact aggregate query returned no row.' }
+            $summary = [pscustomobject]@{
+                RowCount = [int64]$summaryReader['row_count']
+                RequestCount = [int64]$summaryReader['request_count']
+                TotalTokens = [int64]$summaryReader['total_tokens']
+            }
+        }
+        finally { $summaryReader.Dispose() }
     }
     finally {
         $connection.Dispose()
@@ -290,7 +311,19 @@ function Assert-LakehouseReportingContract {
         if ($missingColumns.Count -gt 0) { $parts += "missing columns: $($missingColumns -join ', ')" }
         throw "Tokenomics Power BI publication is blocked because the Lakehouse reporting contract is incomplete ($($parts -join '; ')). Run ingestion and all 12 inference notebooks first."
     }
-    return [pscustomobject]@{ Valid = $true; TableCount = $TableContracts.Count }
+    if ($summary.RowCount -ne [int64]$SyncCheckpoint.rowCount -or
+        $summary.RequestCount -ne [int64]$SyncCheckpoint.requestCount -or
+        $summary.TotalTokens -ne [int64]$SyncCheckpoint.totalTokens) {
+        throw "Tokenomics Power BI publication is blocked because live SQL totals do not match the verified Fabric synchronization checkpoint (rows=$($summary.RowCount), requests=$($summary.RequestCount), tokens=$($summary.TotalTokens))."
+    }
+    return [pscustomobject]@{
+        Valid = $true
+        TableCount = $TableContracts.Count
+        RowCount = $summary.RowCount
+        RequestCount = $summary.RequestCount
+        TotalTokens = $summary.TotalTokens
+        EventSetSha256 = [string]$SyncCheckpoint.cosmosEventSetSha256
+    }
 }
 
 function Invoke-PowerBiRequest {
@@ -353,7 +386,24 @@ if ($DefinitionOnly) {
     return
 }
 
-$preflight = Assert-LakehouseReportingContract -TableContracts @($artifacts.Manifest.tableContracts)
+if ([string]$fabricMetadata.configFingerprint -ne $configFingerprint) {
+    throw 'Tokenomics Fabric metadata does not match the active deployment configuration. Run tokenomics-fabric first.'
+}
+if (-not (Test-Path -LiteralPath $resolvedFabricSyncPath -PathType Leaf)) {
+    throw "Tokenomics Fabric synchronization checkpoint not found: $resolvedFabricSyncPath. Run tokenomics-sync first."
+}
+$fabricSync = Get-Content -LiteralPath $resolvedFabricSyncPath -Raw | ConvertFrom-Json
+if ([string]$fabricSync.configFingerprint -ne $configFingerprint -or
+    [string]$fabricSync.workspaceId -ne $workspaceId -or
+    [string]$fabricSync.lakehouseId -ne $lakehouseId -or
+    [string]$fabricSync.cosmosEventSetSha256 -notmatch '^[0-9a-f]{64}$' -or
+    [string]$fabricSync.microsoftTelemetrySha256 -notmatch '^[0-9a-f]{64}$' -or
+    [int]$fabricSync.microsoftTelemetryRecordCount -lt 0 -or
+    [int]$fabricSync.reportingTableCount -ne @($artifacts.Manifest.tableContracts).Count) {
+    throw 'Tokenomics Fabric synchronization checkpoint does not match the active report target or definition.'
+}
+
+$preflight = Assert-LakehouseReportingContract -TableContracts @($artifacts.Manifest.tableContracts) -SyncCheckpoint $fabricSync
 if ($PreflightOnly) {
     $preflight
     return
@@ -388,7 +438,7 @@ try {
         sqlEndpointId = $sqlEndpointId
         semanticModel = [ordered]@{ id = [string]$semanticModel.id; displayName = [string]$fabricConfig.semanticModelName }
         reports = @(
-            [ordered]@{ id = [string]$consumptionReport.id; displayName = [string]$fabricConfig.reportName; pageCount = 4 },
+            [ordered]@{ id = [string]$consumptionReport.id; displayName = [string]$fabricConfig.reportName; pageCount = @($artifacts.Manifest.reports[0].pageNames).Count },
             [ordered]@{ id = [string]$mlReport.id; displayName = [string]$fabricConfig.mlReportName; pageCount = 14 }
         )
         dashboards = @($executiveDashboard, $mlDashboard)

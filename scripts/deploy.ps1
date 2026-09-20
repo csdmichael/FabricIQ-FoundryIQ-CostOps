@@ -2,7 +2,7 @@
 param(
     [string] $ConfigPath = (Join-Path $PSScriptRoot '../config/deployment.json'),
     [string] $IdentityPath = (Join-Path $PSScriptRoot '../.generated/identity.json'),
-    [ValidateSet('preflight', 'apim-base', 'network-apim', 'network-broker', 'broker-base', 'foundry-base', 'identity', 'package', 'broker-app', 'apim', 'ui', 'foundry-connections', 'foundry-agents', 'tokenomics-data', 'tokenomics-seed', 'tokenomics-fabric', 'tokenomics-powerbi', 'all')]
+    [ValidateSet('preflight', 'apim-base', 'network-apim', 'network-broker', 'broker-base', 'foundry-base', 'identity', 'package', 'broker-app', 'apim', 'ui', 'foundry-connections', 'foundry-agents', 'tokenomics-data', 'tokenomics-seed', 'tokenomics-fabric', 'tokenomics-sync', 'tokenomics-powerbi', 'all')]
     [string] $Step = 'preflight',
     [switch] $WhatIf,
     [switch] $InviteConfiguredAdmin,
@@ -62,6 +62,7 @@ function Test-Step {
         'tokenomics-data' { [bool]$config.deployment.deployTokenomicsData }
         'tokenomics-seed' { [bool]$config.deployment.deployTokenomicsSeed }
         'tokenomics-fabric' { [bool]$config.deployment.deployTokenomicsFabric }
+        'tokenomics-sync' { [bool]$config.deployment.deployTokenomicsSync }
         'tokenomics-powerbi' { [bool]$config.deployment.deployTokenomicsPowerBi }
         default { $true }
     }
@@ -797,6 +798,17 @@ if (Test-Step 'tokenomics-fabric') {
             throw "The configured Fabric capacity is in unsupported state '$capacityState'."
         }
         & (Join-Path $PSScriptRoot 'provision-tokenomics-fabric.ps1') -ConfigPath $ConfigPath
+    }
+}
+
+if (Test-Step 'tokenomics-sync') {
+    if ($WhatIf) {
+        & python -m py_compile (Join-Path $PSScriptRoot 'tokenomics/generate-delta-tables.py') (Join-Path $PSScriptRoot 'tokenomics/materialize-all-ml-tables.py') (Join-Path $PSScriptRoot 'tokenomics/upload-staging-to-onelake.py')
+        if ($LASTEXITCODE -ne 0) { throw 'Tokenomics Fabric synchronization helper syntax validation failed.' }
+        Write-Host 'SKIP OneLake table replacement during what-if.'
+    }
+    else {
+        & (Join-Path $PSScriptRoot 'sync-tokenomics-to-fabric.ps1') -ConfigPath $ConfigPath
     }
 }
 

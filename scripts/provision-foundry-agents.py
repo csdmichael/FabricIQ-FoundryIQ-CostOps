@@ -7,6 +7,8 @@ from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import MCPTool, PromptAgentDefinition
 from azure.identity import AzureCliCredential
 
+from foundry_knowledge import ensure_lakehouse_capabilities
+
 
 def retryable(error: Exception) -> bool:
     status = getattr(error, "status_code", None)
@@ -105,20 +107,28 @@ def main() -> None:
         for item in definitions:
             mcp = foundry["mcpConnections"][item["kind"]]
             connection = connection_by_kind[item["kind"]]
-            tool = MCPTool(
+            tools = [MCPTool(
                 server_label=mcp["serverLabel"],
                 server_url=f"{config['apim']['gatewayUrl']}/{mcp['apiPath']}",
                 project_connection_id=connection["id"],
                 allowed_tools=mcp["allowedTools"],
                 require_approval="never",
-            )
+            )]
+            knowledge_source = None
+            if item["kind"] == "lakehouse":
+                lakehouse_tools, knowledge_source = ensure_lakehouse_capabilities(
+                    project,
+                    root,
+                    item["name"],
+                )
+                tools.extend(lakehouse_tools)
             agent = create_agent(
                 project,
                 item["name"],
                 PromptAgentDefinition(
                     model=item["model"],
                     instructions=item["instructions"].read_text(encoding="utf-8"),
-                    tools=[tool],
+                    tools=tools,
                 ),
             )
             result = {
@@ -128,6 +138,8 @@ def main() -> None:
                 "version": agent.version,
                 "model": item["model"],
                 "mcpConnectionId": connection["id"],
+                "tools": ["mcp"] + (["file_search", "code_interpreter"] if knowledge_source else []),
+                "knowledgeSource": knowledge_source,
                 "smokeTest": "pending",
             }
             results.append(result)

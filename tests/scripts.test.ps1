@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../scripts/config.ps1')
+. (Join-Path $PSScriptRoot '../scripts/tokenomics-sync-contract.ps1')
 
 function Assert-Throws {
     param(
@@ -44,6 +45,47 @@ Assert-Throws -Action { Assert-FabricWhatIfChanges -Changes @($deleteChange) -Al
 Assert-Throws -Action { Assert-FabricWhatIfChanges -Changes @($deployChange) -AllowModify | Out-Null } -MessagePattern 'Deploy'
 Assert-Throws -Action { Assert-FabricWhatIfChanges -Changes @($futureChange) -AllowModify | Out-Null } -MessagePattern 'FutureType'
 Write-Host 'PASS Azure what-if safety policy'
+
+$syncConfig = [pscustomobject]@{
+    tokenomicsPlatform = [pscustomobject]@{
+        fabric = [pscustomobject]@{
+            workspaceName = 'Tokenomics Test'
+            lakehouseName = 'lh_test'
+            capacityId = '11111111-1111-4111-8111-111111111111'
+        }
+    }
+}
+$now = [DateTimeOffset]::Parse('2026-09-19T12:00:00Z')
+$commit = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+$fabricMetadata = [pscustomobject]@{
+    configFingerprint = 'fingerprint'
+    workspaceName = 'Tokenomics Test'
+    lakehouseName = 'lh_test'
+    capacityId = '11111111-1111-4111-8111-111111111111'
+    workspaceId = '22222222-2222-4222-8222-222222222222'
+    lakehouseId = '33333333-3333-4333-8333-333333333333'
+}
+$seedCheckpoint = [pscustomobject]@{
+    configFingerprint = 'fingerprint'
+    verifiedAt = '2026-09-19T11:30:00Z'
+    repositoryCommit = $commit
+    eventSetSha256 = ('b' * 64)
+}
+$null = Assert-TokenomicsSyncContract -Config $syncConfig -ConfigFingerprint 'fingerprint' -FabricMetadata $fabricMetadata -SeedCheckpoint $seedCheckpoint -RepositoryCommit $commit -CurrentTime $now -MaximumCheckpointAgeMinutes 120
+$wrongTarget = $fabricMetadata.PSObject.Copy()
+$wrongTarget.lakehouseName = 'lh_wrong'
+Assert-Throws -Action {
+    Assert-TokenomicsSyncContract -Config $syncConfig -ConfigFingerprint 'fingerprint' -FabricMetadata $wrongTarget -SeedCheckpoint $seedCheckpoint -RepositoryCommit $commit -CurrentTime $now -MaximumCheckpointAgeMinutes 120 | Out-Null
+} -MessagePattern 'Fabric metadata does not match'
+$staleCheckpoint = $seedCheckpoint.PSObject.Copy()
+$staleCheckpoint.verifiedAt = '2026-09-19T08:00:00Z'
+Assert-Throws -Action {
+    Assert-TokenomicsSyncContract -Config $syncConfig -ConfigFingerprint 'fingerprint' -FabricMetadata $fabricMetadata -SeedCheckpoint $staleCheckpoint -RepositoryCommit $commit -CurrentTime $now -MaximumCheckpointAgeMinutes 120 | Out-Null
+} -MessagePattern 'older than'
+Assert-Throws -Action {
+    Assert-TokenomicsSyncContract -Config $syncConfig -ConfigFingerprint 'fingerprint' -FabricMetadata $fabricMetadata -SeedCheckpoint $seedCheckpoint -RepositoryCommit ('c' * 40) -CurrentTime $now -MaximumCheckpointAgeMinutes 120 | Out-Null
+} -MessagePattern 'current repository commit'
+Write-Host 'PASS Tokenomics sync checkpoint safety policy'
 
 $testRoot = Join-Path $PSScriptRoot '../.generated/tests'
 Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue

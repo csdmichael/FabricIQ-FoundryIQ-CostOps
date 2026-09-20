@@ -51,7 +51,7 @@ if ($config.apim.fabricProductId -ne 'fabric' -or $config.apim.foundryProductId 
 if ([bool]$config.deployment.deployWorkspacePrivateLink) {
     throw 'deployment.deployWorkspacePrivateLink must remain false while unsupported semantic models or external Copilot integrations exist.'
 }
-foreach ($flag in 'deployTokenomicsData', 'deployTokenomicsSeed', 'deployTokenomicsFabric', 'deployTokenomicsPowerBi') {
+foreach ($flag in 'deployTokenomicsData', 'deployTokenomicsSeed', 'deployTokenomicsFabric', 'deployTokenomicsSync', 'deployTokenomicsPowerBi') {
     if ($config.deployment.$flag -isnot [bool]) {
         throw "deployment.$flag must be a boolean."
     }
@@ -93,6 +93,7 @@ if ($tokenomicsPlatform.rawStorage.accountName -notmatch '^[a-z0-9]{3,24}$' -or
 }
 if ([int]$tokenomicsPlatform.syntheticData.recordCount -lt 4000 -or [int]$tokenomicsPlatform.syntheticData.recordCount -gt 1000000 -or
     [int]$tokenomicsPlatform.syntheticData.userCount -lt 100 -or [int]$tokenomicsPlatform.syntheticData.userCount -gt 100000 -or
+    [int]$tokenomicsPlatform.syntheticData.requestsPerRecord -lt 1 -or [int]$tokenomicsPlatform.syntheticData.requestsPerRecord -gt 100000 -or
     [int]$tokenomicsPlatform.syntheticData.lookbackDays -lt 30 -or [int]$tokenomicsPlatform.syntheticData.lookbackDays -gt 730 -or
     $tokenomicsPlatform.syntheticData.endDate -notmatch '^20\d{2}-\d{2}-\d{2}$' -or
     [int64]$tokenomicsPlatform.syntheticData.randomSeed -lt 1) {
@@ -180,7 +181,20 @@ try {
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'ui', '--', '--watch=false') -Description 'Tokenomics UI tests'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('audit', '--prefix', 'ui', '--omit=dev') -Description 'Tokenomics UI production dependency audit'
     Invoke-FabricNative -FilePath 'node' -ArgumentList @('--check', 'ui/server.js') -Description 'Production UI host syntax'
-    Invoke-FabricNative -FilePath 'python' -ArgumentList @('-m', 'py_compile', 'scripts/provision-foundry-agents.py') -Description 'Foundry Prompt Agent helper syntax'
+    Invoke-FabricNative -FilePath 'python' -ArgumentList @(
+        '-m', 'py_compile',
+        'scripts/foundry_knowledge.py',
+        'scripts/provision-foundry-agents.py',
+        'scripts/create-sales-poc-agents.py',
+        'scripts/tokenomics/delta_schema.py',
+        'scripts/tokenomics/generate-delta-tables.py',
+        'scripts/tokenomics/materialize-all-ml-tables.py',
+        'scripts/tokenomics/upload-staging-to-onelake.py'
+    ) -Description 'Foundry and Tokenomics Python helper syntax'
+    $tokens = $null
+    $parseErrors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $repositoryRoot 'scripts/export-tokenomics-loganalytics.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
+    if (@($parseErrors).Count -gt 0) { throw 'Microsoft telemetry export helper has PowerShell parse errors.' }
 
     foreach ($file in Get-ChildItem (Join-Path $repositoryRoot 'apim/openapi/*.json')) {
         $null = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json
@@ -208,6 +222,8 @@ try {
     & (Join-Path $repositoryRoot 'scripts/provision-tokenomics-fabric.ps1') -ValidateOnly | Out-Null
     Write-Host 'PASS Dataflow Gen2 definitions and Fabric provisioner'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'scripts/tokenomics') -Description 'Tokenomics data generator tests'
+    Invoke-FabricNative -FilePath 'python' -ArgumentList @('scripts/test/test_onelake_swap.py') -Description 'Tokenomics OneLake swap tests'
+    Invoke-FabricNative -FilePath 'python' -ArgumentList @('scripts/test/test_delta_schema.py') -Description 'Tokenomics Delta schema tests'
     & (Join-Path $repositoryRoot 'scripts/publish-tokenomics-powerbi.ps1') -DefinitionOnly | Out-Null
     Write-Host 'PASS Tokenomics Power BI semantic model and report definitions'
     Invoke-FabricNative -FilePath 'node' -ArgumentList @('--check', 'scripts/tokenomics/seed-data.mjs') -Description 'Tokenomics private seed syntax'

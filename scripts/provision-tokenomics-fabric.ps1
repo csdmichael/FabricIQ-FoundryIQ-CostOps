@@ -9,6 +9,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'config.ps1')
 
 $config = Get-FabricDeploymentConfig -Path $ConfigPath
+$configFingerprint = Get-FabricConfigFingerprint -Path $ConfigPath
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $platform = $config.tokenomicsPlatform
 $fabric = $platform.fabric
@@ -339,6 +340,7 @@ try {
     $metadata = [ordered]@{
         schemaVersion = 1
         generatedAt = (Get-Date).ToUniversalTime().ToString('o')
+        configFingerprint = $configFingerprint
         workspaceId = $workspaceId
         workspaceName = [string]$fabric.workspaceName
         capacityId = [string]$fabric.capacityId

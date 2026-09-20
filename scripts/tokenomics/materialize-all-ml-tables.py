@@ -1,38 +1,48 @@
+import argparse
 import json
 import os
-import glob
 import uuid
 from datetime import datetime, timezone
-import pyarrow as pa
+from pathlib import Path
+
 from deltalake import write_deltalake
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-CONFIG_PATH = os.path.join(REPO_ROOT, 'config', 'deployment.json')
+from delta_schema import to_arrow_table
 
-with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+REPO_ROOT = Path(__file__).resolve().parents[2]
+parser = argparse.ArgumentParser()
+parser.add_argument('--config', default=str(REPO_ROOT / 'config' / 'deployment.json'))
+parser.add_argument('--seed', default=str(REPO_ROOT / '.generated' / 'tokenomics' / 'seed'))
+parser.add_argument('--staging', default=str(REPO_ROOT / '.generated' / 'tokenomics' / 'staging' / 'Tables'))
+args = parser.parse_args()
+
+with open(args.config, 'r', encoding='utf-8-sig') as f:
     config = json.load(f)
 
 fabric_config = config['tokenomicsPlatform']['fabric']
 use_cases = fabric_config['mlUseCases']
 reporting_tables = fabric_config['reportingTables']
 
-staging_root = os.path.abspath('.generated/tokenomics/staging/Tables/ml')
+seed_root = os.path.abspath(args.seed)
+staging_root = os.path.join(os.path.abspath(args.staging), 'ml')
 os.makedirs(staging_root, exist_ok=True)
 
 print("1. Loading raw multi-cloud token consumption records...")
 events = []
-for src in ['aws', 'gcp', 'oai', 'cld']:
-    p = f'.generated/tokenomics/seed/consumption/{src}/token_consumption.jsonl'
+for src in config['tokenomicsPlatform']['syntheticData']['sourceCodes']:
+    p = os.path.join(seed_root, 'consumption', src, 'token_consumption.jsonl')
     with open(p, 'r', encoding='utf-8') as f:
         events.extend([json.loads(line) for line in f])
 
-with open('.generated/tokenomics/seed/consumption/msft_log_analytics.json', 'r', encoding='utf-8') as f:
-    events.extend(json.load(f))
+msft_seed_path = os.path.join(seed_root, 'consumption', 'msft_log_analytics.json')
+if os.path.isfile(msft_seed_path):
+    with open(msft_seed_path, 'r', encoding='utf-8') as f:
+        events.extend(json.load(f))
 
 print(f"Total multi-cloud events: {len(events)}")
 
 # Load model price history
-price_hist_file = '.generated/tokenomics/seed/reference/model_price_history.jsonl'
+price_hist_file = os.path.join(seed_root, 'reference', 'model_price_history.jsonl')
 with open(price_hist_file, 'r', encoding='utf-8') as f:
     price_history = [json.loads(line) for line in f]
 
@@ -55,16 +65,17 @@ for ev in events:
     ), None)
 
     if not matching_price:
-        matching_price = next((p for p in price_history if p['source_code'] == st), price_history[0])
+        matching_price = next((p for p in price_history if p['source_code'] == st), None)
+    if matching_price is None and st != 'msft':
+        raise RuntimeError(f'No effective price was found for {st}/{mn}/{mv} at {ets}.')
 
-    mkt_inp = float(matching_price.get('market_input_usd_per_million', 5.0))
-    mkt_out = float(matching_price.get('market_output_usd_per_million', 15.0))
-    neg_inp = float(matching_price.get('negotiated_input_usd_per_million', 4.4))
-    neg_out = float(matching_price.get('negotiated_output_usd_per_million', 13.2))
+    mkt_inp = float(matching_price.get('market_input_usd_per_million', 0.0)) if matching_price else 0.0
+    mkt_out = float(matching_price.get('market_output_usd_per_million', 0.0)) if matching_price else 0.0
+    neg_inp = float(matching_price.get('negotiated_input_usd_per_million', 0.0)) if matching_price else 0.0
+    neg_out = float(matching_price.get('negotiated_output_usd_per_million', 0.0)) if matching_price else 0.0
 
     mkt_cost = round(((inp_tokens - cached_tokens) * mkt_inp + cached_tokens * (mkt_inp * 0.5) + out_tokens * mkt_out) / 1000000.0, 6)
     neg_cost = round(((inp_tokens - cached_tokens) * neg_inp + cached_tokens * (neg_inp * 0.5) + out_tokens * neg_out) / 1000000.0, 6)
-    act_cost = round(neg_cost * 0.98, 6)
     rep_cost = round(float(ev.get('reported_cost_usd', mkt_cost)), 6)
 
     usage_facts.append({
@@ -92,43 +103,25 @@ for ev in events:
         'reported_cost_usd': rep_cost,
         'market_cost_usd': mkt_cost,
         'negotiated_cost_usd': neg_cost,
-        'actual_cost_usd': act_cost,
+        'actual_cost_usd': None,
         'tasks_completed': int(ev.get('tasks_completed', 1)),
         'quality_score': float(ev.get('quality_score', 0.95))
     })
 
-def write_delta(table_name, records):
-    first = records[0]
-    fields = []
-    data = {}
-    for k in first.keys():
-        val = next((r[k] for r in records if r[k] is not None), None)
-        if isinstance(val, bool):
-            t = pa.bool_()
-            vals = [r.get(k) for r in records]
-        elif isinstance(val, int):
-            t = pa.int64()
-            vals = [r.get(k) for r in records]
-        elif isinstance(val, float):
-            t = pa.float64()
-            vals = [r.get(k) for r in records]
-        else:
-            t = pa.string()
-            vals = [None if r.get(k) is None else str(r.get(k)) for r in records]
-        fields.append(pa.field(k, t, nullable=True))
-        data[k] = vals
-    tbl = pa.Table.from_pydict(data, schema=pa.schema(fields))
+def write_delta(table_name, records, schema_records=None):
+    tbl = to_arrow_table(records, schema_records)
     p = os.path.join(staging_root, table_name)
     os.makedirs(p, exist_ok=True)
     write_deltalake(p, tbl, mode='overwrite')
     print(f"  Wrote ml.{table_name} ({len(records)} rows)")
 
-write_delta('tokenomics_usage_fact', usage_facts)
+usage_schema_record = {**usage_facts[0], 'actual_cost_usd': 0.0}
+write_delta('tokenomics_usage_fact', usage_facts, [usage_schema_record])
 
 print("3. Executing 12 ML Algorithm inference transforms...")
 ml_insights = []
 run_ledger = []
-now_iso = datetime.now(timezone.utc).isoformat()[:19].replace('T', ' ')
+now_iso = f"{config['tokenomicsPlatform']['syntheticData']['endDate']} 00:00:00"
 
 for idx, uc in enumerate(use_cases):
     key = uc['key']
@@ -150,7 +143,6 @@ for idx, uc in enumerate(use_cases):
         tot_tok = sum(g['total_tokens'] for g in group)
         tot_mkt = sum(g['market_cost_usd'] for g in group)
         tot_neg = sum(g['negotiated_cost_usd'] for g in group)
-        tot_act = sum(g['actual_cost_usd'] for g in group)
         avg_qual = sum(g['quality_score'] for g in group) / len(group)
 
         pred_cost = round(tot_mkt * 1.07, 4)
@@ -185,45 +177,30 @@ for idx, uc in enumerate(use_cases):
             'probability': prob,
             'predicted_cost_usd': pred_cost,
             'estimated_savings_usd': est_savings,
-            'recommendation': f"Governed recommendation for {name}: reallocate workloads to optimized tiers.",
+            'recommendation': f"Synthetic scenario for {name}: review model and provider allocation.",
             'scoring_model_version': 'v1.0.0',
-            'source_lineage': 'ml.tokenomics_usage_fact'
+            'source_lineage': 'synthetic_snapshot:ml.tokenomics_usage_fact'
         }
         algo_records.append(row)
         ml_insights.append(row)
 
     write_delta(out_table, algo_records)
 
-    # Add ledger entries (training + inference)
-    run_ledger.append({
-        'run_id': str(uuid.uuid4()),
-        'use_case_key': key,
-        'notebook_name': uc['trainingNotebookName'],
-        'run_type': 'training',
-        'status': 'succeeded',
-        'started_at': now_iso,
-        'completed_at': now_iso,
-        'row_count': len(algo_records),
-        'model_version': 'v1.0.0',
-        'source_watermark': 'multi-cloud-snapshot',
-        'output_table': f"ml.{out_table}"
-    })
-    run_ledger.append({
-        'run_id': run_id,
-        'use_case_key': key,
-        'notebook_name': uc['inferenceNotebookName'],
-        'run_type': 'inference',
-        'status': 'succeeded',
-        'started_at': now_iso,
-        'completed_at': now_iso,
-        'row_count': len(algo_records),
-        'model_version': 'v1.0.0',
-        'source_watermark': 'ml.tokenomics_usage_fact',
-        'output_table': f"ml.{out_table}"
-    })
-
 print("4. Writing ml.ml_insight_fact and ml.model_run_ledger...")
 write_delta('ml_insight_fact', ml_insights)
-write_delta('model_run_ledger', run_ledger)
+ledger_schema_record = {
+    'run_id': '',
+    'use_case_key': '',
+    'notebook_name': '',
+    'run_type': '',
+    'status': '',
+    'started_at': '',
+    'completed_at': '',
+    'row_count': 0,
+    'model_version': '',
+    'source_watermark': '',
+    'output_table': '',
+}
+write_delta('model_run_ledger', run_ledger, [ledger_schema_record])
 
 print("All 16 required reporting tables materialized locally in Delta Lake format!")

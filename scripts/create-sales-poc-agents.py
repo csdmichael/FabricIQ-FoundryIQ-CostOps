@@ -1,9 +1,12 @@
 import json
 import os
 import sys
+from pathlib import Path
 from azure.identity import AzureCliCredential
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import MCPTool, PromptAgentDefinition
+
+from foundry_knowledge import ensure_lakehouse_capabilities
 
 project_endpoint = "https://foundry-myaacoub-private.services.ai.azure.com/api/projects/sales-poc"
 tenant_id = "12a4b86b-e64c-43f9-af05-d9130a72dfd2"
@@ -35,13 +38,18 @@ with AzureCliCredential(tenant_id=tenant_id) as credential:
         allowed_tools=["tables", "query"],
         require_approval="never"
     )
+    lakehouse_capability_tools, lakehouse_knowledge = ensure_lakehouse_capabilities(
+        project,
+        Path(repo_root),
+        "fabric-lakehouse-analyst-obo",
+    )
 
     lakehouse_agent = project.agents.create_version(
         agent_name="fabric-lakehouse-analyst-obo",
         definition=PromptAgentDefinition(
             model=model_deployment_name,
             instructions=lakehouse_instr,
-            tools=[lakehouse_tool]
+            tools=[lakehouse_tool, *lakehouse_capability_tools]
         )
     )
     print(f"Successfully created Lakehouse Agent: {lakehouse_agent.name} (version {lakehouse_agent.version}, ID: {lakehouse_agent.id})")
@@ -74,14 +82,18 @@ with AzureCliCredential(tenant_id=tenant_id) as credential:
                 "version": lakehouse_agent.version,
                 "id": lakehouse_agent.id,
                 "mcpServer": "https://caldova-apim-westus.azure-api.net/fabric-lakehouse-mcp/mcp",
-                "mcpConnectionId": lakehouse_conn_id
+                "mcpConnectionId": lakehouse_conn_id,
+                "tools": ["mcp", "file_search", "code_interpreter"],
+                "knowledgeSource": lakehouse_knowledge
             },
             {
                 "name": data_agent_agent.name,
                 "version": data_agent_agent.version,
                 "id": data_agent_agent.id,
                 "mcpServer": "https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp",
-                "mcpConnectionId": data_agent_conn_id
+                "mcpConnectionId": data_agent_conn_id,
+                "tools": ["mcp"],
+                "knowledgeSource": None
             }
         ]
     }
