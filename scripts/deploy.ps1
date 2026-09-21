@@ -2,7 +2,7 @@
 param(
     [string] $ConfigPath = (Join-Path $PSScriptRoot '../config/deployment.json'),
     [string] $IdentityPath = (Join-Path $PSScriptRoot '../.generated/identity.json'),
-    [ValidateSet('preflight', 'apim-base', 'network-apim', 'network-broker', 'broker-base', 'foundry-base', 'identity', 'package', 'broker-app', 'apim', 'ui', 'foundry-connections', 'foundry-agents', 'tokenomics-data', 'tokenomics-seed', 'tokenomics-fabric', 'tokenomics-sync', 'tokenomics-powerbi', 'all')]
+    [ValidateSet('preflight', 'apim-base', 'network-apim', 'network-broker', 'broker-base', 'foundry-base', 'identity', 'package', 'broker-app', 'apim', 'ui', 'foundry-connections', 'foundry-agents', 'copilot-studio', 'tokenomics-data', 'tokenomics-seed', 'tokenomics-fabric', 'tokenomics-sync', 'tokenomics-powerbi', 'all')]
     [string] $Step = 'preflight',
     [switch] $WhatIf,
     [switch] $InviteConfiguredAdmin,
@@ -59,6 +59,7 @@ function Test-Step {
         'ui' { [bool]$config.deployment.deployUi }
         'foundry-connections' { [bool]$config.deployment.deployFoundry }
         'foundry-agents' { [bool]$config.deployment.deployFoundry }
+        'copilot-studio' { [bool]$config.deployment.createCopilotStudioAgents }
         'tokenomics-data' { [bool]$config.deployment.deployTokenomicsData }
         'tokenomics-seed' { [bool]$config.deployment.deployTokenomicsSeed }
         'tokenomics-fabric' { [bool]$config.deployment.deployTokenomicsFabric }
@@ -819,6 +820,16 @@ if (Test-Step 'tokenomics-powerbi') {
     }
     else {
         & (Join-Path $PSScriptRoot 'publish-tokenomics-powerbi.ps1') -ConfigPath $ConfigPath
+    }
+}
+
+if (Test-Step 'copilot-studio') {
+    if ($WhatIf) {
+        & (Join-Path $PSScriptRoot 'provision-copilot-studio-agents.ps1') -ConfigPath $ConfigPath -IdentityPath $IdentityPath | Out-Null
+        Write-Host 'PASS Copilot Studio desired-state validation; no cloud mutation performed.'
+    }
+    else {
+        & (Join-Path $PSScriptRoot 'provision-copilot-studio-agents.ps1') -ConfigPath $ConfigPath -IdentityPath $IdentityPath -ProvisionConnectors -ImportBaselines
     }
 }
 

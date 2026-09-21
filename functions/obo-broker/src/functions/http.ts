@@ -1,7 +1,7 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import type { DownstreamTarget } from '../config.js';
 import { BrokerError, safeError } from '../errors.js';
-import { audit, questionFromBody, runtime, statementFromBody, tableListStatement } from '../runtime.js';
+import { audit, knowledgeQueryFromBody, questionFromBody, runtime, statementFromBody, tableListStatement } from '../runtime.js';
 import { tokenomicsWindow } from '../tokenomics.js';
 
 const noStoreHeaders = { 'Cache-Control': 'no-store', Pragma: 'no-cache' };
@@ -69,6 +69,15 @@ app.http('tables', {
   handler: (request, context) => handle('lakehouse_tables', request, context, async (_body, _objectId, assertion, expiresAt) => {
     const token = await runtime().exchange(assertion, 'powerbi', expiresAt);
     return runtime().query(token.accessToken, tableListStatement());
+  }),
+});
+
+app.http('knowledge', {
+  methods: ['POST'], route: 'lakehouse/knowledge', authLevel: 'anonymous',
+  handler: (request, context) => handle('lakehouse_knowledge', request, context, async (body, _objectId, assertion, expiresAt) => {
+    const query = knowledgeQueryFromBody(body);
+    const token = await runtime().exchange(assertion, 'powerbi', expiresAt);
+    return runtime().searchKnowledge(token.accessToken, query);
   }),
 });
 

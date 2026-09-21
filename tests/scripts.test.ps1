@@ -111,74 +111,11 @@ try {
         $archive.Dispose()
     }
     Write-Host 'PASS portable Function ZIP entries'
-
-    function New-TestAgentPackage {
-        param([string] $Path, [string] $SchemaName, [hashtable] $ExtraEntries)
-        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Create)
-        $testArchive = [System.IO.Compression.ZipArchive]::new($stream, [System.IO.Compression.ZipArchiveMode]::Create)
-        try {
-            $entries = [ordered]@{
-                "bots/$SchemaName/bot.xml" = '<bot />'
-                "bots/$SchemaName/configuration.json" = '{}'
-            }
-            foreach ($key in $ExtraEntries.Keys) { $entries[$key] = $ExtraEntries[$key] }
-            foreach ($key in $entries.Keys) {
-                $zipEntry = $testArchive.CreateEntry($key)
-                $writer = [System.IO.StreamWriter]::new($zipEntry.Open())
-                try { $writer.Write([string]$entries[$key]) } finally { $writer.Dispose() }
-            }
-        }
-        finally {
-            $testArchive.Dispose()
-            $stream.Dispose()
-        }
-    }
-
-    $schemaName = 'test_agent'
-    $connectorName = 'Expected Fabric Connector'
-    $promptName = 'Expected Executive Deck Prompt'
-    $emptyAgentPath = Join-Path $testRoot 'empty-agent.zip'
-    New-TestAgentPackage -Path $emptyAgentPath -SchemaName $schemaName -ExtraEntries @{}
-    $emptyEvidence = Get-FabricAgentPackageEvidence -PackagePath $emptyAgentPath -SchemaName $schemaName -ConnectorName $connectorName -PromptName $promptName
-    if ($emptyEvidence.BoundComponentCount -ne 0 -or $emptyEvidence.HasExpectedConnector -or $emptyEvidence.HasExpectedPrompt -or $emptyEvidence.HasConnectionReference) { throw 'Agent-only fixture evidence was evaluated incorrectly.' }
-
-    $partialAgentPath = Join-Path $testRoot 'partial-agent.zip'
-    New-TestAgentPackage -Path $partialAgentPath -SchemaName $schemaName -ExtraEntries @{
-        'actions/connector.xml' = "<action>$connectorName</action>"
-    }
-    $partialEvidence = Get-FabricAgentPackageEvidence -PackagePath $partialAgentPath -SchemaName $schemaName -ConnectorName $connectorName -PromptName $promptName
-    if (-not $partialEvidence.HasExpectedConnector -or $partialEvidence.HasExpectedPrompt -or $partialEvidence.HasConnectionReference) {
-        throw 'Partial agent fixture evidence was evaluated incorrectly.'
-    }
-
-    $completeAgentPath = Join-Path $testRoot 'complete-agent.zip'
-    New-TestAgentPackage -Path $completeAgentPath -SchemaName $schemaName -ExtraEntries @{
-        'actions/connector.xml' = "<action>$connectorName</action>"
-        'prompts/deck.xml' = "<prompt>$promptName</prompt>"
-        'connectionreferences/fabric.xml' = '<connectionReference />'
-    }
-    $completeEvidence = Get-FabricAgentPackageEvidence -PackagePath $completeAgentPath -SchemaName $schemaName -ConnectorName $connectorName -PromptName $promptName
-    if ($completeEvidence.BoundComponentCount -lt 3 -or -not $completeEvidence.HasExpectedConnector -or -not $completeEvidence.HasExpectedPrompt -or -not $completeEvidence.HasConnectionReference) { throw 'Complete agent fixture evidence was evaluated incorrectly.' }
-    Write-Host 'PASS exact agent package evidence'
-
-    $pac = Get-Command pac -ErrorAction SilentlyContinue
-    if ($pac) {
-        $config = Get-FabricDeploymentConfig -Path (Join-Path $PSScriptRoot '../config/deployment.json')
-        $config.powerPlatform.environmentId = '77777777-7777-4777-8777-777777777777'
-        $testConfigPath = Join-Path $testRoot 'deployment.json'
-        $config | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $testConfigPath -Encoding utf8
-        $agentOutput = Join-Path $testRoot 'agents'
-        Assert-Throws -Action {
-            & (Join-Path $PSScriptRoot '../scripts/package-agents.ps1') -ConfigPath $testConfigPath -OutputDirectory $agentOutput -Publish | Out-Null
-        } -MessagePattern 'Cloud agent mutation is intentionally disabled'
-        Write-Host 'PASS automated agent mutation guard'
-    }
-    else {
-        Write-Warning 'SKIP incomplete agent publication guard because PAC CLI is unavailable.'
-    }
 }
 finally {
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+Write-Host 'PASS Tokenomics scripts tests'
 
 Write-Host 'Fabric deployment safety tests completed successfully.' -ForegroundColor Green

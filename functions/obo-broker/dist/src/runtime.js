@@ -5,7 +5,7 @@ import { createActualCostQuery } from './cost-management.js';
 import { BrokerError } from './errors.js';
 import { createDataAgentClient } from './mcp.js';
 import { createTokenExchanger } from './obo.js';
-import { assertReadOnlyStatement, executeQuery, tableListStatement } from './sql.js';
+import { assertReadOnlyStatement, executeQuery, searchLakehouseKnowledge, tableListStatement } from './sql.js';
 import { createTokenomicsQuery, reconcileActualCost } from './tokenomics.js';
 export function createRuntime(config = loadConfig(process.env)) {
     const verify = createTokenVerifier(config);
@@ -22,6 +22,7 @@ export function createRuntime(config = loadConfig(process.env)) {
         },
         exchange,
         query: (token, statement) => executeQuery(config, token, assertReadOnlyStatement(statement, config.maxStatementLength)),
+        searchKnowledge: (token, query) => searchLakehouseKnowledge(config, token, query),
         askDataAgent,
         async tokenomics(days) {
             const [usage, billing] = await Promise.all([tokenomics(days), actualCost(days)]);
@@ -63,6 +64,15 @@ export function questionFromBody(body) {
     if (!question || question.length > 4000 || /[\0\r]/.test(question))
         throw new BrokerError(400, 'invalid_request');
     return question;
+}
+export function knowledgeQueryFromBody(body) {
+    if (!body || typeof body !== 'object' || typeof body.query !== 'string') {
+        throw new BrokerError(400, 'invalid_request');
+    }
+    const query = body.query.trim();
+    if (!query || query.length > 500 || /[\0\r]/.test(query))
+        throw new BrokerError(400, 'invalid_request');
+    return query;
 }
 export { tableListStatement };
 //# sourceMappingURL=runtime.js.map

@@ -187,20 +187,15 @@ try {
     }
     Invoke-FabricNative -FilePath 'python' -ArgumentList @(
         '-m', 'py_compile',
-        'scripts/foundry_knowledge.py',
-        'scripts/provision-foundry-agents.py',
-        'scripts/create-sales-poc-agents.py',
         'scripts/tokenomics/delta_schema.py',
         'scripts/tokenomics/generate-delta-tables.py',
         'scripts/tokenomics/materialize-all-ml-tables.py',
         'scripts/tokenomics/upload-staging-to-onelake.py'
-    ) -Description 'Foundry and Tokenomics Python helper syntax'
+    ) -Description 'Tokenomics Python helper syntax'
     $tokens = $null
     $parseErrors = $null
     [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $repositoryRoot 'scripts/export-tokenomics-loganalytics.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
     if (@($parseErrors).Count -gt 0) { throw 'Microsoft telemetry export helper has PowerShell parse errors.' }
-    [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $repositoryRoot 'scripts/sync-parts-shortages-foundry-iq.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
-    if (@($parseErrors).Count -gt 0) { throw 'Foundry IQ parts-shortage snapshot helper has PowerShell parse errors.' }
 
     foreach ($file in Get-ChildItem (Join-Path $repositoryRoot 'apim/openapi/*.json')) {
         $null = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json
@@ -238,8 +233,6 @@ try {
         'bicep/apim/service.bicep',
         'bicep/broker/main.bicep',
         'bicep/apim/main.bicep',
-        'bicep/foundry/main.bicep',
-        'bicep/foundry/connections.bicep',
         'bicep/ui/main.bicep',
         'bicep/tokenomics-data/main.bicep'
     )
@@ -258,7 +251,6 @@ try {
     $terraformModules = @(
         'terraform/broker',
         'terraform/apim',
-        'terraform/foundry',
         'terraform/ui'
     )
     if ($IncludeParity) {

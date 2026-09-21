@@ -59,22 +59,6 @@ locals {
   }
 
   apis = {
-    lakehouse = {
-      name         = local.config.apim.lakehouseApiId
-      display_name = "Fabric Lakehouse OAuth"
-      description  = "Read-only Fabric Lakehouse operations using delegated OAuth through the private broker."
-      path         = local.config.apim.lakehouseApiPath
-      openapi_file = "${path.module}/../../apim/openapi/lakehouse.json"
-      client_ids   = local.api_client_ids.lakehouse
-    }
-    data-agent = {
-      name         = local.config.apim.dataAgentApiId
-      display_name = "Fabric Data Agent OAuth"
-      description  = "Fabric Data Agent queries using delegated OAuth through the private broker."
-      path         = local.config.apim.dataAgentApiPath
-      openapi_file = "${path.module}/../../apim/openapi/data-agent.json"
-      client_ids   = local.api_client_ids.data-agent
-    }
     tokenomics = {
       name         = local.config.apim.tokenomicsApiId
       display_name = "Fabric Tokenomics"
@@ -85,69 +69,23 @@ locals {
     }
   }
 
-  foundry_inference_apis = {
-    lakehouse = {
-      name     = local.config.apim.inferenceApis.lakehouse.id
-      path     = local.config.apim.inferenceApis.lakehouse.path
-      agent_id = local.config.foundry.agents.lakehouse
-    }
-    data-agent = {
-      name     = local.config.apim.inferenceApis.dataAgent.id
-      path     = local.config.apim.inferenceApis.dataAgent.path
-      agent_id = local.config.foundry.agents.dataAgent
-    }
-  }
+  foundry_inference_apis = {}
 
   operations = {
-    lakehouse-query = {
-      api_key      = "lakehouse"
-      operation_id = "query"
-      policy_file  = "lakehouse-query-operation-policy.xml"
-    }
-    lakehouse-tables = {
-      api_key      = "lakehouse"
-      operation_id = "tables"
-      policy_file  = "lakehouse-tables-operation-policy.xml"
-    }
-    data-agent-query = {
-      api_key      = "data-agent"
-      operation_id = "query"
-      policy_file  = "data-agent-query-operation-policy.xml"
-    }
     tokenomics-summary = {
       api_key      = "tokenomics"
-      operation_id = "summary"
+      operation_id = "get-tokenomics-summary"
       policy_file  = "tokenomics-summary-operation-policy.xml"
     }
   }
 
-  mcp_servers = {
-    lakehouse = {
-      name           = "${local.config.apim.lakehouseApiId}-mcp"
-      display_name   = local.config.apim.lakehouseMcpDisplayName
-      description    = "MCP tools for the Fabric Lakehouse OAuth API."
-      path           = local.config.apim.lakehouseMcpPath
-      operation_keys = ["lakehouse-query", "lakehouse-tables"]
-    }
-    data-agent = {
-      name           = "${local.config.apim.dataAgentApiId}-mcp"
-      display_name   = local.config.apim.dataAgentMcpDisplayName
-      description    = "MCP tool for the Fabric Data Agent OAuth API."
-      path           = local.config.apim.dataAgentMcpPath
-      operation_keys = ["data-agent-query"]
-    }
-  }
+  mcp_servers = {}
 
   products = {
     fabric = {
       name         = local.config.apim.fabricProductId
       display_name = "fabric"
-      description  = "Delegated Fabric Lakehouse and Data Agent REST APIs, MCP servers, and CostOps telemetry."
-    }
-    foundry = {
-      name         = local.config.apim.foundryProductId
-      display_name = "foundry"
-      description  = "Managed-identity Microsoft Foundry model inference APIs governed by APIM AI Gateway policies."
+      description  = "Delegated Fabric Tokenomics REST API and CostOps telemetry."
     }
   }
 
@@ -168,23 +106,9 @@ locals {
     local.caller_tenant_id,
     local.delegated_scope,
     local.broker_role,
-    local.config.apim.lakehouseApiId,
-    local.config.apim.lakehouseApiPath,
-    local.config.apim.lakehouseMcpDisplayName,
-    local.config.apim.lakehouseMcpPath,
-    local.config.apim.dataAgentApiId,
-    local.config.apim.dataAgentApiPath,
-    local.config.apim.dataAgentMcpDisplayName,
-    local.config.apim.dataAgentMcpPath,
     local.config.apim.tokenomicsApiId,
     local.config.apim.tokenomicsApiPath,
-    local.config.apim.inferenceApis.lakehouse.id,
-    local.config.apim.inferenceApis.lakehouse.path,
-    local.config.apim.inferenceApis.dataAgent.id,
-    local.config.apim.inferenceApis.dataAgent.path,
-    local.config.foundry.accountName,
     local.config.apim.fabricProductId,
-    local.config.apim.foundryProductId,
   ]
 
   apim_nsg_rules = {
@@ -388,73 +312,6 @@ resource "azapi_resource" "api_policy" {
   depends_on = [azapi_resource.named_value]
 }
 
-resource "azapi_resource" "foundry_inference_api" {
-  for_each = local.foundry_inference_apis
-
-  type      = "Microsoft.ApiManagement/service/apis@2024-06-01-preview"
-  name      = each.value.name
-  parent_id = local.apim_id
-
-  body = {
-    properties = {
-      displayName          = "Foundry inference - ${each.value.agent_id}"
-      description          = "Managed-identity AI Gateway route for ${each.value.agent_id}."
-      path                 = each.value.path
-      protocols            = ["https"]
-      serviceUrl           = "https://${local.config.foundry.accountName}.openai.azure.com/openai"
-      subscriptionRequired = false
-    }
-  }
-}
-
-resource "azapi_resource" "foundry_chat_completions_operation" {
-  for_each = local.foundry_inference_apis
-
-  type      = "Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview"
-  name      = "chat-completions"
-  parent_id = azapi_resource.foundry_inference_api[each.key].id
-
-  body = {
-    properties = {
-      displayName = "Chat Completions"
-      method      = "POST"
-      urlTemplate = "/deployments/{deploymentName}/chat/completions"
-      templateParameters = [{
-        name     = "deploymentName"
-        type     = "string"
-        required = true
-      }]
-      request = {
-        queryParameters = [{
-          name     = "api-version"
-          type     = "string"
-          required = false
-        }]
-      }
-    }
-  }
-}
-
-resource "azapi_resource" "foundry_inference_policy" {
-  for_each = local.foundry_inference_apis
-
-  type      = "Microsoft.ApiManagement/service/apis/policies@2024-06-01-preview"
-  name      = "policy"
-  parent_id = azapi_resource.foundry_inference_api[each.key].id
-
-  body = {
-    properties = {
-      format = "rawxml"
-      value  = replace(file("${path.module}/../../apim/policies/foundry-inference-policy.xml"), "__AGENT_ID__", each.value.agent_id)
-    }
-  }
-
-  depends_on = [
-    azapi_resource.named_value,
-    azapi_resource.foundry_chat_completions_operation,
-  ]
-}
-
 resource "azapi_resource" "operation_policy" {
   for_each = local.operations
 
@@ -468,34 +325,6 @@ resource "azapi_resource" "operation_policy" {
       value  = file("${path.module}/../../apim/policies/${each.value.policy_file}")
     }
   }
-}
-
-resource "azapi_resource" "mcp_server" {
-  for_each = local.mcp_servers
-
-  type      = "Microsoft.ApiManagement/service/apis@2024-06-01-preview"
-  name      = each.value.name
-  parent_id = local.apim_id
-
-  body = {
-    properties = {
-      type                 = "mcp"
-      displayName          = each.value.display_name
-      description          = each.value.description
-      path                 = each.value.path
-      protocols            = ["https"]
-      subscriptionRequired = false
-      mcpTools = [
-        for operation_key in each.value.operation_keys : {
-          name        = local.operations[operation_key].operation_id
-          operationId = "${azapi_resource.api[local.operations[operation_key].api_key].id}/operations/${local.operations[operation_key].operation_id}"
-        }
-      ]
-    }
-  }
-
-  schema_validation_enabled = false
-  depends_on                = [azapi_resource.operation_policy]
 }
 
 resource "azapi_resource" "product" {
@@ -516,29 +345,13 @@ resource "azapi_resource" "product" {
 }
 
 resource "azapi_resource" "product_api_link" {
-  for_each = merge(
-    {
-      for key, api in azapi_resource.api : "rest-${key}" => {
-        name        = local.apis[key].name
-        api_id      = api.id
-        product_key = "fabric"
-      }
-    },
-    {
-      for key, api in azapi_resource.mcp_server : "mcp-${key}" => {
-        name        = local.mcp_servers[key].name
-        api_id      = api.id
-        product_key = "fabric"
-      }
-    },
-    {
-      for key, api in azapi_resource.foundry_inference_api : "inference-${key}" => {
-        name        = local.foundry_inference_apis[key].name
-        api_id      = api.id
-        product_key = "foundry"
-      }
+  for_each = {
+    for key, api in azapi_resource.api : "rest-${key}" => {
+      name        = local.apis[key].name
+      api_id      = api.id
+      product_key = "fabric"
     }
-  )
+  }
 
   type      = "Microsoft.ApiManagement/service/products/apiLinks@2024-06-01-preview"
   name      = "link-${each.value.name}"
@@ -599,17 +412,9 @@ resource "azurerm_monitor_diagnostic_setting" "tokenomics" {
 }
 
 locals {
-  diagnostic_targets = merge(
-    {
-      for key, api in azapi_resource.api : "rest-${key}" => api.id
-    },
-    {
-      for key, api in azapi_resource.mcp_server : "mcp-${key}" => api.id
-    },
-    {
-      for key, api in azapi_resource.foundry_inference_api : "inference-${key}" => api.id
-    }
-  )
+  diagnostic_targets = {
+    for key, api in azapi_resource.api : "rest-${key}" => api.id
+  }
 }
 
 resource "azapi_resource" "diagnostic" {
@@ -643,7 +448,6 @@ resource "azapi_resource" "diagnostic" {
 
   depends_on = [
     azapi_resource.api_policy,
-    azapi_resource.foundry_inference_policy,
     azapi_resource.operation_policy,
   ]
 }

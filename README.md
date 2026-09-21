@@ -1,8 +1,8 @@
-# Microsoft Fabric OBO and AI tokenomics through private API Management
+# Microsoft Fabric AI Tokenomics & CostOps Platform
 
-This guide deploys permission-trimmed Microsoft Fabric Lakehouse and Data Agent tools through [Azure API Management (APIM)](https://learn.microsoft.com/azure/api-management/genai-gateway-capabilities). Copilot Studio and Microsoft Foundry agents preserve the signed-in user through OAuth; the broker never falls back to an application identity for Fabric data. A private Foundry project uses `gpt-5.6-sol` only through attributable APIM AI Gateway routes. The responsive Angular/Ionic CostOps UI reconciles APIM token telemetry with Azure Cost Management `ActualCost` without relabeling rate-card estimates as billed cost.
+Enterprise multi-cloud AI FinOps, token consumption analytics, and predictive machine learning on **Microsoft Fabric**. This platform ingests, normalizes, and reconciles token consumption across **AWS Bedrock**, **Google Cloud Vertex AI**, **OpenAI Direct**, **Anthropic Claude**, and **Azure OpenAI / Microsoft Foundry** into a governed Medallion Lakehouse architecture with 12 production PySpark ML models, Power BI semantic models and dashboards, and a responsive Angular/Ionic CostOps UI.
 
-> **Reference status (2026-09-19):** The private broker, APIM Fabric and Foundry products, REST and MCP surfaces, private Foundry project, two OAuth Prompt Agents, Azure-billed cost reconciliation, and production CostOps UI are deployed and passed private end-to-end acceptance. The Tokenomics workspace, Lakehouse/SQL endpoint, and two source-only Dataflow Gen2 items also exist. Pricing history, the 12-use-case ML manifest, a 16-table semantic model, two reports with 18 total pages, and two dashboard contracts are implemented and tested locally. Live Tokenomics publication is blocked intentionally because the Lakehouse currently has no tables; Dataflow binding, live price acquisition, the 24 notebooks and their outputs, the Data Agent, semantic model, reports, and dashboard tiles remain pending.
+> **Sister Repository:** For caller-delegated Microsoft Foundry and Copilot Studio On-Behalf-Of (OBO) gateway integration with Microsoft Fabric Lakehouse and Data Agents, see [Foundry-Fabric-OBO-Gateway](https://github.com/csdmichael/Foundry-Fabric-OBO-Gateway).
 
 ## Contents
 
@@ -18,14 +18,8 @@ This guide deploys permission-trimmed Microsoft Fabric Lakehouse and Data Agent 
 - [Configuration](#configuration)
 - [Deployment paths](#deployment-paths)
 - [Infrastructure ownership and deployment guardrails](#infrastructure-ownership-and-deployment-guardrails)
-- [Identity and consent](#identity-and-consent)
-- [APIM APIs and MCP](#apim-apis-and-mcp)
 - [Tokenomics and responsive UI](#tokenomics-and-responsive-ui)
-- [Copilot Studio agents](#copilot-studio-agents)
-- [Microsoft Foundry agents](#microsoft-foundry-agents)
 - [Validation and acceptance](#validation-and-acceptance)
-- [Screenshot evidence checklist](#screenshot-evidence-checklist)
-- [Rollback](#rollback)
 - [References](#references)
 
 ## Architecture
@@ -463,7 +457,8 @@ terraform -chdir=terraform/tokenomics-data validate
 
 - a Fabric-tenant resource API with delegated `Fabric.Access`;
 - separate Lakehouse and Data Agent OAuth connector clients;
-- separate Lakehouse and Data Agent custom OAuth clients for Foundry MCP connections;
+- principal-scoped delegated access for the two Copilot Studio connector clients;
+- managed-identity Foundry IQ access and native signed-in-user Fabric Data Agent access, with no Foundry OAuth connector clients;
 - least-privilege downstream Fabric delegated permissions;
 - principal-scoped consent for explicitly allowed users;
 - a caller-tenant broker API with `Fabric.Broker.Invoke`;
@@ -487,6 +482,7 @@ The products are deliberately separate: Fabric data/tool traffic remains visible
 | Surface | Path | Full private gateway URL | Purpose |
 | --- | --- | --- | --- |
 | Lakehouse REST | `/fabric-lakehouse` | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse](https://caldova-apim-westus.azure-api.net/fabric-lakehouse) | List visible tables and run one read-only query |
+| Lakehouse knowledge | `/fabric-lakehouse/knowledge` | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse/knowledge](https://caldova-apim-westus.azure-api.net/fabric-lakehouse/knowledge) | Return up to 15 citation-ready open-shortage snippets for Copilot Studio knowledge grounding |
 | Lakehouse MCP | `/fabric-lakehouse-mcp/mcp` | [https://caldova-apim-westus.azure-api.net/fabric-lakehouse-mcp/mcp](https://caldova-apim-westus.azure-api.net/fabric-lakehouse-mcp/mcp) | MCP projection of the governed REST operations |
 | Data Agent REST | `/fabric-data-agent` | [https://caldova-apim-westus.azure-api.net/fabric-data-agent](https://caldova-apim-westus.azure-api.net/fabric-data-agent) | Proxy one natural-language Data Agent request |
 | Data Agent MCP | `/fabric-data-agent-mcp/mcp` | [https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp](https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp) | MCP projection of the governed REST operation |
@@ -518,10 +514,12 @@ Open [http://localhost:4200/](http://localhost:4200/) for local development. The
 
 Source-controlled CLI-authored agent workspaces are under [agents](agents):
 
-- [Lakehouse agent source](agents/lakehouse): `Fabric Parts Shortages Analyst`, using only the Lakehouse connector.
-- [Data Agent source](agents/data-agent): `Fabric Data Agent Analyst`, using only the Data Agent connector.
+- [Lakehouse agent source](agents/lakehouse): `Fabric Parts Shortages Analyst`, using the private Lakehouse connector's bounded `knowledge` operation through an `OnKnowledgeRequested` topic.
+- [Data Agent source](agents/data-agent): `Fabric Data Agent Analyst`, using only the private Data Agent connector's `query` operation as an invoker-authenticated tool.
 
 Author and publish them in the [Caldova Private Copilot Studio environment](https://copilotstudio.microsoft.com/environments/52456fcd-1d20-ecdb-aa2e-8979e3f794f5/home). Their direct bot URLs are pending publication because the repository does not yet contain verified live bot IDs.
+
+The complete private-network, OBO, binding, pull, publication, screenshot, and acceptance procedure is in the [Copilot Studio private OBO runbook](docs/copilot-studio-private-obo.md). `scripts/provision-copilot-studio-agents.ps1` validates desired state by default and offers explicit `-ProvisionConnectors`, `-ImportBaselines`, and `-Publish` stages. Publication fails closed until maker-created connection references have been pulled into each workspace.
 
 Both define the generalized [executive-deck-builder skill](skills/executive-deck-builder/SKILL.md) and the instructions that must govern the live code-interpreter prompt. Presentation requests must gather at least three complementary permission-trimmed result sets and then generate a real downloadable `.pptx`. Every number must trace to a Fabric result.
 
@@ -529,8 +527,8 @@ Both define the generalized [executive-deck-builder skill](skills/executive-deck
 
 Complete agent setup in two phases:
 
-1. Create or import the baseline agents in the resolved environment through an explicitly reviewed Copilot Studio operation.
-2. In Copilot Studio, add the correct OAuth custom connector to each agent, create the configured prompt tool with code interpreter enabled, paste the corresponding executive-deck instructions, create a user OAuth connection, and verify both tools.
+1. Create or import the baseline agents and OBO connectors in the resolved environment through an explicitly reviewed Copilot Studio operation.
+2. In Copilot Studio, bind the Lakehouse connector's `knowledge` operation in an `OnKnowledgeRequested` topic and bind only the Data Agent connector's `query` operation as a tool. Both connections use the invoking user's credentials.
 3. Clone or pull each live agent with PAC CLI so its generated action, prompt, and connection-reference components are captured in the source workspace.
 4. Repackage and inspect exact solution relationships and dependencies. The text markers reported by this script are diagnostic only and do not authorize import or publication.
 5. Publish in Copilot Studio only after the connector and code-interpreter prompt show **Connected**, exact relationships are reviewed, and the delegated/denied-user tests pass.
@@ -541,12 +539,12 @@ The approved target is the dedicated private `foundry-fabric-costops/fabric-cost
 
 Both Prompt Agents use pinned `gpt-5.6-sol` version `2026-07-09` through a distinct `ApiManagement` model connection. APIM validates the project managed identity and fixed agent header, enforces 25K TPM per agent route, emits token metrics, and authenticates to the private model account with its own managed identity. Direct model access is not configured.
 
-| Prompt Agent | Model connection | MCP connection | Allowed tools |
+| Prompt Agent | Model connection | Data attachment | Allowed tools |
 | --- | --- | --- | --- |
-| `fabric-lakehouse-costops` | `lakehouse-ai-gateway/gpt-5.6-sol` | `lakehouse-mcp-oauth` | `tables`, `query`, file-search knowledge from `agents/lakehouse/knowledge/files`, and Code Interpreter for downloadable artifacts |
-| `fabric-data-agent-costops` | `data-agent-ai-gateway/gpt-5.6-sol` | `data-agent-mcp-oauth` | `query` |
+| `fabric-lakehouse-costops` | `lakehouse-ai-gateway/gpt-5.6-sol` | Foundry IQ OneLake knowledge base | `knowledge_base_retrieve` and Code Interpreter |
+| `fabric-data-agent-costops` | `data-agent-ai-gateway/gpt-5.6-sol` | Native Microsoft Fabric project connection | `fabric_dataagent_preview` |
 
-[scripts/provision-foundry-agents.ps1](scripts/provision-foundry-agents.ps1) creates one custom OAuth client and `RemoteTool` connection per MCP endpoint, requests only `Fabric.Access offline_access`, registers each Foundry-generated redirect URI, and rotates credentials directly into the connection store. It checkpoints every verified connection and agent version so an idempotent rerun can resume after a partial failure without exposing credentials. [The Python helper](scripts/provision-foundry-agents.py) creates idempotent agent versions, attaches hash-addressed file-search knowledge to the Lakehouse agent, records the effective tool list, and runs a model-only gateway smoke test. Full MCP acceptance still requires the allowed user to complete the per-connection OAuth consent flow described in [Set up MCP server authentication](https://learn.microsoft.com/azure/foundry/agents/how-to/mcp-authentication).
+[scripts/provision-foundry-agents.py](scripts/provision-foundry-agents.py) creates idempotent versions, attaches the managed Foundry IQ knowledge base to the Lakehouse agent, and attaches the native Microsoft Fabric Data Agent tool to the Data Agent agent. The Data Agent connection uses the service-recognized `workspace-id` and `artifact-id` keys; the native tool preserves signed-in-user identity passthrough. See the [Microsoft Foundry identity and OBO runbook](docs/foundry-obo.md) for RBAC, connection payloads, APIM model policies, screenshots, and acceptance tests.
 
 ## Validation and acceptance
 
@@ -568,8 +566,9 @@ Live acceptance requires all of the following:
 - The existing App Service plan and VNets are referenced, not modified or replaced.
 - Public Function and SCM endpoints are denied; APIM resolves the private Function endpoint.
 - Anonymous, wrong-tenant, wrong-audience, application-token, unapproved connector, and unapproved user requests fail closed.
-- An approved user lists only visible Lakehouse tables and completes a read-only query.
-- The Data Agent MCP handshake initializes, lists exactly the expected tool, and returns a permission-trimmed answer.
+- The Copilot Studio Lakehouse agent returns only bounded, citation-ready results through the `knowledge` operation.
+- The Copilot Studio Data Agent exposes only the invoker-authenticated `query` action and returns a permission-trimmed answer.
+- The Foundry Lakehouse agent exposes only `knowledge_base_retrieve` plus Code Interpreter; the Foundry Data Agent exposes only `fabric_dataagent_preview`.
 - The denied-user test returns `403` and no downstream data.
 - Azure Cost Management returns `ActualCost`; billing lag and unavailable states remain visible and rate-card estimates are never labeled billed.
 - Every model-price row has immutable provenance, each model's effective-date intervals are contiguous and nonoverlapping, and each usage event resolves to exactly one as-of price.
@@ -579,7 +578,7 @@ Live acceptance requires all of the following:
 - The consumption/cost report exposes all configured business and model dimensions and keeps reported, market, negotiated, actual, and predicted dollar measures separate.
 - The ML report contains the portfolio overview, exactly 12 algorithm pages, and model-run governance; both dashboards contain a live page tile from their configured source report.
 - The Tokenomics Data Agent is bound only to governed Gold/ML tables, and the semantic model/report keep billed, reported, estimated, negotiated, and predicted-savings measures distinct.
-- Both Foundry Prompt Agents route model and MCP traffic through their own APIM API IDs and expose only their configured tools.
+- Both Foundry Prompt Agents route model inference through their own APIM API IDs and expose only their configured native knowledge/tool attachments.
 - Both Copilot Studio agents use user OAuth connections and publish successfully.
 - Each agent creates a `.pptx` that contains `ppt/presentation.xml`, native evidence visuals, source notes, and no invented values.
 
