@@ -20,4 +20,31 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('CostOps');
   });
+
+  it('should filter allocations and models by cloud provider', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await app.ngOnInit();
+
+    expect(app.selectedProvider()).toBe('all');
+    expect(app.topAllocations().length).toBeGreaterThan(0);
+
+    // Filter by AWS Bedrock
+    app.setProvider('aws');
+    expect(app.selectedProvider()).toBe('aws');
+    const awsAllocations = app.topAllocations();
+    expect(awsAllocations.length).toBeGreaterThan(0);
+    expect(awsAllocations.every(a => app.matchesProvider(a.Provider, a.Model, 'aws'))).toBe(true);
+
+    // Filter by GCP Vertex
+    app.setProvider('gcp');
+    expect(app.selectedProvider()).toBe('gcp');
+    const gcpAllocations = app.topAllocations();
+    expect(gcpAllocations.length).toBeGreaterThan(0);
+    expect(gcpAllocations.every(a => app.matchesProvider(a.Provider, a.Model, 'gcp'))).toBe(true);
+
+    // Reset to All
+    app.setProvider('all');
+    expect(app.selectedProvider()).toBe('all');
+  });
 });

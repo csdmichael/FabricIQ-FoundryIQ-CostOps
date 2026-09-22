@@ -90,28 +90,38 @@
         </div>
       </header>
 
-      <!-- Control Strip: Observation Windows -->
-      @if (activeView() === 'overview' || activeView() === 'allocation') {
-        <section class="control-strip" aria-label="Dashboard filters">
-          <div>
-            <span class="eyebrow">Observation window</span>
-            <ion-segment [value]="windowDays()" (ionChange)="selectWindow($event.detail.value)" mode="md">
-              <ion-segment-button [value]="1">24H</ion-segment-button>
-              <ion-segment-button [value]="7">7D</ion-segment-button>
-              <ion-segment-button [value]="30">30D</ion-segment-button>
-              <ion-segment-button [value]="90">90D</ion-segment-button>
-            </ion-segment>
+      <!-- Control Strip: Observation Windows & Multi-Cloud Provider Filter -->
+      <section class="control-strip" aria-label="Dashboard filters">
+        <div class="filter-window-box">
+          <span class="eyebrow">Observation window</span>
+          <ion-segment [value]="windowDays()" (ionChange)="selectWindow($event.detail.value)" mode="md">
+            <ion-segment-button [value]="1">24H</ion-segment-button>
+            <ion-segment-button [value]="7">7D</ion-segment-button>
+            <ion-segment-button [value]="30">30D</ion-segment-button>
+            <ion-segment-button [value]="90">90D</ion-segment-button>
+          </ion-segment>
+        </div>
+
+        <div class="provider-filter-strip">
+          <span class="eyebrow">Cloud / Provider:</span>
+          <div class="provider-filters" role="group" aria-label="Filter by Cloud / Model Provider">
+            @for (opt of providerOptions; track opt.id) {
+              <button
+                type="button"
+                class="provider-filter-btn {{ opt.code }}"
+                [class.active]="selectedProvider() === opt.id"
+                (click)="setProvider(opt.id)"
+                [attr.aria-pressed]="selectedProvider() === opt.id"
+                [title]="'Filter by ' + opt.name">
+                <span class="dot"></span>
+                <span>{{ opt.name }}</span>
+              </button>
+            }
           </div>
-          <div class="provider-badges">
-            <span class="provider-pill aws">AWS Bedrock</span>
-            <span class="provider-pill gcp">GCP Vertex</span>
-            <span class="provider-pill msft">Azure OpenAI</span>
-            <span class="provider-pill oai">OpenAI</span>
-            <span class="provider-pill cld">Claude</span>
-          </div>
-          <div class="updated-at"><span>Updated</span><strong>{{ lastUpdated() || 'Live' }}</strong></div>
-        </section>
-      }
+        </div>
+
+        <div class="updated-at"><span>Updated</span><strong>{{ lastUpdated() || 'Live' }}</strong></div>
+      </section>
 
       @if (loading()) {
         <section class="state-panel"><ion-spinner name="crescent"></ion-spinner><p>Loading governed usage telemetry</p></section>
@@ -125,91 +135,108 @@
 
           <!-- 1. OVERVIEW VIEW -->
           @if (activeView() === 'overview') {
-            <section class="overview-view">
-              <div class="section-intro">
-                <div>
-                  <span class="eyebrow">{{ windowDays() }} Day Multi-Cloud Portfolio</span>
-                  <h2>Multi-Cloud Outcome Economics</h2>
+            @if (filteredSummary(); as summary) {
+              <section class="overview-view">
+                <div class="section-intro">
+                  <div>
+                    <span class="eyebrow">{{ windowDays() }} Day {{ activeProviderName() }} Portfolio</span>
+                    <h2>{{ selectedProvider() === 'all' ? 'Multi-Cloud Outcome Economics' : activeProviderName() + ' Economics' }}</h2>
+                  </div>
+                  <p>{{ integer(summary.successfulRequests) }} governed requests • {{ activeProviderName() }}</p>
                 </div>
-                <p>{{ integer(data.summary.successfulRequests) }} governed requests across 5 clouds</p>
-              </div>
 
-              <!-- 5 Hero KPIs -->
-              <div class="kpi-grid">
-                <article class="kpi primary">
-                  <div class="kpi-icon"><ion-icon name="analytics-outline"></ion-icon></div>
-                  <span>Total Tokens</span><strong>{{ compact(data.summary.totalTokens) }}</strong>
-                  <small>{{ percent(data.summary.tokenCoveragePct) }} multi-cloud coverage</small>
-                </article>
-                <article class="kpi green">
-                  <div class="kpi-icon"><ion-icon name="wallet-outline"></ion-icon></div>
-                  <span>Billed Model Cost</span><strong>{{ money(data.actualCost.dedicatedModelCost, 2) }}</strong>
-                  <small>{{ data.actualCost.billedThrough ? 'ActualCost through ' + data.actualCost.billedThrough : 'Fabric Lakehouse Gold' }}</small>
-                </article>
-                <article class="kpi teal">
-                  <div class="kpi-icon"><ion-icon name="cash-outline"></ion-icon></div>
-                  <span>Negotiated Savings</span><strong>{{ money(data.summary.savings, 2) }}</strong>
-                  <small>12% enterprise rate card discount</small>
-                </article>
-                <article class="kpi orange">
-                  <div class="kpi-icon"><ion-icon name="speedometer-outline"></ion-icon></div>
-                  <span>P95 Latency</span><strong>{{ compact(data.summary.p95LatencyMs) }}<em> ms</em></strong>
-                  <small>{{ percent(successRate()) }} request success</small>
-                </article>
-                <article class="kpi purple">
-                  <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
-                  <span>Cost / Tokenized Request</span><strong>{{ money(costPerTokenizedRequest(), 3) }}</strong>
-                  <small>Across {{ compact(data.summary.tokenizedRequests) }} tokenized requests</small>
-                </article>
-              </div>
+                @if (selectedProvider() !== 'all') {
+                  <div class="filter-active-indicator">
+                    <ion-icon name="information-circle-outline"></ion-icon>
+                    <span>Filtered to <strong>{{ activeProviderName() }}</strong>. Showing provider-specific token volume, spend, and models.</span>
+                    <button type="button" (click)="setProvider('all')">Reset to All Clouds</button>
+                  </div>
+                }
 
-              <!-- Trend & Allocation Charts -->
-              <div class="insight-grid">
-                <section class="chart-panel trend-panel">
+                <!-- 5 Hero KPIs -->
+                <div class="kpi-grid">
+                  <article class="kpi primary">
+                    <div class="kpi-icon"><ion-icon name="analytics-outline"></ion-icon></div>
+                    <span>Total Tokens</span><strong>{{ compact(summary.totalTokens) }}</strong>
+                    <small>{{ percent(summary.tokenCoveragePct) }} multi-cloud coverage</small>
+                  </article>
+                  <article class="kpi green">
+                    <div class="kpi-icon"><ion-icon name="wallet-outline"></ion-icon></div>
+                    <span>Billed Model Cost</span><strong>{{ money(summary.dedicatedModelCost, 2) }}</strong>
+                    <small>{{ summary.billedThrough ? 'ActualCost through ' + summary.billedThrough : 'Fabric Lakehouse Gold' }}</small>
+                  </article>
+                  <article class="kpi teal">
+                    <div class="kpi-icon"><ion-icon name="cash-outline"></ion-icon></div>
+                    <span>Negotiated Savings</span><strong>{{ money(summary.savings, 2) }}</strong>
+                    <small>12% enterprise rate card discount</small>
+                  </article>
+                  <article class="kpi orange">
+                    <div class="kpi-icon"><ion-icon name="speedometer-outline"></ion-icon></div>
+                    <span>P95 Latency</span><strong>{{ compact(summary.p95LatencyMs) }}<em> ms</em></strong>
+                    <small>{{ percent(successRate()) }} request success</small>
+                  </article>
+                  <article class="kpi purple">
+                    <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
+                    <span>Cost / Tokenized Request</span><strong>{{ money(costPerTokenizedRequest(), 3) }}</strong>
+                    <small>Across {{ compact(summary.tokenizedRequests) }} tokenized requests</small>
+                  </article>
+                </div>
+
+                <!-- Trend & Allocation Charts -->
+                <div class="insight-grid">
+                  <section class="chart-panel trend-panel">
+                    <header>
+                      <div><span class="eyebrow">{{ activeProviderName() }} Volume</span><h3>Tokens & Cost over Time</h3></div>
+                      <span class="panel-tag">{{ data.currency }}</span>
+                    </header>
+                    <app-tokenomics-chart mode="trend" [rows]="filteredTrend()" [currency]="data.currency" label="Token volume and model cost over time"></app-tokenomics-chart>
+                  </section>
+                  <section class="chart-panel allocation-panel">
+                    <header>
+                      <div><span class="eyebrow">Attribution</span><h3>Cost by Team</h3></div>
+                      <span class="panel-tag">Allocated</span>
+                    </header>
+                    <app-tokenomics-chart mode="allocation" [rows]="topAllocations()" [currency]="data.currency" label="Cost allocation across teams"></app-tokenomics-chart>
+                  </section>
+                </div>
+
+                <!-- Multi-Cloud Model Breakdown -->
+                <section class="operations-band">
                   <header>
-                    <div><span class="eyebrow">Multi-Cloud Volume</span><h3>Tokens & Cost over Time</h3></div>
-                    <span class="panel-tag">{{ data.currency }}</span>
+                    <div><span class="eyebrow">Multi-Cloud Ingestion</span><h3>Active Models ({{ filteredModels().length }})</h3></div>
+                    <ion-icon name="cloud-outline"></ion-icon>
                   </header>
-                  <app-tokenomics-chart mode="trend" [rows]="data.trend" [currency]="data.currency" label="Token volume and model cost over time"></app-tokenomics-chart>
-                </section>
-                <section class="chart-panel allocation-panel">
-                  <header>
-                    <div><span class="eyebrow">Attribution</span><h3>Cost by Team</h3></div>
-                    <span class="panel-tag">Allocated</span>
-                  </header>
-                  <app-tokenomics-chart mode="allocation" [rows]="topAllocations()" [currency]="data.currency" label="Cost allocation across teams"></app-tokenomics-chart>
-                </section>
-              </div>
-
-              <!-- Multi-Cloud Model Breakdown -->
-              <section class="operations-band">
-                <header>
-                  <div><span class="eyebrow">Multi-Cloud Ingestion</span><h3>Active Models by Provider</h3></div>
-                  <ion-icon name="cloud-outline"></ion-icon>
-                </header>
-                <div class="operation-grid">
-                  @for (m of data.models; track m.Model) {
-                    <article>
-                      <div class="operation-title">
-                        <strong>{{ m.Model }}</strong>
-                        <span class="provider-tag" [ngClass]="m.Provider?.toLowerCase()?.includes('aws') ? 'aws' : m.Provider?.toLowerCase()?.includes('gcp') ? 'gcp' : m.Provider?.toLowerCase()?.includes('anthropic') ? 'cld' : m.Provider?.toLowerCase()?.includes('direct') ? 'oai' : 'msft'">
-                          {{ m.Provider }}
-                        </span>
-                      </div>
-                      <div class="operation-metric">
-                        <strong>{{ compact(m.TotalTokens || 0) }} tokens</strong>
-                        <span>{{ money(m.NegotiatedCost, 2) }}</span>
-                      </div>
-                      <div class="meter"><span [style.width.%]="allocationShare(m)"></span></div>
-                      <footer>
-                        <span>{{ integer(m.Requests) }} requests</span>
-                        <span>{{ percent(allocationShare(m)) }} volume</span>
-                      </footer>
-                    </article>
+                  @if (filteredModels().length > 0) {
+                    <div class="operation-grid">
+                      @for (m of filteredModels(); track m.Model) {
+                        <article>
+                          <div class="operation-title">
+                            <strong>{{ m.Model }}</strong>
+                            <span class="provider-tag" [ngClass]="m.Provider?.toLowerCase()?.includes('aws') ? 'aws' : m.Provider?.toLowerCase()?.includes('gcp') ? 'gcp' : m.Provider?.toLowerCase()?.includes('anthropic') ? 'cld' : m.Provider?.toLowerCase()?.includes('direct') ? 'oai' : 'msft'">
+                              {{ m.Provider }}
+                            </span>
+                          </div>
+                          <div class="operation-metric">
+                            <strong>{{ compact(m.TotalTokens || 0) }} tokens</strong>
+                            <span>{{ money(m.NegotiatedCost, 2) }}</span>
+                          </div>
+                          <div class="meter"><span [style.width.%]="allocationShare(m)"></span></div>
+                          <footer>
+                            <span>{{ integer(m.Requests) }} requests</span>
+                            <span>{{ percent(allocationShare(m)) }} volume</span>
+                          </footer>
+                        </article>
+                      }
+                    </div>
+                  } @else {
+                    <div class="empty-models-notice">
+                      <p>No models active for the selected provider filter.</p>
+                      <button type="button" (click)="setProvider('all')">Show All Models</button>
+                    </div>
                   }
-                </div>
+                </section>
               </section>
-            </section>
+            }
           }
 
           <!-- 2. ALLOCATION & CHARGEBACK VIEW -->
@@ -222,6 +249,33 @@
                 </div>
                 <p>99.4% tokens mapped to Cost Centers and Projects</p>
               </div>
+
+              <!-- Search and Provider Filter Bar -->
+              <div class="allocation-filter-bar">
+                <div class="search-box">
+                  <ion-icon name="search-outline"></ion-icon>
+                  <input type="text" placeholder="Search application, team, department, cost center, model..." [value]="allocationSearch()" (input)="allocationSearch.set($any($event.target).value)">
+                </div>
+                <div class="filter-pills">
+                  @for (opt of providerOptions; track opt.id) {
+                    <button
+                      type="button"
+                      class="{{ opt.code }}-pill"
+                      [class.active]="selectedProvider() === opt.id"
+                      (click)="setProvider(opt.id)">
+                      {{ opt.name }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              @if (selectedProvider() !== 'all' || allocationSearch()) {
+                <div class="filter-active-indicator">
+                  <ion-icon name="information-circle-outline"></ion-icon>
+                  <span>Showing <strong>{{ topAllocations().length }}</strong> allocations matching provider <strong>{{ activeProviderName() }}</strong>{{ allocationSearch() ? ' and query "' + allocationSearch() + '"' : '' }}.</span>
+                  <button type="button" (click)="allocationSearch.set(''); setProvider('all')">Clear filters</button>
+                </div>
+              }
 
               <div class="allocation-table">
                 <div class="table-header">
@@ -256,6 +310,13 @@
                     </span>
                     <span><strong>{{ money(row.MarketCost, 2) }}</strong><small>List price</small></span>
                     <span><strong class="green-text">{{ money(row.NegotiatedCost, 2) }}</strong><small class="savings-text">-12% discount</small></span>
+                  </div>
+                }
+                @if (topAllocations().length === 0) {
+                  <div class="empty-table-state">
+                    <ion-icon name="search-outline"></ion-icon>
+                    <p>No cost allocations found matching "<strong>{{ allocationSearch() || activeProviderName() }}</strong>".</p>
+                    <button type="button" (click)="allocationSearch.set(''); setProvider('all')">Reset Filter</button>
                   </div>
                 }
               </div>
@@ -301,12 +362,15 @@
                   <input type="text" placeholder="Search model name, family, or provider..." [value]="pricingSearch()" (input)="pricingSearch.set($any($event.target).value)">
                 </div>
                 <div class="filter-pills">
-                  <button type="button" [class.active]="pricingProviderFilter() === 'all'" (click)="setPricingProviderFilter('all')">All (5)</button>
-                  <button type="button" class="aws-pill" [class.active]="pricingProviderFilter() === 'aws'" (click)="setPricingProviderFilter('aws')">AWS Bedrock</button>
-                  <button type="button" class="gcp-pill" [class.active]="pricingProviderFilter() === 'gcp'" (click)="setPricingProviderFilter('gcp')">GCP Vertex</button>
-                  <button type="button" class="msft-pill" [class.active]="pricingProviderFilter() === 'msft'" (click)="setPricingProviderFilter('msft')">Azure OpenAI</button>
-                  <button type="button" class="oai-pill" [class.active]="pricingProviderFilter() === 'oai'" (click)="setPricingProviderFilter('oai')">OpenAI</button>
-                  <button type="button" class="cld-pill" [class.active]="pricingProviderFilter() === 'cld'" (click)="setPricingProviderFilter('cld')">Claude</button>
+                  @for (opt of providerOptions; track opt.id) {
+                    <button
+                      type="button"
+                      class="{{ opt.code }}-pill"
+                      [class.active]="selectedProvider() === opt.id"
+                      (click)="setProvider(opt.id)">
+                      {{ opt.name }}
+                    </button>
+                  }
                 </div>
               </div>
 
@@ -389,14 +453,11 @@
               <!-- Power BI Slicers Bar -->
               <div class="pbi-slicers-bar">
                 <div class="slicer-group">
-                  <label>Provider:</label>
-                  <select [(ngModel)]="selectedPowerBiProvider">
-                    <option value="all">All Clouds (5)</option>
-                    <option value="aws">AWS Bedrock</option>
-                    <option value="gcp">GCP Vertex AI</option>
-                    <option value="msft">Azure OpenAI</option>
-                    <option value="oai">OpenAI Direct</option>
-                    <option value="cld">Anthropic Claude</option>
+                  <label>Cloud / Provider Slicer:</label>
+                  <select [value]="selectedProvider()" (change)="setProvider($any($event.target).value)">
+                    @for (opt of providerOptions; track opt.id) {
+                      <option [value]="opt.id">{{ opt.name }}</option>
+                    }
                   </select>
                 </div>
                 <div class="slicer-group">

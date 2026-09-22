@@ -100,6 +100,16 @@
           "category": "ui",
           "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Web/serverfarms/caldova-showcase-plan",
           "shared": true
+        },
+        {
+          "category": "storage",
+          "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Storage/storageAccounts/genieobodkm7l6ym6ryju",
+          "shared": true
+        },
+        {
+          "category": "cosmos",
+          "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.DocumentDB/databaseAccounts/caldova-showcase-dkm7l6ym6ryju",
+          "shared": true
         }
       ]
     }
@@ -127,8 +137,7 @@
         "aws",
         "gcp",
         "oai",
-        "cld",
-        "msft"
+        "cld"
       ]
     },
     "fabric": {

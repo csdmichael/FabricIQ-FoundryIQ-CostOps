@@ -12,13 +12,11 @@ $config = Get-FabricDeploymentConfig -Path $ConfigPath
 $workspaceResourceId = [string]$config.tokenomicsPlatform.logAnalytics.workspaceResourceId
 $lookbackDays = [int]$config.tokenomicsPlatform.logAnalytics.lookbackDays
 $apiIds = @(
-    [string]$config.apim.inferenceApis.lakehouse.id,
-    [string]$config.apim.inferenceApis.dataAgent.id
+    [string]$config.apim.tokenomicsApiId
 )
 $apiIdsJson = ConvertTo-Json -InputObject $apiIds -Compress
 $apiAttributionJson = ConvertTo-Json -InputObject ([ordered]@{
-    ([string]$config.apim.inferenceApis.lakehouse.id) = [string]$config.foundry.agents.lakehouse
-    ([string]$config.apim.inferenceApis.dataAgent.id) = [string]$config.foundry.agents.dataAgent
+    ([string]$config.apim.tokenomicsApiId) = [string]$config.fabric.dataAgentName
 }) -Compress
 $workspaceId = az monitor log-analytics workspace show --ids $workspaceResourceId --query customerId -o tsv
 if ($LASTEXITCODE -ne 0 -or $workspaceId -notmatch '^[0-9a-fA-F-]{36}$') {

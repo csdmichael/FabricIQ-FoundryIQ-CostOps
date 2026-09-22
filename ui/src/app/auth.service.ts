@@ -29,7 +29,7 @@ export class AuthService {
           postLogoutRedirectUri: window.location.origin,
         },
         cache: {
-          cacheLocation: 'sessionStorage',
+          cacheLocation: 'localStorage',
         },
       });
       await this.client.initialize();
@@ -37,7 +37,17 @@ export class AuthService {
       const currentAccount = redirect?.account ?? this.client.getAllAccounts()[0] ?? null;
       this.account.set(currentAccount);
 
-      // Clean auth code hash from URL after successful processing
+      // If running inside a popup window that just completed authentication, close it
+      if (typeof window !== 'undefined' && window.opener && window.opener !== window) {
+        try {
+          window.close();
+          return;
+        } catch {
+          // Ignore popup close error
+        }
+      }
+
+      // Clean auth code hash from URL after successful processing in the main window
       if (typeof window !== 'undefined' && window.location.hash && (window.location.hash.includes('code=') || window.location.hash.includes('error='))) {
         try {
           if (window.history && window.history.replaceState) {

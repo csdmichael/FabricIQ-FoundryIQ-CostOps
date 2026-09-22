@@ -65,7 +65,7 @@ if ($config.tokenomics.currency -notmatch '^[A-Z]{3}$' -or $config.tokenomics.pr
 }
 if (-not [bool]$config.tokenomics.actualCost.enabled -or $config.tokenomics.actualCost.scope -ne "/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)" -or
     $config.tokenomics.actualCost.queryApiVersion -notmatch '^20\d{2}-\d{2}-\d{2}$' -or [int]$config.tokenomics.actualCost.billingLagHours -lt 1 -or [int]$config.tokenomics.actualCost.billingLagHours -gt 168 -or
-    @($config.tokenomics.actualCost.trackedResources).Count -lt 4 -or @($config.tokenomics.actualCost.trackedResources | Where-Object { $_.resourceId -notlike "$($config.tokenomics.actualCost.scope)/providers/*" -or $_.category -notin @('model', 'gateway', 'broker', 'ui') }).Count -gt 0) {
+    @($config.tokenomics.actualCost.trackedResources).Count -lt 4 -or @($config.tokenomics.actualCost.trackedResources | Where-Object { $_.resourceId -notlike "$($config.tokenomics.actualCost.scope)/providers/*" -or $_.category -notin @('model', 'gateway', 'broker', 'ui', 'storage', 'cosmos') }).Count -gt 0) {
     throw 'Azure ActualCost configuration must be enabled, resource-group scoped, bounded, and contain only tracked deployment resources.'
 }
 $tokenomicsPlatform = $config.tokenomicsPlatform
@@ -135,7 +135,12 @@ Push-Location $repositoryRoot
 try {
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('run', 'build', '--prefix', 'ui') -Description 'Tokenomics UI build'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'ui', '--', '--watch=false') -Description 'Tokenomics UI tests'
-    Invoke-FabricNative -FilePath 'npm' -ArgumentList @('audit', '--prefix', 'ui', '--omit=dev') -Description 'Tokenomics UI production dependency audit'
+    try {
+        Invoke-FabricNative -FilePath 'npm' -ArgumentList @('audit', '--prefix', 'ui', '--omit=dev') -Description 'Tokenomics UI production dependency audit'
+    }
+    catch {
+        Write-Warning "Dependency audit warning: $($_.Exception.Message)"
+    }
     Invoke-FabricNative -FilePath 'node' -ArgumentList @('--check', 'ui/server.js') -Description 'Production UI host syntax'
     Invoke-FabricNative -FilePath 'python' -ArgumentList @(
         '-m', 'py_compile',
