@@ -1,7 +1,7 @@
 {
-  "apiBaseUrl": "",
-  "tenantId": "",
-  "clientId": "",
-  "scope": "",
-  "environment": "Unconfigured"
+  "apiBaseUrl": "/api/fabric-tokenomics",
+  "tenantId": "12a4b86b-e64c-43f9-af05-d9130a72dfd2",
+  "clientId": "ebef5cd8-07ed-4889-85b6-348df351f68b",
+  "scope": "api://3a9e9b7d-7354-4efd-b724-d9f566c67fd1/Fabric.Access",
+  "environment": "Caldova Private"
 }
