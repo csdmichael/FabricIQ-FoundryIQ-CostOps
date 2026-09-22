@@ -49,17 +49,20 @@ export class TokenomicsChart implements AfterViewInit, OnChanges, OnDestroy {
       const key = row.TimeBucket ?? 'Unknown';
       const bucket = buckets.get(key) ?? { tokens: 0, cost: 0 };
       bucket.tokens += row.TotalTokens ?? 0;
-      bucket.cost += row.ActualCost ?? 0;
+      bucket.cost += row.ActualCost ?? row.NegotiatedCost ?? 0;
       buckets.set(key, bucket);
     }
     const entries = [...buckets.entries()].sort(([left], [right]) => left.localeCompare(right));
     return {
       type: 'bar',
       data: {
-        labels: entries.map(([date]) => new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(date))),
+        labels: entries.map(([date]) => {
+          const d = new Date(date);
+          return isNaN(d.getTime()) ? date : new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(d);
+        }),
         datasets: [
-          { type: 'bar', label: 'Tokens', data: entries.map(([, value]) => value.tokens / 1_000_000), backgroundColor: '#16a3a5', borderRadius: 3, yAxisID: 'y' },
-          { type: 'line', label: 'Cost', data: entries.map(([, value]) => value.cost), borderColor: '#f06435', backgroundColor: '#f06435', pointBackgroundColor: '#ffffff', pointBorderWidth: 3, pointRadius: 4, borderWidth: 3, tension: 0.28, yAxisID: 'y1' },
+          { type: 'bar', label: 'Tokens (M)', data: entries.map(([, value]) => Number((value.tokens / 1_000_000).toFixed(2))), backgroundColor: '#16a3a5', borderRadius: 3, yAxisID: 'y' },
+          { type: 'line', label: 'Cost', data: entries.map(([, value]) => Number(value.cost.toFixed(2))), borderColor: '#f06435', backgroundColor: '#f06435', pointBackgroundColor: '#ffffff', pointBorderWidth: 3, pointRadius: 4, borderWidth: 3, tension: 0.28, yAxisID: 'y1' },
         ],
       },
       options: {

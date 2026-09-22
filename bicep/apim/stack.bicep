@@ -7,9 +7,6 @@ param resourceApiClientId string
 param delegatedScope string
 param tokenomicsClientIds array
 param allowedUserObjectIds array
-param brokerAudience string
-param brokerRole string
-param brokerPrivateUrl string
 param rateLimitCalls int
 param rateLimitRenewalSeconds int
 param requestTimeoutSeconds int
@@ -23,21 +20,18 @@ param logAnalyticsWorkspaceId string
 
 var diagnosticsEnabled = !empty(applicationInsightsName)
 var tokenomicsDiagnosticsEnabled = !empty(logAnalyticsWorkspaceId)
-var loggerName = 'fabric-obo-insights'
-var commonApiPolicy = loadTextContent('../../apim/policies/fabric-obo-api-policy.xml')
+var loggerName = 'tokenomics-insights'
+var commonApiPolicy = loadTextContent('../../apim/policies/tokenomics-api-policy.xml')
 var namedValueSettings = [
-  { name: 'fabric-obo-resource-tenant-id', value: resourceTenantId }
-  { name: 'fabric-obo-caller-tenant-id', value: callerTenantId }
-  { name: 'fabric-obo-resource-api-client-id', value: resourceApiClientId }
-  { name: 'fabric-obo-delegated-scope', value: delegatedScope }
-  { name: 'fabric-obo-allowed-user-ids', value: join(allowedUserObjectIds, ',') }
-  { name: 'fabric-obo-broker-audience', value: brokerAudience }
-  { name: 'fabric-obo-broker-role', value: brokerRole }
-  { name: 'fabric-obo-broker-private-url', value: brokerPrivateUrl }
-  { name: 'fabric-obo-rate-limit-calls', value: string(rateLimitCalls) }
-  { name: 'fabric-obo-rate-limit-renewal-seconds', value: string(rateLimitRenewalSeconds) }
-  { name: 'fabric-obo-request-timeout-seconds', value: string(requestTimeoutSeconds) }
-  { name: 'fabric-obo-ui-origin', value: uiAllowedOrigin }
+  { name: 'tokenomics-resource-tenant-id', value: resourceTenantId }
+  { name: 'tokenomics-caller-tenant-id', value: callerTenantId }
+  { name: 'tokenomics-resource-api-client-id', value: resourceApiClientId }
+  { name: 'tokenomics-delegated-scope', value: delegatedScope }
+  { name: 'tokenomics-allowed-user-ids', value: join(allowedUserObjectIds, ',') }
+  { name: 'tokenomics-rate-limit-calls', value: string(rateLimitCalls) }
+  { name: 'tokenomics-rate-limit-renewal-seconds', value: string(rateLimitRenewalSeconds) }
+  { name: 'tokenomics-request-timeout-seconds', value: string(requestTimeoutSeconds) }
+  { name: 'tokenomics-ui-origin', value: uiAllowedOrigin }
 ]
 
 resource apim 'Microsoft.ApiManagement/service@2024-06-01-preview' existing = {

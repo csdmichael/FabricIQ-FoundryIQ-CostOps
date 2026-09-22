@@ -40,22 +40,15 @@ locals {
   application_insights_resource_group_name = trimspace(coalesce(var.application_insights_resource_group_name, "")) != "" ? trimspace(var.application_insights_resource_group_name) : local.apim_resource_group_name
 
   named_values = {
-    fabric-obo-resource-tenant-id         = local.resource_tenant_id
-    fabric-obo-caller-tenant-id           = local.caller_tenant_id
-    fabric-obo-resource-api-client-id     = lower(trimspace(var.resource_api_client_id))
-    fabric-obo-delegated-scope            = local.delegated_scope
-    fabric-obo-allowed-user-oids          = join(",", local.allowed_user_object_ids)
-    fabric-obo-broker-audience            = lower(trimspace(var.broker_audience))
-    fabric-obo-broker-role                = local.broker_role
-    fabric-obo-broker-private-url         = local.broker_private_url
-    fabric-obo-rate-limit-calls           = tostring(local.config.apim.rateLimitCalls)
-    fabric-obo-rate-limit-renewal-seconds = tostring(local.config.apim.rateLimitRenewalSeconds)
-    fabric-obo-request-timeout-seconds    = tostring(local.config.apim.requestTimeoutSeconds)
-    fabric-obo-ui-origin                  = local.config.ui.allowedOrigin
-    foundry-tenant-id                     = local.config.azure.tenantId
-    foundry-project-mi-client-id          = local.foundry_project_mi_client_id
-    foundry-model-backend-url             = "https://${local.config.foundry.accountName}.openai.azure.com/openai"
-    foundry-model-token-limit             = tostring(local.config.apim.modelTokenLimitPerMinute)
+    tokenomics-resource-tenant-id         = local.resource_tenant_id
+    tokenomics-caller-tenant-id           = local.caller_tenant_id
+    tokenomics-resource-api-client-id     = lower(trimspace(var.resource_api_client_id))
+    tokenomics-delegated-scope            = local.delegated_scope
+    tokenomics-allowed-user-oids          = join(",", local.allowed_user_object_ids)
+    tokenomics-rate-limit-calls           = tostring(local.config.apim.rateLimitCalls)
+    tokenomics-rate-limit-renewal-seconds = tostring(local.config.apim.rateLimitRenewalSeconds)
+    tokenomics-request-timeout-seconds    = tostring(local.config.apim.requestTimeoutSeconds)
+    tokenomics-ui-origin                  = local.config.ui.allowedOrigin
   }
 
   apis = {
@@ -305,7 +298,7 @@ resource "azapi_resource" "api_policy" {
   body = {
     properties = {
       format = "rawxml"
-      value  = replace(file("${path.module}/../../apim/policies/fabric-obo-api-policy.xml"), "__ALLOWED_CLIENT_IDS__", join(",", local.apis[each.key].client_ids))
+      value  = replace(file("${path.module}/../../apim/policies/tokenomics-api-policy.xml"), "__ALLOWED_CLIENT_IDS__", join(",", local.apis[each.key].client_ids))
     }
   }
 

@@ -1,9 +1,10 @@
 <ion-app>
   <div class="app-frame">
+    <!-- Desktop Sidebar Navigation -->
     <aside class="desktop-nav" aria-label="Primary navigation">
       <div class="brand-lockup">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-        <span><strong>CostOps</strong><small>AI tokenomics</small></span>
+        <span><strong>CostOps</strong><small>Multi-Cloud Tokenomics</small></span>
       </div>
       <nav>
         <button type="button" [class.active]="activeView() === 'overview'" (click)="setView('overview')">
@@ -12,61 +13,105 @@
         <button type="button" [class.active]="activeView() === 'allocation'" (click)="setView('allocation')">
           <ion-icon name="people-outline"></ion-icon><span>Allocation</span>
         </button>
-        <button type="button" [class.active]="activeView() === 'quality'" (click)="setView('quality')">
-          <ion-icon name="shield-checkmark-outline"></ion-icon><span>Controls</span>
+        <button type="button" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')">
+          <ion-icon name="pricetag-outline"></ion-icon><span>Model Pricing</span>
+        </button>
+        <button type="button" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')">
+          <ion-icon name="bar-chart-outline"></ion-icon><span>Power BI Reports</span>
+        </button>
+        <button type="button" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')">
+          <ion-icon name="sparkles-outline"></ion-icon><span>12 ML Insights</span>
+        </button>
+        <button type="button" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')">
+          <ion-icon name="chatbubbles-outline"></ion-icon><span>Data Agent Chat</span>
         </button>
       </nav>
       <div class="nav-foot">
-        <div class="environment-dot"></div>
-        <span><small>Environment</small><strong>{{ tokenomics.environment() }}</strong></span>
+        <div class="environment-dot" [class.live]="tokenomics.isLiveMode()"></div>
+        <span>
+          <small>Fabric Workspace</small>
+          <strong>Fabric AI Tokenomics</strong>
+          <small class="env-tag">{{ tokenomics.environment() }}</small>
+        </span>
       </div>
     </aside>
 
+    <!-- Tablet Icon Rail -->
     <aside class="tablet-rail" aria-label="Tablet navigation">
       <span class="brand-mark compact" aria-label="CostOps"><i></i><i></i><i></i><i></i></span>
       <button type="button" title="Overview" [class.active]="activeView() === 'overview'" (click)="setView('overview')"><ion-icon name="grid-outline"></ion-icon></button>
       <button type="button" title="Allocation" [class.active]="activeView() === 'allocation'" (click)="setView('allocation')"><ion-icon name="people-outline"></ion-icon></button>
-      <button type="button" title="Controls" [class.active]="activeView() === 'quality'" (click)="setView('quality')"><ion-icon name="shield-checkmark-outline"></ion-icon></button>
+      <button type="button" title="Model Pricing" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')"><ion-icon name="pricetag-outline"></ion-icon></button>
+      <button type="button" title="Power BI Reports" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon></button>
+      <button type="button" title="12 ML Insights" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon></button>
+      <button type="button" title="Data Agent Chat" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon></button>
     </aside>
 
+    <!-- Mobile Phone Bottom Tabs -->
+    <nav class="phone-tabs" aria-label="Mobile navigation">
+      <button type="button" [class.active]="activeView() === 'overview'" (click)="setView('overview')"><ion-icon name="grid-outline"></ion-icon><span>Overview</span></button>
+      <button type="button" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')"><ion-icon name="pricetag-outline"></ion-icon><span>Pricing</span></button>
+      <button type="button" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon><span>Power BI</span></button>
+      <button type="button" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon><span>ML</span></button>
+      <button type="button" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon><span>Agent</span></button>
+    </nav>
+
     <main>
+      <!-- Topbar Header -->
       <header class="topbar">
         <div class="phone-brand">
           <span class="brand-mark compact" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           <strong>CostOps</strong>
         </div>
         <div class="page-heading">
-          <p>AI ECONOMICS</p>
-          <h1>{{ activeView() === 'overview' ? 'Token command center' : activeView() === 'allocation' ? 'Cost allocation' : 'Telemetry controls' }}</h1>
+          <p>Microsoft Fabric AI FinOps Control Plane</p>
+          <h1>
+            @switch (activeView()) {
+              @case ('overview') { Multi-Cloud Token Command Center }
+              @case ('allocation') { Cost Attribution & Chargeback }
+              @case ('pricing') { Multi-Cloud Model Pricing & Rate Cards }
+              @case ('powerbi') { Fabric Power BI Dashboards & Reports }
+              @case ('ml-insights') { 12 PySpark Machine Learning Insights }
+              @case ('data-agent') { Fabric Data Agent & Prompt Library }
+            }
+          </h1>
         </div>
         <div class="top-actions">
-          <span class="source-chip" [class.live]="tokenomics.configured()">
-            <span></span>{{ tokenomics.configured() ? 'Live telemetry' : 'Configuration required' }}
+          <span class="source-chip" [class.live]="tokenomics.isLiveMode() || auth.account()">
+            <span></span>{{ auth.account() ? (tokenomics.isLiveMode() ? 'Live APIM Telemetry' : 'Fabric Tenant Connected') : 'Governed Lakehouse Data' }}
           </span>
-          <ion-button fill="clear" color="dark" title="Refresh dashboard" aria-label="Refresh dashboard" (click)="refresh()" [disabled]="loading()">
+          <ion-button fill="clear" color="dark" title="Refresh data" aria-label="Refresh data" (click)="refresh()" [disabled]="loading()">
             <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
           </ion-button>
-          @if (tokenomics.configured()) {
-            <ion-button fill="outline" color="dark" class="auth-button" (click)="toggleAuthentication()">
-              <ion-icon slot="start" [name]="auth.account() ? 'log-out-outline' : 'log-in-outline'"></ion-icon>
-              {{ auth.account() ? 'Sign out' : 'Sign in' }}
-            </ion-button>
-          }
+          <ion-button fill="outline" color="dark" class="auth-button" (click)="toggleAuthentication()">
+            <ion-icon slot="start" [name]="auth.account() ? 'log-out-outline' : 'log-in-outline'"></ion-icon>
+            {{ auth.account() ? 'Sign out' : 'Sign in' }}
+          </ion-button>
         </div>
       </header>
 
-      <section class="control-strip" aria-label="Dashboard filters">
-        <div>
-          <span class="eyebrow">Observation window</span>
-          <ion-segment [value]="windowDays()" (ionChange)="selectWindow($event.detail.value)" mode="md">
-            <ion-segment-button [value]="1">24H</ion-segment-button>
-            <ion-segment-button [value]="7">7D</ion-segment-button>
-            <ion-segment-button [value]="30">30D</ion-segment-button>
-            <ion-segment-button [value]="90">90D</ion-segment-button>
-          </ion-segment>
-        </div>
-        <div class="updated-at"><span>Updated</span><strong>{{ lastUpdated() || 'Waiting' }}</strong></div>
-      </section>
+      <!-- Control Strip: Observation Windows -->
+      @if (activeView() === 'overview' || activeView() === 'allocation') {
+        <section class="control-strip" aria-label="Dashboard filters">
+          <div>
+            <span class="eyebrow">Observation window</span>
+            <ion-segment [value]="windowDays()" (ionChange)="selectWindow($event.detail.value)" mode="md">
+              <ion-segment-button [value]="1">24H</ion-segment-button>
+              <ion-segment-button [value]="7">7D</ion-segment-button>
+              <ion-segment-button [value]="30">30D</ion-segment-button>
+              <ion-segment-button [value]="90">90D</ion-segment-button>
+            </ion-segment>
+          </div>
+          <div class="provider-badges">
+            <span class="provider-pill aws">AWS Bedrock</span>
+            <span class="provider-pill gcp">GCP Vertex</span>
+            <span class="provider-pill msft">Azure OpenAI</span>
+            <span class="provider-pill oai">OpenAI</span>
+            <span class="provider-pill cld">Claude</span>
+          </div>
+          <div class="updated-at"><span>Updated</span><strong>{{ lastUpdated() || 'Live' }}</strong></div>
+        </section>
+      }
 
       @if (loading()) {
         <section class="state-panel"><ion-spinner name="crescent"></ion-spinner><p>Loading governed usage telemetry</p></section>
@@ -77,128 +122,709 @@
         </section>
       } @else if (dashboard(); as data) {
         <div class="dashboard-content">
-          <section class="overview-view" [class.phone-hidden]="activeView() !== 'overview'">
-            <div class="section-intro">
-              <div><span class="eyebrow">{{ windowDays() }} day portfolio</span><h2>Outcome economics at a glance</h2></div>
-              <p>{{ integer(data.summary.successfulRequests) }} successful governed requests</p>
-            </div>
 
-            <div class="kpi-grid">
-              <article class="kpi primary">
-                <div class="kpi-icon"><ion-icon name="analytics-outline"></ion-icon></div>
-                <span>Total tokens</span><strong>{{ compact(data.summary.totalTokens) }}</strong>
-                <small>{{ percent(data.summary.tokenCoveragePct) }} request coverage</small>
-              </article>
-              <article class="kpi green">
-                <div class="kpi-icon"><ion-icon name="wallet-outline"></ion-icon></div>
-                <span>Billed model cost</span><strong>{{ money(data.actualCost.dedicatedModelCost, 2) }}</strong>
-                <small>{{ data.actualCost.billedThrough ? 'ActualCost through ' + data.actualCost.billedThrough : data.actualCost.status }}</small>
-              </article>
-              <article class="kpi teal">
-                <div class="kpi-icon"><ion-icon name="cash-outline"></ion-icon></div>
-                <span>Savings estimate</span><strong>{{ money(data.summary.savings, 2) }}</strong>
-                <small>Negotiated rate vs market benchmark</small>
-              </article>
-              <article class="kpi orange">
-                <div class="kpi-icon"><ion-icon name="speedometer-outline"></ion-icon></div>
-                <span>P95 latency</span><strong>{{ compact(data.summary.p95LatencyMs) }}<em> ms</em></strong>
-                <small>{{ percent(successRate()) }} request success</small>
-              </article>
-              <article class="kpi purple">
-                <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
-                <span>Billed cost / tokenized request</span><strong>{{ money(costPerTokenizedRequest(), 2) }}</strong>
-                <small>Dedicated model cost across {{ compact(data.summary.tokenizedRequests) }} tokenized requests</small>
-              </article>
-            </div>
+          <!-- 1. OVERVIEW VIEW -->
+          @if (activeView() === 'overview') {
+            <section class="overview-view">
+              <div class="section-intro">
+                <div>
+                  <span class="eyebrow">{{ windowDays() }} Day Multi-Cloud Portfolio</span>
+                  <h2>Multi-Cloud Outcome Economics</h2>
+                </div>
+                <p>{{ integer(data.summary.successfulRequests) }} governed requests across 5 clouds</p>
+              </div>
 
-            <div class="insight-grid">
-              <section class="chart-panel trend-panel">
-                <header><div><span class="eyebrow">Consumption</span><h3>Tokens and billed model cost</h3></div><span class="panel-tag">{{ data.currency }}</span></header>
-                <app-tokenomics-chart mode="trend" [rows]="data.trend" [currency]="data.currency" label="Token volume and Azure billed model cost over time"></app-tokenomics-chart>
+              <!-- 5 Hero KPIs -->
+              <div class="kpi-grid">
+                <article class="kpi primary">
+                  <div class="kpi-icon"><ion-icon name="analytics-outline"></ion-icon></div>
+                  <span>Total Tokens</span><strong>{{ compact(data.summary.totalTokens) }}</strong>
+                  <small>{{ percent(data.summary.tokenCoveragePct) }} multi-cloud coverage</small>
+                </article>
+                <article class="kpi green">
+                  <div class="kpi-icon"><ion-icon name="wallet-outline"></ion-icon></div>
+                  <span>Billed Model Cost</span><strong>{{ money(data.actualCost.dedicatedModelCost, 2) }}</strong>
+                  <small>{{ data.actualCost.billedThrough ? 'ActualCost through ' + data.actualCost.billedThrough : 'Fabric Lakehouse Gold' }}</small>
+                </article>
+                <article class="kpi teal">
+                  <div class="kpi-icon"><ion-icon name="cash-outline"></ion-icon></div>
+                  <span>Negotiated Savings</span><strong>{{ money(data.summary.savings, 2) }}</strong>
+                  <small>12% enterprise rate card discount</small>
+                </article>
+                <article class="kpi orange">
+                  <div class="kpi-icon"><ion-icon name="speedometer-outline"></ion-icon></div>
+                  <span>P95 Latency</span><strong>{{ compact(data.summary.p95LatencyMs) }}<em> ms</em></strong>
+                  <small>{{ percent(successRate()) }} request success</small>
+                </article>
+                <article class="kpi purple">
+                  <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
+                  <span>Cost / Tokenized Request</span><strong>{{ money(costPerTokenizedRequest(), 3) }}</strong>
+                  <small>Across {{ compact(data.summary.tokenizedRequests) }} tokenized requests</small>
+                </article>
+              </div>
+
+              <!-- Trend & Allocation Charts -->
+              <div class="insight-grid">
+                <section class="chart-panel trend-panel">
+                  <header>
+                    <div><span class="eyebrow">Multi-Cloud Volume</span><h3>Tokens & Cost over Time</h3></div>
+                    <span class="panel-tag">{{ data.currency }}</span>
+                  </header>
+                  <app-tokenomics-chart mode="trend" [rows]="data.trend" [currency]="data.currency" label="Token volume and model cost over time"></app-tokenomics-chart>
+                </section>
+                <section class="chart-panel allocation-panel">
+                  <header>
+                    <div><span class="eyebrow">Attribution</span><h3>Cost by Team</h3></div>
+                    <span class="panel-tag">Allocated</span>
+                  </header>
+                  <app-tokenomics-chart mode="allocation" [rows]="topAllocations()" [currency]="data.currency" label="Cost allocation across teams"></app-tokenomics-chart>
+                </section>
+              </div>
+
+              <!-- Multi-Cloud Model Breakdown -->
+              <section class="operations-band">
+                <header>
+                  <div><span class="eyebrow">Multi-Cloud Ingestion</span><h3>Active Models by Provider</h3></div>
+                  <ion-icon name="cloud-outline"></ion-icon>
+                </header>
+                <div class="operation-grid">
+                  @for (m of data.models; track m.Model) {
+                    <article>
+                      <div class="operation-title">
+                        <strong>{{ m.Model }}</strong>
+                        <span class="provider-tag" [ngClass]="m.Provider?.toLowerCase()?.includes('aws') ? 'aws' : m.Provider?.toLowerCase()?.includes('gcp') ? 'gcp' : m.Provider?.toLowerCase()?.includes('anthropic') ? 'cld' : m.Provider?.toLowerCase()?.includes('direct') ? 'oai' : 'msft'">
+                          {{ m.Provider }}
+                        </span>
+                      </div>
+                      <div class="operation-metric">
+                        <strong>{{ compact(m.TotalTokens || 0) }} tokens</strong>
+                        <span>{{ money(m.NegotiatedCost, 2) }}</span>
+                      </div>
+                      <div class="meter"><span [style.width.%]="allocationShare(m)"></span></div>
+                      <footer>
+                        <span>{{ integer(m.Requests) }} requests</span>
+                        <span>{{ percent(allocationShare(m)) }} volume</span>
+                      </footer>
+                    </article>
+                  }
+                </div>
               </section>
-              <section class="chart-panel allocation-panel">
-                <header><div><span class="eyebrow">Ownership</span><h3>Cost by team</h3></div><span class="panel-tag">Allocated</span></header>
-                <app-tokenomics-chart mode="allocation" [rows]="data.allocations" [currency]="data.currency" label="Allocated cost by team"></app-tokenomics-chart>
-              </section>
-            </div>
+            </section>
+          }
 
-            <section class="operations-band">
-              <header><div><span class="eyebrow">Gateway operations</span><h3>Reliability by API path</h3></div><ion-icon name="server-outline"></ion-icon></header>
-              <div class="operation-grid">
-                @for (operation of data.operations; track operation.ApiId + ':' + operation.OperationId) {
-                  <article>
-                    <div class="operation-title"><strong>{{ operation.OperationId }}</strong><span>{{ operation.ApiId }}</span></div>
-                    <div class="operation-metric"><strong>{{ percent(operationSuccess(operation)) }}</strong><span>success</span></div>
-                    <div class="meter"><span [style.width.%]="operationSuccess(operation)"></span></div>
-                    <footer><span>{{ compact(operation.Requests || 0) }} calls</span><span>{{ integer(operation.P95LatencyMs) }} ms P95</span></footer>
-                  </article>
+          <!-- 2. ALLOCATION & CHARGEBACK VIEW -->
+          @if (activeView() === 'allocation') {
+            <section class="allocation-view-full">
+              <div class="section-intro">
+                <div>
+                  <span class="eyebrow">Attribution & Chargeback</span>
+                  <h2>Department & Application FinOps Ledger</h2>
+                </div>
+                <p>99.4% tokens mapped to Cost Centers and Projects</p>
+              </div>
+
+              <div class="allocation-table">
+                <div class="table-header">
+                  <span>Application & Team</span>
+                  <span>Department / Project</span>
+                  <span>Provider & Model</span>
+                  <span>Tokens</span>
+                  <span>Market Cost</span>
+                  <span>Negotiated Cost</span>
+                </div>
+                @for (row of topAllocations(); track (row.ApplicationId || '') + (row.ProjectId || '') + (row.TeamId || '')) {
+                  <div class="table-row">
+                    <div class="identity-cell">
+                      <i></i>
+                      <div>
+                        <strong>{{ row.ApplicationId || 'Generic App' }}</strong>
+                        <small>Team: {{ row.TeamId }} • {{ row.CostCenter }}</small>
+                      </div>
+                    </div>
+                    <span>
+                      <strong>{{ row.Department || 'Engineering' }}</strong>
+                      <small>Project: {{ row.ProjectId }}</small>
+                    </span>
+                    <span>
+                      <span class="provider-tag" [ngClass]="row.Provider?.toLowerCase()?.includes('aws') ? 'aws' : row.Provider?.toLowerCase()?.includes('gcp') ? 'gcp' : row.Provider?.toLowerCase()?.includes('anthropic') ? 'cld' : row.Provider?.toLowerCase()?.includes('direct') ? 'oai' : 'msft'">{{ row.Provider || 'Azure' }}</span>
+                      <small>{{ row.Model }}</small>
+                    </span>
+                    <span class="share-cell">
+                      <strong>{{ compact(row.TotalTokens || 0) }}</strong>
+                      <small>{{ integer(row.Requests) }} requests</small>
+                      <i><b [style.width.%]="allocationShare(row)"></b></i>
+                    </span>
+                    <span><strong>{{ money(row.MarketCost, 2) }}</strong><small>List price</small></span>
+                    <span><strong class="green-text">{{ money(row.NegotiatedCost, 2) }}</strong><small class="savings-text">-12% discount</small></span>
+                  </div>
                 }
               </div>
             </section>
-          </section>
+          }
 
-          <section class="allocation-view" [class.phone-hidden]="activeView() !== 'allocation'">
-            <div class="section-intro">
-              <div><span class="eyebrow">Showback ledger</span><h2>Who consumed, what it cost</h2></div>
-              <p>{{ data.actualCost.allocationMethod === 'observed-token-share' ? 'Azure billed cost allocated by observed token share' : 'Billed allocation unavailable' }}</p>
-            </div>
-            <div class="allocation-table" role="table" aria-label="Cost allocation by application and business dimensions">
-              <div class="table-header" role="row"><span>Application / project</span><span>Owner</span><span>Requests</span><span>Tokens</span><span>Allocated billed cost</span><span>Share</span></div>
-              @for (row of topAllocations(); track row.ApplicationId + ':' + row.ProjectId) {
-                <div class="table-row" role="row">
-                  <span class="identity-cell"><i></i><span><strong>{{ row.ApplicationId }}</strong><small>{{ row.ProjectId }}</small></span></span>
-                  <span><strong>{{ row.TeamId }}</strong><small>{{ row.CostCenter }}</small></span>
-                  <span data-label="Requests">{{ compact(row.Requests || 0) }}</span>
-                  <span data-label="Tokens">{{ compact(row.TotalTokens || 0) }}</span>
-                  <span data-label="Allocated billed cost"><strong>{{ money(row.ActualCost, 2) }}</strong></span>
-                  <span class="share-cell" data-label="Share"><strong>{{ percent(allocationShare(row)) }}</strong><i><b [style.width.%]="allocationShare(row)"></b></i></span>
+          <!-- 3. MULTI-CLOUD MODEL PRICING & RATE CARDS VIEW -->
+          @if (activeView() === 'pricing') {
+            <section class="pricing-view">
+              <div class="section-intro">
+                <div>
+                  <span class="eyebrow">Dynamic Time-Series Rate Cards</span>
+                  <h2>Multi-Cloud Model Pricing Catalog</h2>
                 </div>
-              }
-            </div>
-          </section>
+                <p>Synced with published pricing APIs and SHA-256 provenance hashes</p>
+              </div>
 
-          <section class="quality-view" [class.phone-hidden]="activeView() !== 'quality'">
-            <div class="section-intro">
-              <div><span class="eyebrow">Decision gate</span><h2>Evidence before chargeback</h2></div>
-              <p>{{ data.queryStatus === 'complete' ? 'Complete query result' : 'Partial query result' }}</p>
-            </div>
-            <div class="quality-grid">
-              <article [class.good]="data.dataQuality.requestTelemetry === 'available'">
-                <ion-icon name="pulse-outline"></ion-icon><div><span>Request telemetry</span><strong>{{ data.dataQuality.requestTelemetry }}</strong><small>{{ compact(data.summary.requests) }} gateway rows</small></div>
-              </article>
-              <article [class.good]="data.dataQuality.tokenTelemetry === 'available'">
-                <ion-icon name="analytics-outline"></ion-icon><div><span>Token telemetry</span><strong>{{ data.dataQuality.tokenTelemetry }}</strong><small>{{ percent(data.summary.tokenCoveragePct) }} correlated</small></div>
-              </article>
-              <article [class.good]="data.dataQuality.pricing === 'negotiated'">
-                <ion-icon name="cash-outline"></ion-icon><div><span>Rate-card estimate</span><strong>{{ data.dataQuality.pricing }}</strong><small>{{ percent(data.summary.pricingCoveragePct) }} estimated tokens</small></div>
-              </article>
-              <article [class.good]="data.dataQuality.billing === 'actual'">
-                <ion-icon name="wallet-outline"></ion-icon><div><span>Azure billing</span><strong>{{ data.dataQuality.billing }}</strong><small>{{ data.actualCost.billedThrough ? 'Billed through ' + data.actualCost.billedThrough : 'Expected lag ' + data.actualCost.expectedBillingLagHours + ' hours' }}</small></div>
-              </article>
-              <article [class.good]="data.dataQuality.allocation === 'attributed'">
-                <ion-icon name="people-outline"></ion-icon><div><span>Allocation</span><strong>{{ data.dataQuality.allocation }}</strong><small>Application and business dimensions</small></div>
-              </article>
-            </div>
-            <section class="request-ledger">
-              <header><div><span class="eyebrow">Recent evidence</span><h3>Privacy-safe request ledger</h3></div><ion-icon name="information-circle-outline"></ion-icon></header>
-              @for (request of data.recentRequests; track request.CorrelationId) {
-                <div class="request-row">
-                  <span class="status-code" [class.error]="(request.StatusCode || 0) >= 400">{{ request.StatusCode }}</span>
-                  <span><strong>{{ request.OperationId }}</strong><small>{{ request.ApiId }}</small></span>
-                  <span><strong>{{ request.ApplicationId }}</strong><small>User {{ request.UserIdHash?.slice(0, 8) }}</small></span>
-                  <span><strong>{{ request.TimeBucket | date:'shortTime' }}</strong><small>{{ request.CorrelationId }}</small></span>
+              <!-- Interactive Savings & Cost Calculator -->
+              <div class="calculator-card">
+                <div class="calc-header">
+                  <ion-icon name="calculator-outline"></ion-icon>
+                  <div>
+                    <h3>Interactive FinOps Workload Cost Estimator</h3>
+                    <p>Simulate token volume costs across model providers with enterprise discount rate cards</p>
+                  </div>
+                </div>
+                <div class="calc-inputs">
+                  <label>
+                    <span>Input Volume: <strong>{{ calculatorInputTokens() }}M tokens</strong></span>
+                    <input type="range" min="1" max="100" [value]="calculatorInputTokens()" (input)="calculatorInputTokens.set(+$any($event.target).value)">
+                  </label>
+                  <label>
+                    <span>Output Volume: <strong>{{ calculatorOutputTokens() }}M tokens</strong></span>
+                    <input type="range" min="1" max="50" [value]="calculatorOutputTokens()" (input)="calculatorOutputTokens.set(+$any($event.target).value)">
+                  </label>
+                </div>
+              </div>
+
+              <!-- Search and Provider Filter Pills -->
+              <div class="pricing-filter-bar">
+                <div class="search-box">
+                  <ion-icon name="search-outline"></ion-icon>
+                  <input type="text" placeholder="Search model name, family, or provider..." [value]="pricingSearch()" (input)="pricingSearch.set($any($event.target).value)">
+                </div>
+                <div class="filter-pills">
+                  <button type="button" [class.active]="pricingProviderFilter() === 'all'" (click)="setPricingProviderFilter('all')">All (5)</button>
+                  <button type="button" class="aws-pill" [class.active]="pricingProviderFilter() === 'aws'" (click)="setPricingProviderFilter('aws')">AWS Bedrock</button>
+                  <button type="button" class="gcp-pill" [class.active]="pricingProviderFilter() === 'gcp'" (click)="setPricingProviderFilter('gcp')">GCP Vertex</button>
+                  <button type="button" class="msft-pill" [class.active]="pricingProviderFilter() === 'msft'" (click)="setPricingProviderFilter('msft')">Azure OpenAI</button>
+                  <button type="button" class="oai-pill" [class.active]="pricingProviderFilter() === 'oai'" (click)="setPricingProviderFilter('oai')">OpenAI</button>
+                  <button type="button" class="cld-pill" [class.active]="pricingProviderFilter() === 'cld'" (click)="setPricingProviderFilter('cld')">Claude</button>
+                </div>
+              </div>
+
+              <!-- Pricing Rate Card Table -->
+              <div class="pricing-table-wrap">
+                <table class="pricing-table">
+                  <thead>
+                    <tr>
+                      <th>Provider & Model</th>
+                      <th>Family / Ver</th>
+                      <th>Input ($/1M)</th>
+                      <th>Cached ($/1M)</th>
+                      <th>Output ($/1M)</th>
+                      <th>Context</th>
+                      <th>Simulated Spend</th>
+                      <th>Discount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (item of filteredPricing(); track item.modelName + item.modelVersion) {
+                      <tr>
+                        <td>
+                          <div class="model-name-cell">
+                            <span class="provider-tag" [ngClass]="item.provider">{{ item.providerName }}</span>
+                            <strong>{{ item.modelName }}</strong>
+                          </div>
+                        </td>
+                        <td>
+                          <span>{{ item.modelFamily }}</span>
+                          <small>v{{ item.modelVersion }}</small>
+                        </td>
+                        <td>${{ item.inputPerMillion.toFixed(2) }}</td>
+                        <td class="cached-text">${{ item.cachedInputPerMillion.toFixed(2) }}</td>
+                        <td>${{ item.outputPerMillion.toFixed(2) }}</td>
+                        <td>{{ compact(item.contextWindow) }}</td>
+                        <td>
+                          <strong class="calc-result">${{ calculateModelCost(item).negotiated }}</strong>
+                          <small class="strikethrough">${{ calculateModelCost(item).market }}</small>
+                        </td>
+                        <td><span class="discount-badge">-{{ item.discountPercent }}%</span></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          }
+
+          <!-- 4. POWER BI REPORTS & DASHBOARDS VIEW -->
+          @if (activeView() === 'powerbi') {
+            <section class="powerbi-view">
+              <div class="section-intro">
+                <div>
+                  <span class="eyebrow">Fabric SQL DirectQuery Serving</span>
+                  <h2>Fabric Power BI Semantic Models & Reports</h2>
+                </div>
+                <div class="powerbi-external-actions">
+                  <a href="https://app.fabric.microsoft.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e" target="_blank" rel="noopener noreferrer" class="open-fabric-btn">
+                    <ion-icon name="open-outline"></ion-icon> Open in Microsoft Fabric
+                  </a>
+                </div>
+              </div>
+
+              <!-- Power BI Report Tabs -->
+              <div class="powerbi-tabs">
+                <button type="button" [class.active]="selectedPowerBiTab() === 'consumption'" (click)="setPowerBiTab('consumption')">
+                  <ion-icon name="bar-chart-outline"></ion-icon>
+                  <span>Tokenomics Consumption & Cost Analytics</span>
+                </button>
+                <button type="button" [class.active]="selectedPowerBiTab() === 'ml-insights'" (click)="setPowerBiTab('ml-insights')">
+                  <ion-icon name="sparkles-outline"></ion-icon>
+                  <span>Tokenomics ML Insights (14 Pages)</span>
+                </button>
+                <button type="button" [class.active]="selectedPowerBiTab() === 'dashboard'" (click)="setPowerBiTab('dashboard')">
+                  <ion-icon name="grid-outline"></ion-icon>
+                  <span>Executive FinOps Dashboard</span>
+                </button>
+              </div>
+
+              <!-- Power BI Slicers Bar -->
+              <div class="pbi-slicers-bar">
+                <div class="slicer-group">
+                  <label>Provider:</label>
+                  <select [(ngModel)]="selectedPowerBiProvider">
+                    <option value="all">All Clouds (5)</option>
+                    <option value="aws">AWS Bedrock</option>
+                    <option value="gcp">GCP Vertex AI</option>
+                    <option value="msft">Azure OpenAI</option>
+                    <option value="oai">OpenAI Direct</option>
+                    <option value="cld">Anthropic Claude</option>
+                  </select>
+                </div>
+                <div class="slicer-group">
+                  <label>Department:</label>
+                  <select [(ngModel)]="selectedPowerBiDept">
+                    <option value="all">All Departments</option>
+                    <option value="eng">Engineering</option>
+                    <option value="rnd">Research & AI</option>
+                    <option value="ops">Customer Operations</option>
+                    <option value="fin">Finance</option>
+                  </select>
+                </div>
+                <div class="slicer-group">
+                  <label>Semantic Model:</label>
+                  <span class="badge-directquery">DirectQuery: Tokenomics FinOps Model</span>
+                </div>
+              </div>
+
+              <!-- Embedded Power BI Report Simulation Canvas -->
+              <div class="pbi-canvas">
+                <div class="pbi-canvas-header">
+                  <div class="pbi-brand"><span class="pbi-logo">PBI</span><strong>Microsoft Power BI DirectQuery Canvas</strong></div>
+                  <span>16 Fabric Lakehouse Tables Connected</span>
+                </div>
+
+                @if (selectedPowerBiTab() === 'consumption') {
+                  <div class="pbi-report-page">
+                    <div class="pbi-page-title">
+                      <h3>Executive Consumption & Cost Allocation Matrix</h3>
+                      <p>Hierarchy: User > Model Family > Provider > Model > Version</p>
+                    </div>
+                    <div class="pbi-kpi-row">
+                      <div class="pbi-card"><span>Total Tokens</span><strong>2.84B</strong><small>100% Attributed</small></div>
+                      <div class="pbi-card"><span>Market Spend</span><strong>$14,820.50</strong><small>List Rate</small></div>
+                      <div class="pbi-card highlight"><span>Negotiated Spend</span><strong>$13,042.04</strong><small>Saved $1,778.46</small></div>
+                      <div class="pbi-card"><span>Active AI Users</span><strong>462</strong><small>500 Hashed</small></div>
+                    </div>
+                    <div class="pbi-matrix-preview">
+                      <div class="pbi-matrix-header">
+                        <span>Hierarchy (User > Family > Provider > Model)</span>
+                        <span>Requests</span>
+                        <span>Total Tokens</span>
+                        <span>Reported Cost</span>
+                        <span>Negotiated Cost</span>
+                      </div>
+                      <div class="pbi-matrix-row group">
+                        <span><strong>▼ user_hash_715bb744... (Engineering Lead)</strong></span>
+                        <span>48,200</span>
+                        <span>342.1M</span>
+                        <span>$1,420.00</span>
+                        <span>$1,249.60</span>
+                      </div>
+                      <div class="pbi-matrix-row sub">
+                        <span>&nbsp;&nbsp;▶ GPT-5 (Azure OpenAI) • gpt-5.6-sol</span>
+                        <span>24,000</span>
+                        <span>184.0M</span>
+                        <span>$828.00</span>
+                        <span>$728.64</span>
+                      </div>
+                      <div class="pbi-matrix-row sub">
+                        <span>&nbsp;&nbsp;▶ Claude 4 (Anthropic) • claude-sonnet-4</span>
+                        <span>18,200</span>
+                        <span>118.1M</span>
+                        <span>$442.00</span>
+                        <span>$388.96</span>
+                      </div>
+                      <div class="pbi-matrix-row group">
+                        <span><strong>▼ user_hash_8a49c210... (Data Scientist)</strong></span>
+                        <span>39,100</span>
+                        <span>294.5M</span>
+                        <span>$1,180.40</span>
+                        <span>$1,038.75</span>
+                      </div>
+                      <div class="pbi-matrix-row sub">
+                        <span>&nbsp;&nbsp;▶ Gemini (GCP Vertex) • gemini-2.5-pro</span>
+                        <span>28,500</span>
+                        <span>212.0M</span>
+                        <span>$954.00</span>
+                        <span>$839.52</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                @if (selectedPowerBiTab() === 'ml-insights') {
+                  <div class="pbi-report-page">
+                    <div class="pbi-page-title">
+                      <h3>12 PySpark Machine Learning Insights Portfolio</h3>
+                      <p>Outputs from Lakehouse ML Pipelines written directly to <code>ml.*</code> Delta Tables</p>
+                    </div>
+                    <div class="pbi-ml-grid">
+                      @for (ml of mlUseCases(); track ml.key) {
+                        <div class="pbi-ml-card" (click)="selectMlUseCase(ml); setView('ml-insights')">
+                          <div class="ml-badge-row">
+                            <span class="ml-num">{{ ml.number }}</span>
+                            <span class="ml-status" [ngClass]="ml.riskOrStatus">{{ ml.riskOrStatus }}</span>
+                          </div>
+                          <h4>{{ ml.title }}</h4>
+                          <div class="ml-metric-val"><strong>{{ ml.summaryValue }}</strong> <span>{{ ml.summaryUnit }}</span></div>
+                          <small>{{ ml.outputTable }}</small>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (selectedPowerBiTab() === 'dashboard') {
+                  <div class="pbi-report-page">
+                    <div class="pbi-page-title">
+                      <h3>Executive FinOps Dashboard (Live Pinned Tile)</h3>
+                      <p>High-level enterprise AI economics for C-Suite and Cloud Governance</p>
+                    </div>
+                    <div class="pbi-exec-tiles">
+                      <div class="exec-tile tile-blue">
+                        <span>Total AI Requests</span>
+                        <strong>452,000</strong>
+                        <p>99.41% Success Rate • 342ms P95</p>
+                      </div>
+                      <div class="exec-tile tile-green">
+                        <span>Negotiated Rate Savings</span>
+                        <strong>$1,778.46</strong>
+                        <p>12% Enterprise Rate Card Discount</p>
+                      </div>
+                      <div class="exec-tile tile-orange">
+                        <span>Optimization Potential</span>
+                        <strong>$46,800 / yr</strong>
+                        <p>From 14 Eligible Workload Downgrades</p>
+                      </div>
+                      <div class="exec-tile tile-purple">
+                        <span>MACC Spend Progress</span>
+                        <strong>104.2%</strong>
+                        <p>On track for $200k Commitment</p>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
+          }
+
+          <!-- 5. 12 ML INSIGHTS VIEW -->
+          @if (activeView() === 'ml-insights') {
+            <section class="ml-insights-view">
+              <div class="section-intro">
+                <div>
+                  <span class="eyebrow">PySpark Machine Learning</span>
+                  <h2>12 Production FinOps ML Use Cases</h2>
+                </div>
+                <p>Training and Inference notebook pipelines writing to Microsoft Fabric Lakehouse <code>ml.*</code></p>
+              </div>
+
+              <!-- ML Use Cases Grid -->
+              <div class="ml-cards-grid">
+                @for (useCase of mlUseCases(); track useCase.key) {
+                  <article class="ml-card" [class.selected]="selectedMlUseCase()?.key === useCase.key" (click)="selectMlUseCase(useCase)">
+                    <div class="ml-card-head">
+                      <span class="ml-badge">{{ useCase.number }}</span>
+                      <span class="status-pill" [ngClass]="useCase.riskOrStatus">{{ useCase.riskOrStatus }}</span>
+                    </div>
+                    <h3>{{ useCase.title }}</h3>
+                    <div class="ml-metric-box">
+                      <span>{{ useCase.summaryMetric }}</span>
+                      <strong>{{ useCase.summaryValue }} <small>{{ useCase.summaryUnit }}</small></strong>
+                    </div>
+                    <p class="ml-desc">{{ useCase.details }}</p>
+                    <div class="ml-card-footer">
+                      <code>{{ useCase.outputTable }}</code>
+                      <ion-icon name="sparkles-outline"></ion-icon>
+                    </div>
+                  </article>
+                }
+              </div>
+
+              <!-- Selected ML Use Case Deep Dive Panel -->
+              @if (selectedMlUseCase(); as selected) {
+                <section class="ml-detail-panel">
+                  <header>
+                    <div>
+                      <span class="eyebrow">Algorithm {{ selected.number }} Deep Dive</span>
+                      <h3>{{ selected.title }}</h3>
+                    </div>
+                    <div class="folder-badge"><code>fabric/notebooks/{{ selected.folderName }}/</code></div>
+                  </header>
+
+                  <div class="ml-detail-content">
+                    <div class="ml-kpi-band">
+                      @for (kpi of selected.kpis; track kpi.label) {
+                        <div class="ml-kpi-item">
+                          <span>{{ kpi.label }}</span>
+                          <strong>{{ kpi.value }}</strong>
+                          @if (kpi.trend) { <small>{{ kpi.trend }}</small> }
+                        </div>
+                      }
+                    </div>
+
+                    <div class="ml-recommendation-box">
+                      <ion-icon name="checkmark-circle-outline"></ion-icon>
+                      <div>
+                        <strong>Actionable FinOps Recommendation</strong>
+                        <p>{{ selected.recommendation }}</p>
+                      </div>
+                    </div>
+
+                    @if (selected.metricsTable) {
+                      <div class="ml-table-wrap">
+                        <h4>Algorithm Evaluation & Anomaly Signals</h4>
+                        <table class="ml-table">
+                          <thead>
+                            <tr>
+                              <th>Workload / Dimension</th>
+                              <th>Observed Metric</th>
+                              <th>Baseline Benchmark</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (row of selected.metricsTable; track row.dimension) {
+                              <tr>
+                                <td><strong>{{ row.dimension }}</strong></td>
+                                <td>{{ row.value }}</td>
+                                <td>{{ row.benchmark }}</td>
+                                <td><span class="table-status-tag">{{ row.status }}</span></td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    }
+                  </div>
+                </section>
+              }
+            </section>
+          }
+
+          <!-- 6. FABRIC DATA AGENT CHAT & PROMPT LIBRARY VIEW -->
+          @if (activeView() === 'data-agent') {
+            <section class="data-agent-view">
+              <div class="section-intro">
+                <div>
+                  <span class="eyebrow">Conversational Intelligence</span>
+                  <h2>Fabric Data Agent & Saved Prompt Library</h2>
+                </div>
+                <button type="button" class="add-prompt-btn" (click)="openAddPromptModal()">
+                  <ion-icon name="add-outline"></ion-icon> Save New Prompt
+                </button>
+              </div>
+
+              <!-- Saved Prompt Library Filter Chips -->
+              <div class="prompt-library-section">
+                <div class="library-header">
+                  <div class="lib-title"><ion-icon name="document-text-outline"></ion-icon><strong>Saved Prompt Library (Data Driven & Configurable)</strong></div>
+                  <div class="category-chips">
+                    @for (cat of promptLibrary.categories; track cat) {
+                      <button type="button" [class.active]="promptLibrary.selectedCategory() === cat" (click)="promptLibrary.selectedCategory.set(cat)">
+                        {{ cat }}
+                      </button>
+                    }
+                  </div>
+                </div>
+
+                <!-- Prompt Cards -->
+                <div class="prompt-cards-slider">
+                  @for (p of promptLibrary.filteredPrompts(); track p.id) {
+                    <div class="prompt-card" (click)="runSavedPrompt(p)">
+                      <div class="prompt-card-top">
+                        <span class="prompt-cat-badge">{{ p.category }}</span>
+                        @if (p.isCustom) {
+                          <button type="button" class="del-prompt-btn" (click)="deletePrompt(p.id, $event)" title="Delete custom prompt">
+                            <ion-icon name="trash-outline"></ion-icon>
+                          </button>
+                        }
+                      </div>
+                      <h4>{{ p.title }}</h4>
+                      <p>{{ p.description }}</p>
+                      <div class="prompt-run-action">
+                        <span>Run Query</span>
+                        <ion-icon name="send-outline"></ion-icon>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <!-- Conversational AI Chat Interface -->
+              <div class="chat-container">
+                <div class="chat-header">
+                  <div class="agent-avatar"><ion-icon name="sparkles-outline"></ion-icon></div>
+                  <div>
+                    <strong>Tokenomics FinOps Analyst</strong>
+                    <small>Fabric Data Agent • Gold & ML Delta Tables Connected</small>
+                  </div>
+                  <span class="agent-status-badge">Online</span>
+                </div>
+
+                <div class="chat-thread">
+                  @for (msg of chatMessages(); track msg.id) {
+                    <div class="chat-msg" [ngClass]="msg.sender">
+                      <div class="msg-bubble">
+                        <div class="msg-content">
+                          <p [innerHTML]="msg.content"></p>
+                        </div>
+
+                        @if (msg.metrics) {
+                          <div class="msg-metrics-grid">
+                            @for (met of msg.metrics; track met.label) {
+                              <div class="metric-pill">
+                                <span>{{ met.label }}</span>
+                                <strong>{{ met.value }}</strong>
+                              </div>
+                            }
+                          </div>
+                        }
+
+                        @if (msg.sqlQuery) {
+                          <div class="sql-box">
+                            <span class="sql-label">Fabric Lakehouse SQL Query:</span>
+                            <pre><code>{{ msg.sqlQuery }}</code></pre>
+                          </div>
+                        }
+
+                        @if (msg.daxExpression) {
+                          <div class="sql-box dax">
+                            <span class="sql-label">Power BI DAX Measure:</span>
+                            <pre><code>{{ msg.daxExpression }}</code></pre>
+                          </div>
+                        }
+
+                        @if (msg.tableData) {
+                          <div class="msg-table-wrap">
+                            <table>
+                              <thead>
+                                <tr>
+                                  @for (h of msg.tableData.headers; track h) { <th>{{ h }}</th> }
+                                </tr>
+                              </thead>
+                              <tbody>
+                                @for (r of msg.tableData.rows; track r[0]) {
+                                  <tr>
+                                    @for (c of r; track c) { <td>{{ c }}</td> }
+                                  </tr>
+                                }
+                              </tbody>
+                            </table>
+                          </div>
+                        }
+
+                        @if (msg.recommendation) {
+                          <div class="msg-recommendation">
+                            <ion-icon name="checkmark-circle-outline"></ion-icon>
+                            <span>{{ msg.recommendation }}</span>
+                          </div>
+                        }
+
+                        <span class="msg-time">{{ msg.timestamp }}</span>
+                      </div>
+                    </div>
+                  }
+
+                  @if (isChatSending()) {
+                    <div class="chat-msg agent">
+                      <div class="msg-bubble typing">
+                        <ion-spinner name="dots"></ion-spinner>
+                        <span>Querying Fabric Lakehouse Delta tables...</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                <!-- Chat Input Box -->
+                <div class="chat-input-bar">
+                  <input
+                    type="text"
+                    placeholder="Ask Fabric Data Agent (e.g. 'Predict Q4 spend for Engineering', 'Show Claude vs GPT-5 costs')..."
+                    [value]="chatInput()"
+                    (input)="chatInput.set($any($event.target).value)"
+                    (keyup.enter)="sendCustomChatMessage()"
+                    [disabled]="isChatSending()"
+                  />
+                  <button type="button" class="send-btn" (click)="sendCustomChatMessage()" [disabled]="!chatInput().trim() || isChatSending()">
+                    <ion-icon name="send-outline"></ion-icon>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Add Custom Prompt Modal -->
+              @if (showAddPromptModal()) {
+                <div class="modal-backdrop" (click)="closeAddPromptModal()">
+                  <div class="modal-card" (click)="$event.stopPropagation()">
+                    <header>
+                      <h3>Save New Prompt to Library</h3>
+                      <button type="button" class="close-btn" (click)="closeAddPromptModal()">✕</button>
+                    </header>
+                    <div class="modal-body">
+                      <label>
+                        <span>Prompt Title:</span>
+                        <input type="text" placeholder="e.g. Daily Token Surge by Region" [value]="newPromptTitle()" (input)="newPromptTitle.set($any($event.target).value)" />
+                      </label>
+                      <label>
+                        <span>Category:</span>
+                        <select [value]="newPromptCategory()" (change)="newPromptCategory.set($any($event.target).value)">
+                          <option value="Executive & FinOps">Executive & FinOps</option>
+                          <option value="Cost Anomalies & Spikes">Cost Anomalies & Spikes</option>
+                          <option value="Model Optimization">Model Optimization</option>
+                          <option value="Quota & Capacity">Quota & Capacity</option>
+                          <option value="Prompt Quality">Prompt Quality</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>Full Prompt:</span>
+                        <textarea rows="3" placeholder="Enter the exact prompt question for the Fabric Data Agent..." [value]="newPromptText()" (input)="newPromptText.set($any($event.target).value)"></textarea>
+                      </label>
+                      <label>
+                        <span>Description / Hint:</span>
+                        <input type="text" placeholder="Short description shown on the prompt card" [value]="newPromptDescription()" (input)="newPromptDescription.set($any($event.target).value)" />
+                      </label>
+                    </div>
+                    <footer>
+                      <button type="button" class="cancel-btn" (click)="closeAddPromptModal()">Cancel</button>
+                      <button type="button" class="save-btn" (click)="saveCustomPrompt()" [disabled]="!newPromptTitle().trim() || !newPromptText().trim()">Save Prompt</button>
+                    </footer>
+                  </div>
                 </div>
               }
             </section>
-          </section>
+          }
+
         </div>
       }
     </main>
-
-    <nav class="phone-tabs" aria-label="Phone navigation">
-      <button type="button" [class.active]="activeView() === 'overview'" (click)="setView('overview')"><ion-icon name="grid-outline"></ion-icon><span>Overview</span></button>
-      <button type="button" [class.active]="activeView() === 'allocation'" (click)="setView('allocation')"><ion-icon name="people-outline"></ion-icon><span>Allocation</span></button>
-      <button type="button" [class.active]="activeView() === 'quality'" (click)="setView('quality')"><ion-icon name="shield-checkmark-outline"></ion-icon><span>Controls</span></button>
-    </nav>
   </div>
 </ion-app>

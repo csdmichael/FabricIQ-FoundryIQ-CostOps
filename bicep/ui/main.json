@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "11584128234869020036"
+      "templateHash": "13078751040739038821"
     }
   },
   "parameters": {
@@ -31,6 +31,12 @@
       "type": "string",
       "metadata": {
         "description": "Private APIM gateway hostname used only by the server-side proxy."
+      }
+    },
+    "tokenomicsApiPath": {
+      "type": "string",
+      "metadata": {
+        "description": "APIM tokenomics API path used by the server-side proxy."
       }
     },
     "logAnalyticsWorkspaceId": {
@@ -68,6 +74,10 @@
             {
               "name": "APIM_GATEWAY_HOST",
               "value": "[parameters('apimGatewayHost')]"
+            },
+            {
+              "name": "APIM_TOKENOMICS_API_PATH",
+              "value": "[parameters('tokenomicsApiPath')]"
             },
             {
               "name": "NODE_ENV",

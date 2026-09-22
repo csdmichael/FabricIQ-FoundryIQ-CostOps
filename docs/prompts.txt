@@ -178,6 +178,3 @@ Implement powerbi dashboards with tables, hierarchies, graphs / charts to demo M
 
 Include Medallion Architecture png file under docs in readme and explain it in the context of this business problem. The raw data for token consumption lives in Azure Blob Storage then it gets cleanized / ETL to Cosmos DB then Fabric
 
-
--------------------------
-build 2 foundry agents in this proj: https://ai.azure.com/nextgen/r/z4JFcKi6SXqhhApS8YMKqQ,m365-myaacoub,,foundry-myaacoub-private,sales-poc/build/agents . They need to use mcp servers: https://caldova-apim-westus.azure-api.net/fabric-data-agent-mcp/mcp, https://caldova-apim-westus.azure-api.net/fabric-lakehouse-mcp/mcp respectively. It is an obo flow to authenticate. If needed, add subscribption key in APIM for fabric product and reflect it in foundry agents.

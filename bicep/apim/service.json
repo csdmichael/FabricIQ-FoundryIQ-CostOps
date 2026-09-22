@@ -1,0 +1,323 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "12865358517370000058"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "APIM region. Must match the existing VNet region."
+      }
+    },
+    "apimServiceName": {
+      "type": "string",
+      "metadata": {
+        "description": "Globally unique API Management service name."
+      }
+    },
+    "publisherEmail": {
+      "type": "string",
+      "metadata": {
+        "description": "API Management publisher email."
+      }
+    },
+    "publisherName": {
+      "type": "string",
+      "metadata": {
+        "description": "API Management publisher name."
+      }
+    },
+    "publicNetworkAccess": {
+      "type": "string",
+      "defaultValue": "Disabled",
+      "allowedValues": [
+        "Enabled",
+        "Disabled"
+      ],
+      "metadata": {
+        "description": "Whether the API Management public network endpoint is enabled."
+      }
+    },
+    "skuName": {
+      "type": "string",
+      "defaultValue": "Developer",
+      "allowedValues": [
+        "Developer",
+        "Premium"
+      ]
+    },
+    "vnetResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing VNet resource ID that also hosts the broker integration and private endpoints."
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Dedicated APIM subnet name without delegation."
+      }
+    },
+    "subnetPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Dedicated APIM subnet CIDR."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {}
+    }
+  },
+  "variables": {
+    "vnetParts": "[split(parameters('vnetResourceId'), '/')]",
+    "validVnetId": "[and(and(and(and(and(and(equals(length(variables('vnetParts')), 9), equals(variables('vnetParts')[0], '')), equals(toLower(variables('vnetParts')[1]), 'subscriptions')), equals(toLower(variables('vnetParts')[3]), 'resourcegroups')), equals(toLower(variables('vnetParts')[5]), 'providers')), equals(toLower(variables('vnetParts')[6]), 'microsoft.network')), equals(toLower(variables('vnetParts')[7]), 'virtualnetworks'))]",
+    "validatedVnetId": "[if(variables('validVnetId'), parameters('vnetResourceId'), fail('vnetResourceId must be a full Microsoft.Network/virtualNetworks resource ID.'))]",
+    "validatedVnetParts": "[split(variables('validatedVnetId'), '/')]",
+    "sameScope": "[and(equals(toLower(variables('validatedVnetParts')[2]), toLower(subscription().subscriptionId)), equals(toLower(variables('validatedVnetParts')[4]), toLower(resourceGroup().name)))]",
+    "scopedVnetId": "[if(variables('sameScope'), variables('validatedVnetId'), fail('The dedicated APIM VNet must be in the deployment subscription and resource group.'))]",
+    "vnetName": "[last(split(variables('scopedVnetId'), '/'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2024-05-01",
+      "name": "[format('nsg-{0}', parameters('apimServiceName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "Allow-Internet-Client",
+            "properties": {
+              "priority": 100,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRanges": [
+                "80",
+                "443"
+              ],
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "VirtualNetwork"
+            }
+          },
+          {
+            "name": "Allow-ApiManagement-ControlPlane",
+            "properties": {
+              "priority": 110,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "3443",
+              "sourceAddressPrefix": "ApiManagement",
+              "destinationAddressPrefix": "VirtualNetwork"
+            }
+          },
+          {
+            "name": "Allow-AzureLoadBalancer",
+            "properties": {
+              "priority": 120,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "6390",
+              "sourceAddressPrefix": "AzureLoadBalancer",
+              "destinationAddressPrefix": "VirtualNetwork"
+            }
+          },
+          {
+            "name": "Allow-AzureTrafficManager",
+            "properties": {
+              "priority": 130,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "AzureTrafficManager",
+              "destinationAddressPrefix": "VirtualNetwork"
+            }
+          },
+          {
+            "name": "Allow-Certificate-Validation",
+            "properties": {
+              "priority": 200,
+              "direction": "Outbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefix": "Internet"
+            }
+          },
+          {
+            "name": "Allow-Storage",
+            "properties": {
+              "priority": 210,
+              "direction": "Outbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefix": "Storage"
+            }
+          },
+          {
+            "name": "Allow-Sql",
+            "properties": {
+              "priority": 220,
+              "direction": "Outbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "1433",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefix": "Sql"
+            }
+          },
+          {
+            "name": "Allow-KeyVault",
+            "properties": {
+              "priority": 230,
+              "direction": "Outbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefix": "AzureKeyVault"
+            }
+          },
+          {
+            "name": "Allow-AzureMonitor",
+            "properties": {
+              "priority": 240,
+              "direction": "Outbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRanges": [
+                "1886",
+                "443"
+              ],
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefix": "AzureMonitor"
+            }
+          },
+          {
+            "name": "Allow-AzureActiveDirectory",
+            "properties": {
+              "priority": 250,
+              "direction": "Outbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefix": "AzureActiveDirectory"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "apiVersion": "2024-05-01",
+      "name": "[format('{0}/{1}', variables('vnetName'), parameters('subnetName'))]",
+      "properties": {
+        "addressPrefix": "[parameters('subnetPrefix')]",
+        "delegations": [],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}', parameters('apimServiceName')))]"
+        },
+        "privateEndpointNetworkPolicies": "Disabled",
+        "privateLinkServiceNetworkPolicies": "Enabled",
+        "serviceEndpoints": [
+          {
+            "service": "Microsoft.Storage"
+          },
+          {
+            "service": "Microsoft.Sql"
+          },
+          {
+            "service": "Microsoft.KeyVault"
+          },
+          {
+            "service": "Microsoft.EventHub"
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}', parameters('apimServiceName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ApiManagement/service",
+      "apiVersion": "2024-05-01",
+      "name": "[parameters('apimServiceName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "sku": {
+        "name": "[parameters('skuName')]",
+        "capacity": 1
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "publisherEmail": "[parameters('publisherEmail')]",
+        "publisherName": "[parameters('publisherName')]",
+        "publicNetworkAccess": "[parameters('publicNetworkAccess')]",
+        "virtualNetworkType": "External",
+        "virtualNetworkConfiguration": {
+          "subnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), parameters('subnetName'))]"
+        },
+        "customProperties": {
+          "Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Ssl30": "false",
+          "Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Tls10": "false",
+          "Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Tls11": "false",
+          "Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Ssl30": "false",
+          "Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Tls10": "false",
+          "Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Tls11": "false"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), parameters('subnetName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "apimId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ApiManagement/service', parameters('apimServiceName'))]"
+    },
+    "apimPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ApiManagement/service', parameters('apimServiceName')), '2024-05-01', 'full').identity.principalId]"
+    },
+    "apimGatewayUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ApiManagement/service', parameters('apimServiceName')), '2024-05-01').gatewayUrl]"
+    },
+    "apimSubnetId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), parameters('subnetName'))]"
+    },
+    "apimNsgId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}', parameters('apimServiceName')))]"
+    }
+  }
+}

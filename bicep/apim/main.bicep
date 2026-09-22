@@ -19,13 +19,6 @@ param tokenomicsClientIds entraIdentifier[]
 @minLength(1)
 param allowedUserObjectIds entraIdentifier[]
 
-@description('Generated application client ID used as the private broker audience.')
-param brokerAudience entraIdentifier
-
-@description('Fixed private broker origin, without an /api path or trailing slash.')
-@minLength(1)
-param brokerPrivateUrl string
-
 @description('Optional existing Application Insights component name. Diagnostics are omitted when empty.')
 param applicationInsightsName string = ''
 
@@ -48,9 +41,6 @@ module apimStack './stack.bicep' = {
     delegatedScope: identityConfig.delegatedScope
     tokenomicsClientIds: tokenomicsClientIds
     allowedUserObjectIds: allowedUserObjectIds
-    brokerAudience: brokerAudience
-    brokerRole: identityConfig.brokerApplicationRole
-    brokerPrivateUrl: brokerPrivateUrl
     rateLimitCalls: apimConfig.rateLimitCalls
     rateLimitRenewalSeconds: apimConfig.rateLimitRenewalSeconds
     requestTimeoutSeconds: apimConfig.requestTimeoutSeconds

@@ -65,7 +65,7 @@ function staticFile(request, response, url) {
     'Content-Type': contentTypes.get(extension) || 'application/octet-stream',
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
     'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': "default-src 'self'; connect-src 'self' https://login.microsoftonline.com; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://login.microsoftonline.com",
+    'Content-Security-Policy': "default-src 'self'; connect-src 'self' https://login.microsoftonline.com https://api.fabric.microsoft.com https://api.powerbi.com https://*.powerbi.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'self' https://app.powerbi.com https://login.microsoftonline.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://login.microsoftonline.com",
     'Referrer-Policy': 'no-referrer',
   });
   createReadStream(file).on('error', () => response.destroy()).pipe(response);

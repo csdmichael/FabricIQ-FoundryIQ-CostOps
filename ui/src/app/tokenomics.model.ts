@@ -1,4 +1,4 @@
-export type DashboardView = 'overview' | 'allocation' | 'quality';
+export type DashboardView = 'overview' | 'allocation' | 'pricing' | 'powerbi' | 'ml-insights' | 'data-agent';
 export type WindowDays = 1 | 7 | 30 | 90;
 
 export interface RuntimeConfig {
@@ -27,14 +27,77 @@ export interface TokenomicsRow {
   ApplicationId?: string;
   ProjectId?: string;
   TeamId?: string;
+  Department?: string;
   CostCenter?: string;
+  Provider?: string;
+  ModelFamily?: string;
   Model?: string;
+  ModelVersion?: string;
   ApiId?: string;
   OperationId?: string;
   StatusCode?: number;
   CorrelationId?: string;
   UserIdHash?: string;
   IsStream?: boolean;
+}
+
+export interface ModelPriceItem {
+  provider: 'aws' | 'gcp' | 'msft' | 'oai' | 'cld';
+  providerName: string;
+  modelFamily: string;
+  modelName: string;
+  modelVersion: string;
+  inputPerMillion: number;
+  cachedInputPerMillion: number;
+  cacheWritePerMillion: number;
+  outputPerMillion: number;
+  contextWindow: number;
+  pricingType: 'Catalog API' | 'Published List';
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  marketRateUSD: number;
+  negotiatedRateUSD: number;
+  discountPercent: number;
+}
+
+export interface MlUseCaseInfo {
+  key: string;
+  number: string;
+  title: string;
+  folderName: string;
+  outputTable: string;
+  summaryMetric: string;
+  summaryValue: string;
+  summaryUnit: string;
+  riskOrStatus: 'optimal' | 'warning' | 'alert' | 'info';
+  details: string;
+  recommendation: string;
+  estimatedAnnualSavings?: number;
+  kpis: { label: string; value: string; trend?: string }[];
+  metricsTable?: { dimension: string; value: string; benchmark: string; status: string }[];
+}
+
+export interface SavedPrompt {
+  id: string;
+  title: string;
+  category: 'Executive & FinOps' | 'Cost Anomalies & Spikes' | 'Model Optimization' | 'Quota & Capacity' | 'Prompt Quality';
+  prompt: string;
+  description: string;
+  targetTables: string[];
+  suggestedDimensions: string[];
+  isCustom?: boolean;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'agent';
+  timestamp: string;
+  content: string;
+  sqlQuery?: string;
+  daxExpression?: string;
+  metrics?: { label: string; value: string }[];
+  tableData?: { headers: string[]; rows: (string | number)[][] };
+  recommendation?: string;
 }
 
 export interface ActualCostBreakdown {

@@ -23,23 +23,15 @@ foreach ($path in 'azure.tenantId', 'azure.subscriptionId', 'fabric.workspaceId'
 if ($config.azure.tenantId -ne $config.identity.resourceTenantId) {
     throw 'azure.tenantId must match identity.resourceTenantId.'
 }
-if ($config.apim.tenantId -ne $config.identity.callerTenantId -or $config.powerPlatform.tenantId -ne $config.identity.callerTenantId) {
-    throw 'APIM and Power Platform tenant IDs must match identity.callerTenantId.'
+if ($config.apim.tenantId -ne $config.identity.callerTenantId) {
+    throw 'APIM tenant ID must match identity.callerTenantId.'
 }
-if ($config.azure.tenantId -ne $config.apim.tenantId -or $config.azure.tenantId -ne $config.powerPlatform.tenantId -or
+if ($config.azure.tenantId -ne $config.apim.tenantId -or
     $config.azure.subscriptionId -ne $config.apim.subscriptionId -or $config.azure.resourceGroup -ne $config.apim.resourceGroup) {
-    throw 'Fabric, broker, APIM, and Power Platform must use the same configured tenant; Azure resources must use one subscription and resource group.'
+    throw 'Fabric and APIM must use the same configured tenant; Azure resources must use one subscription and resource group.'
 }
-if ($config.network.mode -notin @('single-tenant-shared-vnet', 'single-tenant-existing-peering') -or [bool]$config.deployment.deployNetworking) {
-    throw 'The active topology must use an existing single-tenant network path and must not deploy VNet peerings.'
-}
-if ($config.network.mode -eq 'single-tenant-shared-vnet' -and $config.network.apimVnetResourceId -ne $config.network.brokerVnetResourceId) {
-    throw 'single-tenant-shared-vnet requires APIM and broker to use the same VNet.'
-}
-if ($config.network.mode -eq 'single-tenant-existing-peering' -and $config.network.apimVnetResourceId -eq $config.network.brokerVnetResourceId) {
-    throw 'single-tenant-existing-peering requires distinct APIM and broker VNets.'
-}
-foreach ($path in 'apim.location', 'apim.serviceName', 'apim.skuName', 'apim.publisherEmail', 'apim.publisherName', 'apim.publicNetworkAccess', 'apim.tokenomicsApiId', 'apim.tokenomicsApiPath', 'apim.inferenceApis.lakehouse.id', 'apim.inferenceApis.lakehouse.path', 'apim.inferenceApis.dataAgent.id', 'apim.inferenceApis.dataAgent.path', 'apim.fabricProductId', 'apim.foundryProductId', 'network.apimSubnetName', 'network.apimSubnetPrefix', 'foundry.accountName', 'foundry.projectName', 'foundry.location', 'foundry.agentSubnetName', 'foundry.agentSubnetPrefix', 'foundry.model.name', 'foundry.model.version', 'foundry.model.skuName', 'identity.allowedUserPrincipalName', 'identity.dashboardClientDisplayName', 'tokenomics.projectId', 'tokenomics.teamId', 'tokenomics.costCenter', 'tokenomics.currency', 'tokenomics.actualCost.scope', 'tokenomics.actualCost.queryApiVersion', 'ui.appName', 'ui.existingPlanName', 'ui.productionUrl', 'ui.allowedOrigin', 'ui.environment') {
+
+foreach ($path in 'apim.location', 'apim.serviceName', 'apim.skuName', 'apim.publisherEmail', 'apim.publisherName', 'apim.publicNetworkAccess', 'apim.tokenomicsApiId', 'apim.tokenomicsApiPath', 'apim.fabricProductId', 'apim.foundryProductId', 'network.apimSubnetName', 'network.apimSubnetPrefix', 'identity.allowedUserPrincipalName', 'identity.dashboardClientDisplayName', 'tokenomics.projectId', 'tokenomics.teamId', 'tokenomics.costCenter', 'tokenomics.currency', 'tokenomics.actualCost.scope', 'tokenomics.actualCost.queryApiVersion', 'ui.appName', 'ui.existingPlanName', 'ui.productionUrl', 'ui.allowedOrigin', 'ui.environment') {
     $null = Get-FabricConfigValue -Config $config -Path $path
 }
 if ($config.apim.publicNetworkAccess -notin @('Enabled', 'Disabled')) {
@@ -47,9 +39,6 @@ if ($config.apim.publicNetworkAccess -notin @('Enabled', 'Disabled')) {
 }
 if ($config.apim.fabricProductId -ne 'fabric' -or $config.apim.foundryProductId -ne 'foundry') {
     throw 'APIM product IDs must be exactly fabric and foundry.'
-}
-if ([bool]$config.deployment.deployWorkspacePrivateLink) {
-    throw 'deployment.deployWorkspacePrivateLink must remain false while unsupported semantic models or external Copilot integrations exist.'
 }
 foreach ($flag in 'deployTokenomicsData', 'deployTokenomicsSeed', 'deployTokenomicsFabric', 'deployTokenomicsSync', 'deployTokenomicsPowerBi') {
     if ($config.deployment.$flag -isnot [bool]) {
@@ -136,37 +125,7 @@ if (-not ([string]$tokenomicsPlatform.logAnalytics.workspaceResourceId).StartsWi
     [int]$tokenomicsPlatform.logAnalytics.lookbackDays -lt 1 -or [int]$tokenomicsPlatform.logAnalytics.lookbackDays -gt 365) {
     throw 'Tokenomics Log Analytics source must be resource-group scoped with a bounded lookback.'
 }
-if ($config.foundry.location -ne $config.apim.location -or $config.foundry.vnetResourceId -ne $config.network.apimVnetResourceId -or
-    $config.foundry.privateEndpointSubnetResourceId -ne $config.network.apimPrivateEndpointSubnetResourceId -or
-    $config.foundry.agentSubnetPrefix -notmatch '^10\.(?:\d{1,3}\.){2}0/24$' -or $config.foundry.model.name -ne 'gpt-5.6-sol' -or
-    $config.foundry.model.version -ne '2026-07-09' -or $config.foundry.model.skuName -ne 'GlobalStandard' -or [int]$config.foundry.model.capacity -lt 1) {
-    throw 'Private Foundry region, network, and pinned model configuration are invalid.'
-}
-$inferenceApiIds = @($config.apim.inferenceApis.lakehouse.id, $config.apim.inferenceApis.dataAgent.id)
-$agentNames = @($config.foundry.agents.lakehouse, $config.foundry.agents.dataAgent)
-if (@($inferenceApiIds | Select-Object -Unique).Count -ne 2 -or @($agentNames | Select-Object -Unique).Count -ne 2 -or
-    @($config.foundry.mcpConnections.lakehouse.allowedTools) -join ',' -ne 'tables,query' -or @($config.foundry.mcpConnections.dataAgent.allowedTools) -join ',' -ne 'query') {
-    throw 'Foundry per-agent gateway identities and MCP allowlists must be distinct and least privilege.'
-}
-if ($config.broker.runtime -ne '~22' -or $config.ui.existingPlanName -ne $config.broker.existingPlanName -or
-    $config.ui.integrationSubnetResourceId -ne $config.network.brokerIntegrationSubnetResourceId) {
-    throw 'Broker and UI must use Node 22 on the same existing Windows plan and integration subnet.'
-}
-foreach ($path in 'network.brokerVnetResourceId', 'network.brokerPrivateEndpointSubnetResourceId', 'network.brokerIntegrationSubnetResourceId', 'network.apimVnetResourceId', 'foundry.vnetResourceId', 'foundry.privateEndpointSubnetResourceId', 'ui.integrationSubnetResourceId') {
-    $resourceId = [string](Get-FabricConfigValue -Config $config -Path $path)
-    if ($resourceId -notmatch '^/subscriptions/[0-9a-f-]+/resourceGroups/[^/]+/providers/Microsoft\.Network/virtualNetworks/[^/]+(?:/subnets/[^/]+)?$') {
-        throw "$path is not a valid virtual network or subnet resource ID."
-    }
-}
-foreach ($path in 'network.brokerExistingPrivateDnsVnetLinks.web', 'network.brokerExistingPrivateDnsVnetLinks.blob') {
-    $linkName = [string](Get-FabricConfigValue -Config $config -Path $path)
-    if ($linkName -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,78}[A-Za-z0-9])?$') {
-        throw "$path is not a valid private DNS VNet link name."
-    }
-}
-
 if ($DeploymentReady) {
-    $null = Assert-FabricGuid -Value $config.powerPlatform.environmentId -Name 'powerPlatform.environmentId'
     $null = Assert-FabricGuidList -Values @($config.identity.allowedUserObjectIds) -Name 'identity.allowedUserObjectIds'
 }
 
@@ -174,17 +133,10 @@ Write-Host 'PASS configuration contract'
 
 Push-Location $repositoryRoot
 try {
-    Invoke-FabricNative -FilePath 'npm' -ArgumentList @('run', 'build', '--prefix', 'functions/obo-broker') -Description 'Broker build'
-    Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'functions/obo-broker') -Description 'Broker tests'
-    Invoke-FabricNative -FilePath 'npm' -ArgumentList @('audit', '--prefix', 'functions/obo-broker', '--omit=dev') -Description 'Broker production dependency audit'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('run', 'build', '--prefix', 'ui') -Description 'Tokenomics UI build'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('test', '--prefix', 'ui', '--', '--watch=false') -Description 'Tokenomics UI tests'
     Invoke-FabricNative -FilePath 'npm' -ArgumentList @('audit', '--prefix', 'ui', '--omit=dev') -Description 'Tokenomics UI production dependency audit'
     Invoke-FabricNative -FilePath 'node' -ArgumentList @('--check', 'ui/server.js') -Description 'Production UI host syntax'
-    $brokerBicep = Get-Content -LiteralPath (Join-Path $repositoryRoot 'bicep/broker/main.bicep') -Raw
-    if ($brokerBicep -match "keyVaultName\}\.\$\{environment\(\)\.suffixes\.keyvaultDns") {
-        throw 'Broker Key Vault references must not add a dot before environment().suffixes.keyvaultDns.'
-    }
     Invoke-FabricNative -FilePath 'python' -ArgumentList @(
         '-m', 'py_compile',
         'scripts/tokenomics/delta_schema.py',
@@ -231,7 +183,6 @@ try {
 
     $bicepFiles = @(
         'bicep/apim/service.bicep',
-        'bicep/broker/main.bicep',
         'bicep/apim/main.bicep',
         'bicep/ui/main.bicep',
         'bicep/tokenomics-data/main.bicep'
@@ -249,9 +200,9 @@ try {
     Write-Host 'PASS Bicep build and lint'
 
     $terraformModules = @(
-        'terraform/broker',
         'terraform/apim',
-        'terraform/ui'
+        'terraform/ui',
+        'terraform/tokenomics-data'
     )
     if ($IncludeParity) {
         $terraformModules = @(Get-ChildItem (Join-Path $repositoryRoot 'terraform') -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'versions.tf') } | ForEach-Object { "terraform/$($_.Name)" })
@@ -285,4 +236,4 @@ finally {
     Pop-Location
 }
 
-Write-Host 'Fabric local validation completed successfully.' -ForegroundColor Green
+Write-Host 'Tokenomics validation completed successfully.' -ForegroundColor Green
