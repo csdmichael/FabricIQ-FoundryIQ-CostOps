@@ -25,17 +25,31 @@ function sendJson(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
+const ALLOWED_ROUTES = [
+  { method: 'GET', pattern: /^\/summary\/?$/ },
+  { method: 'GET', pattern: /^\/pricing\/?$/ },
+  { method: 'GET', pattern: /^\/prompts\/?$/ },
+  { method: 'GET', pattern: /^\/powerbi\/embed\/?$/ },
+  { method: 'GET', pattern: /^\/health\/?$/ },
+  { method: 'POST', pattern: /^\/chat\/?$/ },
+];
+
 function proxy(request, response, url) {
-  if (!apimHost || request.method !== 'GET') return sendJson(response, 405, { error: 'method_not_allowed' });
+  if (!apimHost) return sendJson(response, 503, { error: 'gateway_not_configured' });
   const suffix = url.pathname.slice(proxyPrefix.length);
-  if (!/^\/summary\/?$/.test(suffix)) return sendJson(response, 404, { error: 'not_found' });
+  const allowed = ALLOWED_ROUTES.some(route => route.method === request.method && route.pattern.test(suffix));
+  if (!allowed) return sendJson(response, 404, { error: 'not_found' });
   const authorization = request.headers.authorization;
   if (!authorization?.startsWith('Bearer ')) return sendJson(response, 401, { error: 'authorization_required' });
+  const headers = { Authorization: authorization, Accept: 'application/json' };
+  if (request.method === 'POST' && request.headers['content-type']) {
+    headers['Content-Type'] = request.headers['content-type'];
+  }
   const upstream = httpsRequest({
     hostname: apimHost,
-    method: 'GET',
+    method: request.method,
     path: `/${tokenomicsApiPath}${suffix}${url.search}`,
-    headers: { Authorization: authorization, Accept: 'application/json' },
+    headers,
     timeout: 190_000,
   }, upstreamResponse => {
     response.writeHead(upstreamResponse.statusCode || 502, {
@@ -47,7 +61,11 @@ function proxy(request, response, url) {
   });
   upstream.on('timeout', () => upstream.destroy(new Error('upstream_timeout')));
   upstream.on('error', () => sendJson(response, 502, { error: 'gateway_unavailable' }));
-  upstream.end();
+  if (request.method === 'POST') {
+    request.pipe(upstream);
+  } else {
+    upstream.end();
+  }
 }
 
 function staticFile(request, response, url) {
