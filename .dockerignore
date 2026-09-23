@@ -1,0 +1,23 @@
+# Keep the ACR build context tiny: only api/ and the two config files are needed.
+*
+!api/app/**
+!api/requirements.txt
+!api/Dockerfile.deploy
+!config/deployment.json
+!config/tokenomics-prompts.json
+
+# Belt-and-braces excludes (in case the above allowlist is bypassed)
+.git/
+node_modules/
+**/node_modules/
+.generated/
+ui/
+scripts/
+docs/
+bicep/
+terraform/
+tests/
+**/__pycache__/
+**/*.pyc
+.venv/
+**/.venv/

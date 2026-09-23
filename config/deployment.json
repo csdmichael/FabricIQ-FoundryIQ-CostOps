@@ -441,6 +441,7 @@
   "dashboardApi": {
     "host": "0.0.0.0",
     "port": 8080,
+    "publicUrl": "https://caldova-fabric-tokenomics-api.azurewebsites.net",
     "schema": "ml",
     "usageFactTable": "tokenomics_usage_fact",
     "priceHistoryTable": "model_price_history",

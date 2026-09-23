@@ -14,7 +14,13 @@ $fabricRoot = Split-Path -Parent $PSScriptRoot
 $uiRoot = Join-Path $fabricRoot 'ui'
 $stageRoot = Join-Path $fabricRoot '.generated/packages/ui-stage'
 $resolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
-$build = & (Join-Path $PSScriptRoot 'build-ui.ps1') -ConfigPath $ConfigPath -IdentityPath $IdentityPath -ApiBaseUrl "/api/$($config.apim.tokenomicsApiPath)" -SkipInstall:$SkipInstall
+$effectiveApiBaseUrl = if ($config.dashboardApi -and -not [string]::IsNullOrWhiteSpace([string]$config.dashboardApi.publicUrl)) {
+    [string]$config.dashboardApi.publicUrl
+}
+else {
+    "/api/$($config.apim.tokenomicsApiPath)"
+}
+$build = & (Join-Path $PSScriptRoot 'build-ui.ps1') -ConfigPath $ConfigPath -IdentityPath $IdentityPath -ApiBaseUrl $effectiveApiBaseUrl -SkipInstall:$SkipInstall
 
 Remove-Item -LiteralPath $stageRoot -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path (Join-Path $stageRoot 'browser') -Force | Out-Null
