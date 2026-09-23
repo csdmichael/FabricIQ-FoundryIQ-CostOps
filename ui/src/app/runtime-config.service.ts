@@ -7,6 +7,7 @@ const unconfiguredRuntime: RuntimeConfig = {
   clientId: '',
   scope: '',
   environment: 'Unconfigured',
+  powerBiScope: 'https://analysis.windows.net/powerbi/api/.default',
 };
 
 @Injectable({ providedIn: 'root' })

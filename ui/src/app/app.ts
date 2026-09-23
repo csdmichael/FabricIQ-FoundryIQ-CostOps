@@ -35,6 +35,7 @@ import {
   warningOutline,
 } from 'ionicons/icons';
 import { AuthService } from './auth.service';
+import { PowerBiEmbed } from './powerbi-embed';
 import { PromptLibraryService } from './prompt-library.service';
 import { TokenomicsChart } from './tokenomics-chart';
 import { TokenomicsService } from './tokenomics.service';
@@ -43,6 +44,8 @@ import type {
   DashboardView,
   MlUseCaseInfo,
   ModelPriceItem,
+  PowerBiEmbedArtifact,
+  PowerBiEmbedConfig,
   SavedPrompt,
   TokenomicsRow,
   WindowDays
@@ -67,7 +70,7 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner, TokenomicsChart],
+  imports: [CommonModule, FormsModule, IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner, TokenomicsChart, PowerBiEmbed],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -99,6 +102,17 @@ export class App implements OnInit {
   readonly selectedPowerBiTab = signal<'consumption' | 'ml-insights' | 'dashboard'>('consumption');
   readonly selectedPowerBiProvider = signal<string>('all');
   readonly selectedPowerBiDept = signal<string>('all');
+  readonly powerBiEmbed = signal<PowerBiEmbedConfig | null>(null);
+  readonly powerBiToken = signal<string | null>(null);
+
+  readonly currentPowerBiArtifact = computed<PowerBiEmbedArtifact | null>(() => {
+    const config = this.powerBiEmbed();
+    if (!config) return null;
+    const tab = this.selectedPowerBiTab();
+    if (tab === 'consumption') return config.reports.find(r => r.key === 'consumption') ?? null;
+    if (tab === 'ml-insights') return config.reports.find(r => r.key === 'ml-insights') ?? null;
+    return config.dashboards.find(d => d.key === 'executive') ?? config.dashboards[0] ?? null;
+  });
 
   // Fabric Data Agent Chat State
   readonly chatMessages = signal<ChatMessage[]>([]);
@@ -338,14 +352,31 @@ export class App implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.tokenomics.initialize();
-    this.pricingCatalog.set(this.tokenomics.getModelPricingCatalog());
     const useCases = this.tokenomics.getMlUseCases();
     this.mlUseCases.set(useCases);
     if (useCases.length > 0) {
       this.selectedMlUseCase.set(useCases[0]);
     }
+    // Load sample prompts, pricing, and chat welcome from the live API.
+    const [prompts, pricing] = await Promise.all([
+      this.tokenomics.getSamplePrompts(),
+      this.tokenomics.getModelPricingCatalog(),
+    ]);
+    this.promptLibrary.setServerPrompts(prompts);
+    this.pricingCatalog.set(pricing);
     this.chatMessages.set(this.tokenomics.getInitialChatMessages());
     await this.refresh();
+    await this.loadPowerBi();
+  }
+
+  /** Load the Power BI embed configuration and acquire a Power BI access token. */
+  async loadPowerBi(): Promise<void> {
+    const [config, token] = await Promise.all([
+      this.tokenomics.getPowerBiEmbedConfig(),
+      this.auth.powerBiToken(),
+    ]);
+    this.powerBiEmbed.set(config);
+    this.powerBiToken.set(token);
   }
 
   async refresh(): Promise<void> {
@@ -382,6 +413,7 @@ export class App implements OnInit {
       await this.auth.signIn(false);
     }
     await this.refresh();
+    await this.loadPowerBi();
   }
 
   selectMlUseCase(useCase: MlUseCaseInfo): void {

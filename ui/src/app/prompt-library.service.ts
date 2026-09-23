@@ -1,5 +1,4 @@
 import { Injectable, signal } from '@angular/core';
-import { SAVED_PROMPTS_DEFAULT } from './mock-data';
 import type { SavedPrompt } from './tokenomics.model';
 
 const STORAGE_KEY = 'costops_custom_prompts';
@@ -8,6 +7,7 @@ const STORAGE_KEY = 'costops_custom_prompts';
 export class PromptLibraryService {
   readonly prompts = signal<SavedPrompt[]>([]);
   readonly selectedCategory = signal<string>('All');
+  private serverPrompts: SavedPrompt[] = [];
   readonly categories = [
     'All',
     'Executive & FinOps',
@@ -21,17 +21,23 @@ export class PromptLibraryService {
     this.loadPrompts();
   }
 
-  loadPrompts(): void {
-    let customPrompts: SavedPrompt[] = [];
+  /** Seed the library with server-provided sample prompts, merged with custom ones. */
+  setServerPrompts(serverPrompts: SavedPrompt[]): void {
+    this.serverPrompts = serverPrompts ?? [];
+    this.prompts.set([...this.serverPrompts, ...this.loadCustom()]);
+  }
+
+  private loadCustom(): SavedPrompt[] {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        customPrompts = JSON.parse(stored) as SavedPrompt[];
-      }
+      return stored ? (JSON.parse(stored) as SavedPrompt[]) : [];
     } catch {
-      customPrompts = [];
+      return [];
     }
-    this.prompts.set([...SAVED_PROMPTS_DEFAULT, ...customPrompts]);
+  }
+
+  loadPrompts(): void {
+    this.prompts.set([...this.serverPrompts, ...this.loadCustom()]);
   }
 
   addPrompt(item: Omit<SavedPrompt, 'id' | 'isCustom'>): SavedPrompt {

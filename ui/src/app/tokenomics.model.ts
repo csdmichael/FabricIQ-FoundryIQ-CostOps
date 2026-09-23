@@ -7,6 +7,36 @@ export interface RuntimeConfig {
   clientId: string;
   scope: string;
   environment: string;
+  powerBiScope: string;
+}
+
+export interface PowerBiEmbedArtifact {
+  key: string;
+  kind: 'report' | 'dashboard';
+  id: string;
+  name: string;
+  embedUrl: string;
+}
+
+export interface PowerBiEmbedConfig {
+  workspaceId: string;
+  tokenType: 'Aad';
+  reports: PowerBiEmbedArtifact[];
+  dashboards: PowerBiEmbedArtifact[];
+}
+
+export interface ChatApiResponse {
+  reply: string;
+  threadId: string | null;
+  citations: string[];
+  agent: string;
+  source: string;
+}
+
+export interface PromptsApiResponse {
+  welcomeMessage: string;
+  agent: string;
+  prompts: SavedPrompt[];
 }
 
 export interface TokenomicsRow {

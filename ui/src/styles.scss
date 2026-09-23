@@ -286,6 +286,12 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .pbi-canvas-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #f8f9fa; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--muted); }
 .pbi-brand { display: flex; align-items: center; gap: 8px; }
 .pbi-logo { background: #f2c811; color: #000; font-weight: 900; padding: 2px 5px; border-radius: 2px; font-size: 10px; }
+.pbi-canvas app-powerbi-embed { display: block; width: 100%; height: 640px; }
+.pbi-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; min-height: 420px; padding: 40px 24px; }
+.pbi-empty-state ion-icon { font-size: 46px; color: var(--muted); }
+.pbi-empty-state h3 { margin: 6px 0 0; font-size: 17px; }
+.pbi-empty-state p { margin: 0; max-width: 520px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.pbi-empty-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .pbi-report-page { padding: 20px 24px; }
 .pbi-page-title h3 { margin: 0; font-size: 17px; }
 .pbi-page-title p { margin: 3px 0 16px; font-size: 11.5px; color: var(--muted); }

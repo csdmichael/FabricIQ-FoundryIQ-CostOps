@@ -3,5 +3,6 @@
   "tenantId": "",
   "clientId": "",
   "scope": "",
-  "environment": "Unconfigured"
+  "environment": "Unconfigured",
+  "powerBiScope": "https://analysis.windows.net/powerbi/api/.default"
 }

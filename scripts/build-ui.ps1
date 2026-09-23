@@ -41,6 +41,7 @@ $runtimeConfig = [ordered]@{
     clientId = $dashboardClientId
     scope = "api://$resourceApiClientId/$($config.identity.delegatedScope)"
     environment = [string]$config.ui.environment
+    powerBiScope = [string]$config.identity.powerBiApiScope
 }
 
 try {

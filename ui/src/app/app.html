@@ -476,121 +476,30 @@
                 </div>
               </div>
 
-              <!-- Embedded Power BI Report Simulation Canvas -->
+              <!-- Live Power BI Embed (user-owns-data via Entra ID) -->
               <div class="pbi-canvas">
                 <div class="pbi-canvas-header">
-                  <div class="pbi-brand"><span class="pbi-logo">PBI</span><strong>Microsoft Power BI DirectQuery Canvas</strong></div>
-                  <span>16 Fabric Lakehouse Tables Connected</span>
+                  <div class="pbi-brand"><span class="pbi-logo">PBI</span><strong>{{ currentPowerBiArtifact()?.name || 'Microsoft Power BI (DirectQuery on Fabric OneLake)' }}</strong></div>
+                  <span>DirectQuery: Tokenomics FinOps Model</span>
                 </div>
-
-                @if (selectedPowerBiTab() === 'consumption') {
-                  <div class="pbi-report-page">
-                    <div class="pbi-page-title">
-                      <h3>Executive Consumption & Cost Allocation Matrix</h3>
-                      <p>Hierarchy: User > Model Family > Provider > Model > Version</p>
-                    </div>
-                    <div class="pbi-kpi-row">
-                      <div class="pbi-card"><span>Total Tokens</span><strong>2.84B</strong><small>100% Attributed</small></div>
-                      <div class="pbi-card"><span>Market Spend</span><strong>$14,820.50</strong><small>List Rate</small></div>
-                      <div class="pbi-card highlight"><span>Negotiated Spend</span><strong>$13,042.04</strong><small>Saved $1,778.46</small></div>
-                      <div class="pbi-card"><span>Active AI Users</span><strong>462</strong><small>500 Hashed</small></div>
-                    </div>
-                    <div class="pbi-matrix-preview">
-                      <div class="pbi-matrix-header">
-                        <span>Hierarchy (User > Family > Provider > Model)</span>
-                        <span>Requests</span>
-                        <span>Total Tokens</span>
-                        <span>Reported Cost</span>
-                        <span>Negotiated Cost</span>
-                      </div>
-                      <div class="pbi-matrix-row group">
-                        <span><strong>▼ user_hash_715bb744... (Engineering Lead)</strong></span>
-                        <span>48,200</span>
-                        <span>342.1M</span>
-                        <span>$1,420.00</span>
-                        <span>$1,249.60</span>
-                      </div>
-                      <div class="pbi-matrix-row sub">
-                        <span>&nbsp;&nbsp;▶ GPT-5 (Azure OpenAI) • gpt-5.6-sol</span>
-                        <span>24,000</span>
-                        <span>184.0M</span>
-                        <span>$828.00</span>
-                        <span>$728.64</span>
-                      </div>
-                      <div class="pbi-matrix-row sub">
-                        <span>&nbsp;&nbsp;▶ Claude 4 (Anthropic) • claude-sonnet-4</span>
-                        <span>18,200</span>
-                        <span>118.1M</span>
-                        <span>$442.00</span>
-                        <span>$388.96</span>
-                      </div>
-                      <div class="pbi-matrix-row group">
-                        <span><strong>▼ user_hash_8a49c210... (Data Scientist)</strong></span>
-                        <span>39,100</span>
-                        <span>294.5M</span>
-                        <span>$1,180.40</span>
-                        <span>$1,038.75</span>
-                      </div>
-                      <div class="pbi-matrix-row sub">
-                        <span>&nbsp;&nbsp;▶ Gemini (GCP Vertex) • gemini-2.5-pro</span>
-                        <span>28,500</span>
-                        <span>212.0M</span>
-                        <span>$954.00</span>
-                        <span>$839.52</span>
-                      </div>
-                    </div>
+                @if (currentPowerBiArtifact() && powerBiToken()) {
+                  <app-powerbi-embed [artifact]="currentPowerBiArtifact()" [accessToken]="powerBiToken()"></app-powerbi-embed>
+                } @else if (!powerBiEmbed()) {
+                  <div class="pbi-empty-state">
+                    <ion-icon name="bar-chart-outline"></ion-icon>
+                    <h3>Power BI reports are not configured</h3>
+                    <p>The embed configuration could not be loaded from the tokenomics API.</p>
                   </div>
-                }
-
-                @if (selectedPowerBiTab() === 'ml-insights') {
-                  <div class="pbi-report-page">
-                    <div class="pbi-page-title">
-                      <h3>12 PySpark Machine Learning Insights Portfolio</h3>
-                      <p>Outputs from Lakehouse ML Pipelines written directly to <code>ml.*</code> Delta Tables</p>
-                    </div>
-                    <div class="pbi-ml-grid">
-                      @for (ml of mlUseCases(); track ml.key) {
-                        <div class="pbi-ml-card" (click)="selectMlUseCase(ml); setView('ml-insights')">
-                          <div class="ml-badge-row">
-                            <span class="ml-num">{{ ml.number }}</span>
-                            <span class="ml-status" [ngClass]="ml.riskOrStatus">{{ ml.riskOrStatus }}</span>
-                          </div>
-                          <h4>{{ ml.title }}</h4>
-                          <div class="ml-metric-val"><strong>{{ ml.summaryValue }}</strong> <span>{{ ml.summaryUnit }}</span></div>
-                          <small>{{ ml.outputTable }}</small>
-                        </div>
+                } @else {
+                  <div class="pbi-empty-state">
+                    <ion-icon name="shield-checkmark-outline"></ion-icon>
+                    <h3>Sign in to view the live Power BI reports</h3>
+                    <p>These reports run DirectQuery on the Fabric <code>lh_tokenomics</code> OneLake tables and require your Entra ID sign-in.</p>
+                    <div class="pbi-empty-actions">
+                      <ion-button size="small" (click)="toggleAuthentication()">Sign in</ion-button>
+                      @if (currentPowerBiArtifact()) {
+                        <a class="open-fabric-btn" [href]="currentPowerBiArtifact()!.embedUrl" target="_blank" rel="noopener noreferrer"><ion-icon name="open-outline"></ion-icon> Open in Power BI</a>
                       }
-                    </div>
-                  </div>
-                }
-
-                @if (selectedPowerBiTab() === 'dashboard') {
-                  <div class="pbi-report-page">
-                    <div class="pbi-page-title">
-                      <h3>Executive FinOps Dashboard (Live Pinned Tile)</h3>
-                      <p>High-level enterprise AI economics for C-Suite and Cloud Governance</p>
-                    </div>
-                    <div class="pbi-exec-tiles">
-                      <div class="exec-tile tile-blue">
-                        <span>Total AI Requests</span>
-                        <strong>452,000</strong>
-                        <p>99.41% Success Rate • 342ms P95</p>
-                      </div>
-                      <div class="exec-tile tile-green">
-                        <span>Negotiated Rate Savings</span>
-                        <strong>$1,778.46</strong>
-                        <p>12% Enterprise Rate Card Discount</p>
-                      </div>
-                      <div class="exec-tile tile-orange">
-                        <span>Optimization Potential</span>
-                        <strong>$46,800 / yr</strong>
-                        <p>From 14 Eligible Workload Downgrades</p>
-                      </div>
-                      <div class="exec-tile tile-purple">
-                        <span>MACC Spend Progress</span>
-                        <strong>104.2%</strong>
-                        <p>On track for $200k Commitment</p>
-                      </div>
                     </div>
                   </div>
                 }

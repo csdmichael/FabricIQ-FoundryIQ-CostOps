@@ -25,11 +25,21 @@
     "mlDashboardName": "Tokenomics ML Operations Dashboard"
   },
   "powerBi": {
+    "workspaceId": "1e14d1a0-d6cd-4810-a23e-094a58dae55e",
+    "semanticModelId": "55a11a72-867f-4dc5-86fd-77500b0fcc2d",
     "semanticModelName": "Tokenomics FinOps Model",
+    "consumptionReportId": "c6ced143-01f0-4200-bb43-6ab1d11c8f2d",
     "consumptionReportName": "Tokenomics Consumption and Cost Analytics",
+    "consumptionReportEmbedUrl": "https://app.powerbi.com/reportEmbed?reportId=c6ced143-01f0-4200-bb43-6ab1d11c8f2d&groupId=1e14d1a0-d6cd-4810-a23e-094a58dae55e",
+    "mlReportId": "9587b6fe-3b8e-4404-b24c-b1aab035f67b",
     "mlReportName": "Tokenomics ML Insights",
+    "mlReportEmbedUrl": "https://app.powerbi.com/reportEmbed?reportId=9587b6fe-3b8e-4404-b24c-b1aab035f67b&groupId=1e14d1a0-d6cd-4810-a23e-094a58dae55e",
+    "executiveDashboardId": "1ba0a93e-c712-4ca7-8b8a-901fc6867595",
     "executiveDashboardName": "Tokenomics FinOps Executive Dashboard",
-    "mlDashboardName": "Tokenomics ML Operations Dashboard"
+    "executiveDashboardEmbedUrl": "https://app.powerbi.com/dashboardEmbed?dashboardId=1ba0a93e-c712-4ca7-8b8a-901fc6867595&groupId=1e14d1a0-d6cd-4810-a23e-094a58dae55e",
+    "mlDashboardId": "f2162e45-d2ad-447f-bab2-4cac747c18b4",
+    "mlDashboardName": "Tokenomics ML Operations Dashboard",
+    "mlDashboardEmbedUrl": "https://app.powerbi.com/dashboardEmbed?dashboardId=f2162e45-d2ad-447f-bab2-4cac747c18b4&groupId=1e14d1a0-d6cd-4810-a23e-094a58dae55e"
   },
   "apim": {
     "tenantId": "12a4b86b-e64c-43f9-af05-d9130a72dfd2",
@@ -137,7 +147,8 @@
         "aws",
         "gcp",
         "oai",
-        "cld"
+        "cld",
+        "msft"
       ]
     },
     "fabric": {
@@ -350,9 +361,8 @@
     "appName": "caldova-fabric-costops-ui",
     "existingPlanName": "caldova-showcase-plan",
     "productionUrl": "https://caldova-fabric-costops-ui.azurewebsites.net",
-    "allowedOrigin": "http://localhost:4200",
+    "allowedOrigin": "https://caldova-fabric-costops-ui.azurewebsites.net",
     "redirectUris": [
-      "http://localhost:4200",
       "https://caldova-fabric-costops-ui.azurewebsites.net"
     ],
     "environment": "Caldova Private"
@@ -371,5 +381,48 @@
   "tags": {
     "application": "fabric-ai-tokenomics",
     "environment": "production"
+  },
+  "dashboardApi": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "schema": "ml",
+    "usageFactTable": "tokenomics_usage_fact",
+    "priceHistoryTable": "model_price_history",
+    "currency": "USD",
+    "defaultWindowDays": 30,
+    "allowedWindowDays": [1, 7, 30, 90],
+    "sqlConnectTimeoutSeconds": 30,
+    "sqlQueryTimeoutSeconds": 120,
+    "odbcDriver": "ODBC Driver 18 for SQL Server",
+    "providers": [
+      { "code": "aws", "name": "AWS Bedrock" },
+      { "code": "gcp", "name": "GCP Vertex AI" },
+      { "code": "msft", "name": "Azure OpenAI" },
+      { "code": "oai", "name": "OpenAI Direct" },
+      { "code": "cld", "name": "Anthropic Claude" }
+    ],
+    "cors": {
+      "allowedOrigins": [
+        "http://localhost:4200",
+        "https://caldova-fabric-costops-ui.azurewebsites.net"
+      ]
+    }
+  },
+  "foundry": {
+    "accountName": "foundry-fabric-costops",
+    "existingProjectName": "fabric-costops",
+    "tokenomicsProjectName": "Tokenomics",
+    "tokenomicsProjectDisplayName": "Tokenomics",
+    "tokenomicsProjectDescription": "Tokenomics FinOps analytics project. Hosts the Tokenomics FinOps Analyst agent that answers multi-cloud AI cost and usage questions using the Microsoft Fabric Data Agent through the APIM gateway.",
+    "location": "westus",
+    "modelDeployment": "gpt-5.6-sol",
+    "apiVersion": "2025-05-15-preview",
+    "agentName": "tokenomics-analyst",
+    "agentDisplayName": "Tokenomics FinOps Analyst",
+    "dataAgentMcp": {
+      "connectionName": "tokenomics-data-agent-mcp-oauth",
+      "toolLabel": "fabric_tokenomics_data_agent"
+    },
+    "instructions": "You are the Tokenomics FinOps Analyst, an expert assistant for multi-cloud AI cost governance on Microsoft Fabric. Answer questions about token consumption, model pricing, cost attribution and chargeback, budget overruns, anomalies, quota and capacity, prompt quality, and agent ROI across AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude. ALWAYS ground every quantitative answer by calling the Fabric Data Agent tool, which queries the governed lh_tokenomics Lakehouse Gold tables (ml.tokenomics_usage_fact, ml.model_price_history, and the 12 ml.* insight outputs). Never fabricate numbers. Be concise, lead with the headline finding, cite the tables you used, and end with one actionable FinOps recommendation."
   }
 }

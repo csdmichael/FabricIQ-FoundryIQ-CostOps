@@ -259,9 +259,34 @@ pwsh scripts/sync-tokenomics-to-fabric.ps1
 # 4. Publish Power BI Semantic Model, Reports, and Dashboards
 pwsh scripts/publish-tokenomics-powerbi.ps1
 
-# 5. Build and Deploy Angular/Ionic CostOps UI to Azure App Service
+# 5. Provision the Foundry "Tokenomics" project + FinOps Analyst agent
+#    (Foundry agent -> APIM -> Fabric Data Agent). Run in-network.
+python scripts/provision-tokenomics-foundry.py            # or --what-if to validate
+
+# 6. Run the Tokenomics FastAPI service (live Fabric Lakehouse data)
+pip install -r api/requirements.txt
+uvicorn app.main:app --app-dir api --port 8080
+
+# 7. Build and Deploy Angular/Ionic CostOps UI to Azure App Service
 pwsh scripts/build-ui.ps1
 ```
+
+### Live serving architecture
+
+```
+Angular/Ionic CostOps UI
+  ├── GET  /summary,/pricing,/prompts  ─┐
+  ├── POST /chat  ──────────────────────┤   FastAPI (api/) ── Fabric SQL endpoint (lh_tokenomics)
+  ├── GET  /powerbi/embed ──────────────┘        │
+  └── Power BI embed (user-owns-data) ──> app.powerbi.com (DirectQuery on OneLake)
+                                                  │
+   Chat: UI ─> FastAPI /chat ─> Foundry "Tokenomics" agent ─> APIM ─> Fabric Data Agent
+```
+
+The UI contains **no mock data**: dashboard, pricing, prompts, chat, and Power BI
+embeds are all sourced live. The FastAPI service and Foundry provisioning are fully
+config-driven from [`config/deployment.json`](config/deployment.json) and
+[`config/tokenomics-prompts.json`](config/tokenomics-prompts.json).
 
 ---
 

@@ -1,17 +1,14 @@
 import { Injectable, signal } from '@angular/core';
 import { AuthService } from './auth.service';
-import {
-  INITIAL_CHAT_MESSAGES,
-  ML_USE_CASES,
-  MODEL_PRICING_CATALOG,
-  executePromptResponse,
-  generateMockDashboard
-} from './mock-data';
+import { ML_USE_CASES } from './mock-data';
 import { RuntimeConfigService } from './runtime-config.service';
 import type {
+  ChatApiResponse,
   ChatMessage,
   MlUseCaseInfo,
   ModelPriceItem,
+  PowerBiEmbedConfig,
+  PromptsApiResponse,
   RuntimeConfig,
   SavedPrompt,
   TokenomicsDashboard,
@@ -21,9 +18,12 @@ import type {
 @Injectable({ providedIn: 'root' })
 export class TokenomicsService {
   private config?: RuntimeConfig;
+  private chatThreadId: string | null = null;
   readonly configured = signal(false);
   readonly environment = signal('Caldova Private');
   readonly isLiveMode = signal(false);
+  readonly agentName = signal('Tokenomics FinOps Analyst');
+  readonly welcomeMessage = signal('');
 
   constructor(
     private readonly runtimeConfig: RuntimeConfigService,
@@ -39,86 +39,111 @@ export class TokenomicsService {
     }
   }
 
-  async dashboard(days: WindowDays): Promise<TokenomicsDashboard> {
-    if (!this.config) await this.initialize();
-
-    // If configured and user is signed in with access token, try live APIM/Fabric API
-    if (this.configured() && this.auth.account()) {
-      try {
-        const token = await this.auth.accessToken();
-        if (token) {
-          const apiBase = this.config!.apiBaseUrl.replace(/\/$/, '');
-          const response = await fetch(`${apiBase}/summary?days=${days}`, {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: 'no-store',
-          });
-          if (response.ok) {
-            const data = await response.json() as TokenomicsDashboard;
-            this.isLiveMode.set(true);
-            return data;
-          }
-        }
-      } catch (error) {
-        console.warn('Live API summary unavailable, serving high-fidelity multi-cloud telemetry:', error);
-      }
-    }
-
-    // High-fidelity fallback / demo multi-cloud dataset
-    this.isLiveMode.set(false);
-    return generateMockDashboard(days);
+  private apiBase(): string {
+    return (this.config?.apiBaseUrl ?? '').replace(/\/$/, '');
   }
 
-  getModelPricingCatalog(): ModelPriceItem[] {
-    return MODEL_PRICING_CATALOG;
+  private async authorizedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+    const token = await this.auth.accessToken();
+    const headers = new Headers(init.headers ?? {});
+    headers.set('Accept', 'application/json');
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    return fetch(`${this.apiBase()}${path}`, { ...init, headers, cache: 'no-store' });
+  }
+
+  async dashboard(days: WindowDays): Promise<TokenomicsDashboard> {
+    if (!this.config) await this.initialize();
+    const response = await this.authorizedFetch(`/summary?days=${days}`);
+    if (!response.ok) {
+      throw new Error(`Live tokenomics telemetry is unavailable (HTTP ${response.status}). Sign in and confirm the Fabric API is reachable.`);
+    }
+    const data = await response.json() as TokenomicsDashboard;
+    this.isLiveMode.set(true);
+    return data;
+  }
+
+  async getModelPricingCatalog(): Promise<ModelPriceItem[]> {
+    if (!this.config) await this.initialize();
+    try {
+      const response = await this.authorizedFetch('/pricing');
+      if (response.ok) {
+        return await response.json() as ModelPriceItem[];
+      }
+    } catch (error) {
+      console.warn('Live pricing unavailable:', error);
+    }
+    return [];
   }
 
   getMlUseCases(): MlUseCaseInfo[] {
     return ML_USE_CASES;
   }
 
-  getInitialChatMessages(): ChatMessage[] {
-    return [...INITIAL_CHAT_MESSAGES];
+  async getPowerBiEmbedConfig(): Promise<PowerBiEmbedConfig | null> {
+    if (!this.config) await this.initialize();
+    try {
+      const response = await this.authorizedFetch('/powerbi/embed');
+      if (response.ok) {
+        return await response.json() as PowerBiEmbedConfig;
+      }
+    } catch (error) {
+      console.warn('Power BI embed configuration unavailable:', error);
+    }
+    return null;
   }
 
-  async askDataAgent(promptText: string, savedPrompt?: SavedPrompt): Promise<ChatMessage> {
-    if (savedPrompt) {
-      await new Promise(resolve => setTimeout(resolve, 350));
-      return executePromptResponse(savedPrompt);
+  async getSamplePrompts(): Promise<SavedPrompt[]> {
+    if (!this.config) await this.initialize();
+    try {
+      const response = await this.authorizedFetch('/prompts');
+      if (response.ok) {
+        const data = await response.json() as PromptsApiResponse;
+        if (data.agent) this.agentName.set(data.agent);
+        if (data.welcomeMessage) this.welcomeMessage.set(data.welcomeMessage);
+        return data.prompts ?? [];
+      }
+    } catch (error) {
+      console.warn('Sample prompts unavailable:', error);
     }
+    return [];
+  }
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+  getInitialChatMessages(): ChatMessage[] {
+    return [
+      {
+        id: 'welcome-1',
+        sender: 'agent',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        content: this.welcomeMessage() || `Hello! I am your **${this.agentName()}**. Ask me any question about multi-cloud AI spend, model pricing, budget overruns, quota, or prompt quality - I answer using the governed Microsoft Fabric Lakehouse via the Fabric Data Agent.`,
+      }
+    ];
+  }
+
+  async askDataAgent(promptText: string, _savedPrompt?: SavedPrompt): Promise<ChatMessage> {
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const lower = promptText.toLowerCase();
-
-    if (lower.includes('price') || lower.includes('cost') || lower.includes('pricing') || lower.includes('rate')) {
-      return {
-        id: `msg-${Date.now()}`,
-        sender: 'agent',
-        timestamp,
-        content: `### Multi-Cloud Model Pricing Analysis\n\nQueried **\`ml.model_price_history\`** on Microsoft Fabric for current effective rates.\n\n- **Lowest Input Cost:** Gemini 2.5 Flash ($0.30/1M) & GPT-4.1-mini ($0.40/1M)\n- **Highest Frontier Cost:** Claude Opus 4.1 ($15.00/1M input, $75.00/1M output)\n- **Active Enterprise Rate Card:** 12% across-the-board discount on negotiated workloads.\n- **Prompt Caching Efficiency:** 80-90% discount on cache read tokens across Anthropic & OpenAI.`,
-        sqlQuery: `SELECT model_name, input_token_price_per_million, output_token_price_per_million, market_price_usd, negotiated_price_usd FROM lh_tokenomics.ml.model_price_history WHERE effective_to IS NULL ORDER BY input_token_price_per_million ASC;`,
-        recommendation: 'Use GPT-4.1-mini or Gemini 2.5 Flash as default for high-volume non-reasoning tasks to maximize cost efficiency.'
-      };
+    const response = await this.authorizedFetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: promptText, threadId: this.chatThreadId }),
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`Data Agent unavailable (HTTP ${response.status}). ${detail}`);
     }
-
-    if (lower.includes('overrun') || lower.includes('budget') || lower.includes('forecast') || lower.includes('burn')) {
-      return {
-        id: `msg-${Date.now()}`,
-        sender: 'agent',
-        timestamp,
-        content: `### Predictive Budget & Burn Rate Assessment\n\nEvaluated outputs from **\`ml.budget_overrun_output\`** and **\`ml.cost_forecast_output\`**.\n\n- **Project Falcon (Research):** 84% Overrun Risk (Projected spend: $52,400 vs $40,000 budget cap)\n- **Project Phoenix (Customer Success):** 81% Overrun Risk (Projected spend: $38,100 vs $30,000 budget cap)\n- **Enterprise Run-Rate:** 95% within overall annual commitment ($184.5k of $200k allocated).`,
-        sqlQuery: `SELECT project_id, department_id, overrun_risk_score, predicted_overrun_usd FROM lh_tokenomics.ml.budget_overrun_output WHERE overrun_risk_score >= 75;`,
-        recommendation: 'Apply prompt length constraints and model downgrades to Project Falcon to eliminate the projected $12.4k overrun.'
-      };
-    }
-
+    const data = await response.json() as ChatApiResponse;
+    this.chatThreadId = data.threadId ?? this.chatThreadId;
+    const citationText = data.citations?.length
+      ? `\n\n**Sources:** ${data.citations.map(c => `\`${c}\``).join(', ')}`
+      : '';
     return {
       id: `msg-${Date.now()}`,
       sender: 'agent',
       timestamp,
-      content: `### Response from Fabric Data Agent for: "${promptText}"\n\nI executed a governed analytical query across your Microsoft Fabric Lakehouse **\`lh_tokenomics\`** Gold and ML tables.\n\n- **Tables Scanned:** \`ml.tokenomics_usage_fact\`, \`ml.ml_insight_fact\`\n- **Multi-Cloud Scope:** AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, Anthropic Claude\n- **Attribution Match:** 99.4% of tokens attributed to active Cost Centers and Projects.`,
-      sqlQuery: `SELECT source_code, model_family, SUM(total_tokens) AS Tokens, SUM(market_cost_usd) AS SpendUSD FROM lh_tokenomics.ml.tokenomics_usage_fact GROUP BY source_code, model_family ORDER BY SpendUSD DESC;`,
-      recommendation: 'Review the ML Insights and Model Pricing tabs for granular per-model optimizations.'
+      content: `${data.reply}${citationText}`,
     };
+  }
+
+  resetChatThread(): void {
+    this.chatThreadId = null;
   }
 }

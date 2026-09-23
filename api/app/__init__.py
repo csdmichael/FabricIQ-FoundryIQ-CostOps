@@ -1,0 +1,1 @@
+"""Tokenomics FastAPI service package."""

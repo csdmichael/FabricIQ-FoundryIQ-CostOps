@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "welcomeMessage": "Hello! I am your **Tokenomics FinOps Analyst**. I answer questions by querying the governed Microsoft Fabric Lakehouse (`lh_tokenomics`) Gold tables through the Fabric Data Agent, exposed via Foundry and the APIM gateway. Ask about multi-cloud spend, model pricing, budget overruns, quota, prompt quality, or pick one of the sample prompts below.",
+  "prompts": [
+    {
+      "id": "exec-summary",
+      "title": "Multi-Cloud AI Spend & Token Summary",
+      "category": "Executive & FinOps",
+      "prompt": "Summarize multi-cloud AI token consumption and spend across AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude for the past 30 days. Break down total tokens, market cost, and negotiated cost by provider and model family.",
+      "description": "Executive overview of total token volume, market vs negotiated cost, and provider market share.",
+      "targetTables": ["ml.tokenomics_usage_fact", "ml.model_price_history"],
+      "suggestedDimensions": ["source_code", "model_family", "usage_date"]
+    },
+    {
+      "id": "top-models",
+      "title": "Top Models by Usage & Cost",
+      "category": "Executive & FinOps",
+      "prompt": "What are the top 10 models by total token consumption in the last 30 days, and how much did each cost? Include Claude Sonnet, Claude Opus, Google Gemini, GPT Astra, GPT mini, MAI Flash, MAI Transcribe, and Kimi Code where present.",
+      "description": "Ranks the most-used models across all clouds with cost per model.",
+      "targetTables": ["ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["model_name", "model_family", "source_code"]
+    },
+    {
+      "id": "budget-overrun",
+      "title": "Predict Budget Overrun Risks by Project",
+      "category": "Cost Anomalies & Spikes",
+      "prompt": "Which projects and departments have a predicted budget overrun probability exceeding 75% for the current quarter? Show their current burn rate, predicted overrun amount, and the key contributing workloads.",
+      "description": "Uses Algorithm 06 (Budget Overrun Prediction) to flag high-risk cost centers before overruns happen.",
+      "targetTables": ["ml.budget_overrun_output", "ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["project_id", "department_id", "overrun_risk_score"]
+    },
+    {
+      "id": "anomaly-detection",
+      "title": "Detect Cost & Token Anomalies",
+      "category": "Cost Anomalies & Spikes",
+      "prompt": "Identify the largest token consumption anomalies in the past 30 days. Which users, applications, or models drove unexpected spikes, and what was the estimated excess cost?",
+      "description": "Runs Algorithm 01 (Anomaly Detection) to surface abnormal spend spikes.",
+      "targetTables": ["ml.anomaly_detection_output", "ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["user_id_hash", "application_id", "model_name"]
+    },
+    {
+      "id": "model-downgrade",
+      "title": "Model Optimization & Downgrade Savings",
+      "category": "Model Optimization",
+      "prompt": "Identify top summarization, classification, and code-generation workloads using expensive frontier models (Claude Opus, GPT Astra) where switching to efficient models (GPT mini, Google Gemini Flash, MAI Flash) would yield 40% or more savings. Quantify the annual savings.",
+      "description": "Leverages Algorithm 07 to find immediate dollar savings through smart model routing.",
+      "targetTables": ["ml.model_optimization_output", "ml.model_price_history"],
+      "suggestedDimensions": ["current_model", "recommended_model", "annual_savings_usd"]
+    },
+    {
+      "id": "provider-efficiency",
+      "title": "Compare Token Efficiency Across Clouds",
+      "category": "Model Optimization",
+      "prompt": "Compare cost per 1M tokens and cost per completed task across AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude. Which provider delivers the best price-performance for our current workload mix?",
+      "description": "Benchmarks price-performance by provider using effective negotiated rates.",
+      "targetTables": ["ml.tokenomics_usage_fact", "ml.model_benchmark"],
+      "suggestedDimensions": ["source_code", "model_family", "task_type"]
+    },
+    {
+      "id": "quota-forecast",
+      "title": "Intelligent Quota & TPM Recommendations",
+      "category": "Quota & Capacity",
+      "prompt": "Show intelligent TPM and RPM quota adjustments for engineering and research teams based on growth velocity and release schedules to prevent 429 throttling in the next 30 days.",
+      "description": "Queries Algorithm 09 for proactive capacity and quota headroom recommendations.",
+      "targetTables": ["ml.quota_management_output", "ml.capacity_planning_output"],
+      "suggestedDimensions": ["team_id", "model_name", "recommended_tpm"]
+    },
+    {
+      "id": "capacity-planning",
+      "title": "Forecast Capacity & Spend Next Quarter",
+      "category": "Quota & Capacity",
+      "prompt": "Forecast total token demand and projected spend for the next quarter by provider, assuming current growth trends. Where will we hit capacity limits first?",
+      "description": "Runs Algorithm 11 (Capacity Planning) and Algorithm 02 (Cost Forecasting) for forward-looking planning.",
+      "targetTables": ["ml.capacity_planning_output", "ml.cost_forecast_output"],
+      "suggestedDimensions": ["source_code", "fiscal_month", "projected_tokens"]
+    },
+    {
+      "id": "prompt-quality",
+      "title": "Analyze Prompt Bloat & Cache Hit Ratios",
+      "category": "Prompt Quality",
+      "prompt": "Analyze prompt quality scores across our top 10 consuming applications. List workflows with excessive context windows (over 25k tokens) and calculate the savings available from prompt caching.",
+      "description": "Runs Algorithm 10 to highlight inefficient context sizes and caching opportunities.",
+      "targetTables": ["ml.prompt_quality_output", "ml.token_efficiency_output"],
+      "suggestedDimensions": ["application_id", "avg_prompt_tokens", "cache_hit_pct"]
+    },
+    {
+      "id": "agent-roi",
+      "title": "AI Agent ROI & Hours Saved by Business Unit",
+      "category": "Executive & FinOps",
+      "prompt": "Calculate the return on investment (ROI) for all production AI agents by business unit, comparing token infrastructure costs against hours saved and tickets resolved. Which agents are net-positive?",
+      "description": "Queries Algorithm 08 (Agent ROI Analytics) for business-outcome traceability.",
+      "targetTables": ["ml.agent_roi_output", "ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["business_unit_id", "agent_id", "roi_ratio"]
+    }
+  ]
+}

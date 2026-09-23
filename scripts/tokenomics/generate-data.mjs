@@ -5,25 +5,38 @@ import { fileURLToPath } from 'node:url';
 
 const MODEL_CATALOG = {
   aws: [
-    { family: 'Amazon Nova', name: 'amazon.nova-pro-v1', version: '1.0', input: 0.80, cached: 0.20, output: 3.20, context: 300000 },
-    { family: 'Claude', name: 'anthropic.claude-3-7-sonnet', version: '20250219-v1', input: 3.00, cached: 0.30, output: 15.00, context: 200000 },
-    { family: 'Llama', name: 'meta.llama3-3-70b-instruct', version: '1.0', input: 0.72, cached: 0.18, output: 0.72, context: 128000 },
+    { family: 'Claude Sonnet', name: 'anthropic.claude-3-7-sonnet', version: '20250219-v1', input: 3.00, cached: 0.30, output: 15.00, context: 200000, weight: 35 },
+    { family: 'Claude Opus', name: 'anthropic.claude-opus-4-1', version: '20250805-v1', input: 15.00, cached: 1.50, output: 75.00, context: 200000, weight: 25 },
+    { family: 'Claude Fable', name: 'anthropic.claude-fable-1', version: '20251101-v1', input: 4.50, cached: 0.45, output: 20.00, context: 250000, weight: 20 },
+    { family: 'Kimi Code', name: 'moonshot.kimi-code', version: '2.5', input: 0.90, cached: 0.22, output: 3.60, context: 256000, weight: 15 },
+    { family: 'Amazon Nova', name: 'amazon.nova-pro-v1', version: '1.0', input: 0.80, cached: 0.20, output: 3.20, context: 300000, weight: 4 },
+    { family: 'Llama', name: 'meta.llama3-3-70b-instruct', version: '1.0', input: 0.72, cached: 0.18, output: 0.72, context: 128000, weight: 3 },
   ],
   gcp: [
-    { family: 'Gemini', name: 'gemini-2.5-pro', version: '002', input: 1.25, cached: 0.31, output: 10.00, context: 1048576 },
-    { family: 'Gemini', name: 'gemini-2.5-flash', version: '002', input: 0.30, cached: 0.08, output: 2.50, context: 1048576 },
-    { family: 'Claude', name: 'claude-3-5-sonnet-v2', version: '20241022', input: 3.00, cached: 0.30, output: 15.00, context: 200000 },
+    { family: 'Google Gemini', name: 'gemini-2.5-flash', version: '002', input: 0.30, cached: 0.08, output: 2.50, context: 1048576, weight: 35 },
+    { family: 'Google Gemini', name: 'gemini-2.5-pro', version: '002', input: 1.25, cached: 0.31, output: 10.00, context: 1048576, weight: 30 },
+    { family: 'Claude Sonnet', name: 'claude-3-5-sonnet-v2', version: '20241022', input: 3.00, cached: 0.30, output: 15.00, context: 200000, weight: 20 },
+    { family: 'Kimi Code', name: 'kimi-code', version: '2.5', input: 0.90, cached: 0.22, output: 3.60, context: 256000, weight: 15 },
   ],
   oai: [
-    { family: 'GPT-5', name: 'gpt-5', version: '2025-08-07', input: 1.25, cached: 0.13, output: 10.00, context: 400000 },
-    { family: 'GPT-4.1', name: 'gpt-4.1', version: '2025-04-14', input: 2.00, cached: 0.50, output: 8.00, context: 1047576 },
-    { family: 'GPT-4.1', name: 'gpt-4.1-mini', version: '2025-04-14', input: 0.40, cached: 0.10, output: 1.60, context: 1047576 },
-    { family: 'o-series', name: 'o4-mini', version: '2025-04-16', input: 1.10, cached: 0.28, output: 4.40, context: 200000 },
+    { family: 'GPT mini', name: 'gpt-4.1-mini', version: '2025-04-14', input: 0.40, cached: 0.10, output: 1.60, context: 1047576, weight: 35 },
+    { family: 'GPT Astra', name: 'gpt-astra', version: '2026-03-01', input: 2.50, cached: 0.30, output: 12.00, context: 500000, weight: 30 },
+    { family: 'GPT mini', name: 'gpt-5-mini', version: '2025-08-07', input: 0.30, cached: 0.08, output: 1.20, context: 1048576, weight: 20 },
+    { family: 'GPT-5', name: 'gpt-5', version: '2025-08-07', input: 1.25, cached: 0.13, output: 10.00, context: 400000, weight: 10 },
+    { family: 'o-series', name: 'o4-mini', version: '2025-04-16', input: 1.10, cached: 0.28, output: 4.40, context: 200000, weight: 5 },
   ],
   cld: [
-    { family: 'Claude 4', name: 'claude-opus-4-1', version: '20250805', input: 15.00, cached: 1.50, output: 75.00, context: 200000 },
-    { family: 'Claude 4', name: 'claude-sonnet-4', version: '20250514', input: 3.00, cached: 0.30, output: 15.00, context: 200000 },
-    { family: 'Claude 3.5', name: 'claude-3-5-haiku', version: '20241022', input: 0.80, cached: 0.08, output: 4.00, context: 200000 },
+    { family: 'Claude Sonnet', name: 'claude-sonnet-4', version: '20250514', input: 3.00, cached: 0.30, output: 15.00, context: 200000, weight: 35 },
+    { family: 'Claude Opus', name: 'claude-opus-4-1', version: '20250805', input: 15.00, cached: 1.50, output: 75.00, context: 200000, weight: 30 },
+    { family: 'Claude Fable', name: 'claude-fable-1', version: '20251101', input: 4.50, cached: 0.45, output: 20.00, context: 250000, weight: 25 },
+    { family: 'Claude 3.5', name: 'claude-3-5-haiku', version: '20241022', input: 0.80, cached: 0.08, output: 4.00, context: 200000, weight: 5 },
+  ],
+  msft: [
+    { family: 'GPT Astra', name: 'gpt-astra', version: '2026-03-01', input: 2.50, cached: 0.30, output: 12.00, context: 500000, weight: 30 },
+    { family: 'GPT mini', name: 'gpt-5-mini', version: '2025-08-07', input: 0.30, cached: 0.08, output: 1.20, context: 1048576, weight: 30 },
+    { family: 'MAI Flash', name: 'mai-flash', version: '1.0', input: 0.25, cached: 0.06, output: 1.00, context: 500000, weight: 25 },
+    { family: 'MAI Transcribe', name: 'mai-transcribe', version: '1.0', input: 0.35, cached: 0.09, output: 1.40, context: 250000, weight: 20 },
+    { family: 'Claude Sonnet', name: 'claude-3-7-sonnet', version: '20250219', input: 3.00, cached: 0.30, output: 15.00, context: 200000, weight: 15 },
   ],
 };
 
@@ -56,6 +69,13 @@ const PRICE_SOURCES = {
     source_api_version: null,
     authentication_mode: 'none',
   },
+  msft: {
+    source_type: 'catalog_api',
+    source_name: 'Azure Retail Prices API',
+    source_uri: 'https://prices.azure.com/api/retail/prices',
+    source_api_version: '2023-01-01-preview',
+    authentication_mode: 'anonymous',
+  },
 };
 
 const PERSONAS = ['casual_user', 'heavy_researcher', 'agent_builder', 'developer', 'executive_user'];
@@ -77,6 +97,16 @@ function randomFactory(seed) {
 
 function pick(random, values) {
   return values[Math.floor(random() * values.length)];
+}
+
+function pickWeighted(random, models) {
+  const total = models.reduce((acc, m) => acc + (m.weight ?? 1), 0);
+  let r = random() * total;
+  for (const model of models) {
+    r -= (model.weight ?? 1);
+    if (r <= 0) return model;
+  }
+  return models[models.length - 1];
 }
 
 function integer(random, minimum, maximum) {
@@ -247,12 +277,24 @@ export function generateDataset(config) {
 
   for (let index = 0; index < Number(settings.recordCount); index += 1) {
     const sourceCode = settings.sourceCodes[index % settings.sourceCodes.length];
-    const model = pick(random, MODEL_CATALOG[sourceCode]);
+    const model = pickWeighted(random, MODEL_CATALOG[sourceCode]);
+    const isPriorityCommonModel = [
+      'anthropic.claude-3-7-sonnet', 'claude-sonnet-4', 'claude-3-5-sonnet-v2', 'claude-3-7-sonnet',
+      'anthropic.claude-opus-4-1', 'claude-opus-4-1',
+      'gemini-2.5-pro', 'gemini-2.5-flash',
+      'claude-fable-1', 'anthropic.claude-fable-1',
+      'gpt-astra',
+      'gpt-4.1-mini', 'gpt-5-mini',
+      'mai-flash',
+      'mai-transcribe',
+      'moonshot.kimi-code', 'kimi-code'
+    ].includes(model.name);
     const user = pick(random, users);
     const taskType = pick(random, TASK_TYPES);
     const profile = tokenProfile(user.persona);
     const anomaly = random() < 0.018;
-    const multiplier = anomaly ? integer(random, 5, 14) : 1;
+    const baseMultiplier = isPriorityCommonModel ? integer(random, 2, 4) : 1;
+    const multiplier = anomaly ? integer(random, 5, 14) : baseMultiplier;
     const requestsPerRecord = Math.max(1, Number(settings.requestsPerRecord ?? 1));
     const requestCount = integer(random, Math.floor(requestsPerRecord * 0.5), Math.ceil(requestsPerRecord * 1.5)) * multiplier;
     const inputTokensPerRequest = integer(random, Math.floor(profile.input * 0.25), Math.floor(profile.input * 1.8));

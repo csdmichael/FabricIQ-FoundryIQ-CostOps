@@ -114,4 +114,30 @@ export class AuthService {
       return null;
     }
   }
+
+  /**
+   * Acquire an Entra ID access token for the Power BI service so the UI can
+   * embed reports and dashboards with the signed-in user's own permissions.
+   */
+  async powerBiToken(): Promise<string | null> {
+    if (!this.client || !this.config?.powerBiScope) return null;
+    const acc = this.account();
+    if (!acc) return null;
+    const scopes = [this.config.powerBiScope];
+    try {
+      const result = await this.client.acquireTokenSilent({ account: acc, scopes });
+      return result.accessToken;
+    } catch (error) {
+      if (error instanceof InteractionRequiredAuthError) {
+        try {
+          const result = await this.client.acquireTokenPopup({ scopes });
+          this.account.set(result.account);
+          return result.accessToken;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+  }
 }
