@@ -507,7 +507,7 @@
                     <div class="pbi-empty-actions">
                       <ion-button size="small" (click)="toggleAuthentication()">Sign in</ion-button>
                       @if (currentPowerBiArtifact()) {
-                        <a class="open-fabric-btn" [href]="currentPowerBiArtifact()!.embedUrl" target="_blank" rel="noopener noreferrer"><ion-icon name="open-outline"></ion-icon> Open in Power BI</a>
+                        <a class="open-fabric-btn" [href]="currentPowerBiWebUrl()" target="_blank" rel="noopener noreferrer"><ion-icon name="open-outline"></ion-icon> Open in Power BI</a>
                       }
                     </div>
                   </div>

@@ -387,6 +387,15 @@ try {
         resourceAppId = $resourceApi.appId
         resourceAccess = @(@{ id = $delegatedScope.id; type = 'Scope' })
     }
+    # Power BI Service delegated permissions so the dashboard can embed reports/dashboards (user-owns-data).
+    if ($config.identity.dashboardPowerBiApi -and $config.identity.dashboardPowerBiApi.resourceAppId) {
+        $powerBiResourceAppId = [string]$config.identity.dashboardPowerBiApi.resourceAppId
+        $dashboardAccess = @($dashboardAccess | Where-Object { $_.resourceAppId -ne $powerBiResourceAppId })
+        $dashboardAccess += @{
+            resourceAppId = $powerBiResourceAppId
+            resourceAccess = @($config.identity.dashboardPowerBiApi.delegatedScopes | ForEach-Object { @{ id = [string]$_.id; type = 'Scope' } })
+        }
+    }
     Invoke-Graph -Token $resourceGraphToken -Method PATCH -Path "applications/$($dashboardClient.id)" -Body @{
         requiredResourceAccess = $dashboardAccess
         spa = @{ redirectUris = @($config.ui.redirectUris) }

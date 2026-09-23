@@ -122,6 +122,19 @@ export class App implements OnInit {
     return config.dashboards.find(d => d.key === 'executive') ?? config.dashboards[0] ?? null;
   });
 
+  /**
+   * Proper Power BI *web* URL for opening a report/dashboard in a new tab.
+   * The embedUrl (app.powerbi.com/reportEmbed?…) is for iframe embedding only and
+   * does not render on its own, so external links must use the groups/… form.
+   */
+  readonly currentPowerBiWebUrl = computed<string>(() => {
+    const config = this.powerBiEmbed();
+    const artifact = this.currentPowerBiArtifact();
+    if (!config || !artifact) return 'https://app.powerbi.com';
+    const segment = artifact.kind === 'dashboard' ? 'dashboards' : 'reports';
+    return `https://app.powerbi.com/groups/${config.workspaceId}/${segment}/${artifact.id}`;
+  });
+
   // Fabric Data Agent Chat State
   readonly chatMessages = signal<ChatMessage[]>([]);
   readonly chatInput = signal('');
@@ -424,11 +437,13 @@ export class App implements OnInit {
   async toggleAuthentication(): Promise<void> {
     if (this.auth.account()) {
       await this.auth.signOut();
+      await this.refresh();
+      await this.loadPowerBi();
     } else {
-      await this.auth.signIn(false);
+      // Redirect is more reliable than popup (no popup blockers / timeouts); the
+      // app re-initializes and restores the signed-in account on return.
+      await this.auth.signIn(true);
     }
-    await this.refresh();
-    await this.loadPowerBi();
   }
 
   selectMlUseCase(useCase: MlUseCaseInfo): void {
