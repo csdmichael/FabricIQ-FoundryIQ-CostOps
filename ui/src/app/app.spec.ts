@@ -21,6 +21,20 @@ describe('App', () => {
     expect(compiled.textContent).toContain('CostOps');
   });
 
+  it('should render the profile footer links', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const footer = fixture.nativeElement.querySelector('.site-footer') as HTMLElement;
+    const links = Array.from(footer.querySelectorAll('a'));
+
+    expect(footer.textContent).toContain('Michael Yaacoub');
+    expect(footer.textContent).toContain('Sr Solution Engineer');
+    expect(links.map(link => link.href)).toEqual([
+      'https://github.com/csdmichael/FabricIQ-FoundryIQ-CostOps',
+      'https://www.linkedin.com/in/michael-yaacoub-7a46436/',
+    ]);
+  });
+
   it('should filter allocations and models by cloud provider', async () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
