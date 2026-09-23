@@ -53,16 +53,21 @@ def resolve_plan(config: dict, identity: dict | None) -> dict:
     mcp_target = mcp_cfg.get("target") or f"{gateway}/{mcp_path}/mcp"
 
     data_agent_oauth_client = ""
+    key_vault_name = ""
+    obo_secret_name = "obo-client-secret"
     if identity:
         for client in identity.get("foundryOAuthClients", []):
             if client.get("kind") == "dataAgent":
                 data_agent_oauth_client = client.get("clientId", "")
                 break
+        key_vault_name = identity.get("keyVaultName", "")
+        obo_secret_name = identity.get("oboClientSecretName", obo_secret_name)
 
     return {
         "subscriptionId": azure.get("subscriptionId", ""),
         "resourceGroup": azure.get("resourceGroup", ""),
         "location": foundry.get("location", azure.get("location", "")),
+        "tenantId": config.get("identity", {}).get("resourceTenantId", azure.get("tenantId", "")),
         "account": account,
         "project": project,
         "projectDisplayName": foundry.get("tokenomicsProjectDisplayName", project),
@@ -70,14 +75,30 @@ def resolve_plan(config: dict, identity: dict | None) -> dict:
         "projectEndpoint": f"https://{account}.services.ai.azure.com/api/projects/{project}",
         "modelDeployment": foundry["modelDeployment"],
         "apiVersion": foundry.get("apiVersion", "2025-05-15-preview"),
+        "armApiVersion": foundry.get("armApiVersion", "2026-07-15-preview"),
         "agentName": foundry["agentName"],
         "agentDisplayName": foundry.get("agentDisplayName", foundry["agentName"]),
         "instructions": foundry["instructions"],
         "mcpConnectionName": mcp_cfg.get("connectionName", "tokenomics-data-agent-mcp-oauth"),
         "mcpToolLabel": mcp_cfg.get("toolLabel", "fabric_tokenomics_data_agent"),
         "mcpTarget": mcp_target,
+        "mcpScopes": mcp_cfg.get("scopes", "openid offline_access"),
         "dataAgentOAuthClientId": data_agent_oauth_client,
+        "keyVaultName": key_vault_name,
+        "oboClientSecretName": obo_secret_name,
     }
+
+
+def az_rest_put(resource_id: str, api_version: str, body: dict) -> str:
+    az_cmd = "az.cmd" if sys.platform.startswith("win") else "az"
+    url = f"https://management.azure.com{resource_id}?api-version={api_version}"
+    result = subprocess.run(
+        [az_cmd, "rest", "--method", "put", "--url", url, "--body", json.dumps(body), "--headers", "Content-Type=application/json"],
+        capture_output=True, text=True, shell=sys.platform.startswith("win"),
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"az rest put {resource_id} failed: {result.stderr.strip()}")
+    return result.stdout.strip()
 
 
 def ensure_project(plan: dict) -> None:
@@ -100,40 +121,51 @@ def ensure_project(plan: dict) -> None:
         "identity": {"type": "SystemAssigned"},
         "properties": {"displayName": plan["projectDisplayName"], "description": plan["projectDescription"]},
     }
-    az([
-        "resource", "create",
-        "--id", f"{account_id}/projects/{plan['project']}",
-        "--api-version", "2025-04-01-preview",
-        "--properties", json.dumps(body),
-    ])
+    az_rest_put(f"{account_id}/projects/{plan['project']}", plan["armApiVersion"], body)
     print("  Project created.")
 
 
+def get_keyvault_secret(vault_name: str, secret_name: str) -> str:
+    az_cmd = "az.cmd" if sys.platform.startswith("win") else "az"
+    result = subprocess.run(
+        [az_cmd, "keyvault", "secret", "show", "--vault-name", vault_name, "--name", secret_name, "--query", "value", "-o", "tsv"],
+        capture_output=True, text=True, shell=sys.platform.startswith("win"),
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Unable to read Key Vault secret {vault_name}/{secret_name}: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
 def ensure_connection(plan: dict) -> None:
-    """Create the Data Agent MCP OAuth connection pointing at the APIM gateway."""
+    """Create the Data Agent MCP OAuth connection pointing at the APIM gateway.
+
+    Mirrors the proven connection on the existing project: category=RemoteTool,
+    authType=OAuth2, metadata.type=custom_MCP. The OAuth client secret is read
+    from Key Vault at runtime (requires in-network execution).
+    """
     print(f"Ensuring MCP connection '{plan['mcpConnectionName']}' -> {plan['mcpTarget']}")
     project_id = (
         f"/subscriptions/{plan['subscriptionId']}/resourceGroups/{plan['resourceGroup']}"
         f"/providers/Microsoft.CognitiveServices/accounts/{plan['account']}/projects/{plan['project']}"
     )
+    tenant = plan["tenantId"]
+    secret = get_keyvault_secret(plan["keyVaultName"], plan["oboClientSecretName"])
     body = {
         "properties": {
-            "category": "CustomKeys",
+            "category": "RemoteTool",
             "target": plan["mcpTarget"],
             "authType": "OAuth2",
-            "metadata": {
-                "kind": "mcp",
+            "credentials": {
                 "clientId": plan["dataAgentOAuthClientId"],
-                "scopes": "openid offline_access",
+                "clientSecret": secret,
+                "authorizationEndpoint": f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize",
+                "tokenEndpoint": f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
+                "scopes": plan["mcpScopes"],
             },
+            "metadata": {"type": "custom_MCP"},
         }
     }
-    az([
-        "resource", "create",
-        "--id", f"{project_id}/connections/{plan['mcpConnectionName']}",
-        "--api-version", "2025-04-01-preview",
-        "--properties", json.dumps(body),
-    ])
+    az_rest_put(f"{project_id}/connections/{plan['mcpConnectionName']}", plan["armApiVersion"], body)
     print("  Connection ensured.")
 
 

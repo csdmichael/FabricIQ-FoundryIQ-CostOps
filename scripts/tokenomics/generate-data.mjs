@@ -78,11 +78,18 @@ const PRICE_SOURCES = {
   },
 };
 
-const PERSONAS = ['casual_user', 'heavy_researcher', 'agent_builder', 'developer', 'executive_user'];
-const TASK_TYPES = ['summarization', 'research', 'code_generation', 'agent_orchestration', 'document_analysis', 'customer_support'];
-const ENVIRONMENTS = ['dev', 'test', 'prod'];
-const DEPARTMENTS = ['engineering', 'research', 'finance', 'sales', 'support', 'operations', 'legal', 'marketing'];
-const BUSINESS_UNITS = ['products', 'services', 'corporate', 'field'];
+const DEFAULT_ENTERPRISE = {
+  personas: ['casual_user', 'heavy_researcher', 'agent_builder', 'developer', 'executive_user'],
+  taskTypes: ['summarization', 'research', 'code_generation', 'agent_orchestration', 'document_analysis', 'customer_support'],
+  environments: ['dev', 'test', 'prod'],
+  businessUnits: ['products', 'services', 'corporate', 'field'],
+  departments: ['engineering', 'research', 'finance', 'sales', 'support', 'operations', 'legal', 'marketing'],
+  teams: Array.from({ length: 30 }, (_, i) => `team-${String(i + 1).padStart(2, '0')}`),
+  projects: Array.from({ length: 40 }, (_, i) => `project-${String(i + 1).padStart(2, '0')}`),
+  applications: Array.from({ length: 50 }, (_, i) => `app-${String(i + 1).padStart(3, '0')}`),
+  costCenters: Array.from({ length: 20 }, (_, i) => `cc-${String(i + 100).padStart(3, '0')}`),
+  flagshipProject: 'project-falcon',
+};
 
 function randomFactory(seed) {
   let state = seed >>> 0;
@@ -236,20 +243,21 @@ function createModelPricing(pricePeriods) {
   return { modelPriceSnapshot, modelPriceHistory };
 }
 
-function createUsers(count, random) {
+function createUsers(count, random, enterprise) {
+  const { personas, departments, businessUnits, teams, projects, applications, costCenters, environments, flagshipProject } = enterprise;
   return Array.from({ length: count }, (_, index) => {
-    const persona = PERSONAS[index % PERSONAS.length];
-    const projectNumber = (index % 40) + 1;
+    const persona = personas[index % personas.length];
+    const projectIndex = index % projects.length;
     return {
       user_id_hash: hash(`tokenomics-user-${String(index + 1).padStart(5, '0')}`),
       persona,
-      team_id: `team-${String((index % 30) + 1).padStart(2, '0')}`,
-      department_id: DEPARTMENTS[index % DEPARTMENTS.length],
-      business_unit_id: BUSINESS_UNITS[index % BUSINESS_UNITS.length],
-      cost_center_id: `cc-${String((index % 20) + 100).padStart(3, '0')}`,
-      project_id: projectNumber === 1 ? 'project-falcon' : `project-${String(projectNumber).padStart(2, '0')}`,
-      application_id: `app-${String((index % 50) + 1).padStart(3, '0')}`,
-      environment: index % 10 < 6 ? 'prod' : pick(random, ENVIRONMENTS.slice(0, 2)),
+      team_id: teams[index % teams.length],
+      department_id: departments[index % departments.length],
+      business_unit_id: businessUnits[index % businessUnits.length],
+      cost_center_id: costCenters[index % costCenters.length],
+      project_id: projectIndex === 0 ? flagshipProject : projects[projectIndex],
+      application_id: applications[index % applications.length],
+      environment: index % 10 < 6 ? 'prod' : pick(random, environments.slice(0, 2)),
     };
   });
 }
@@ -267,12 +275,13 @@ function tokenProfile(persona) {
 export function generateDataset(config) {
   const settings = config.tokenomicsPlatform.syntheticData;
   const random = randomFactory(Number(settings.randomSeed));
+  const enterprise = { ...DEFAULT_ENTERPRISE, ...(settings.enterprise ?? {}) };
   const endExclusive = new Date(`${settings.endDate}T00:00:00.000Z`);
   endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
   const start = new Date(endExclusive.getTime() - Number(settings.lookbackDays) * 86400000);
   const pricePeriods = createPricePeriods(start, endExclusive);
   const { modelPriceSnapshot, modelPriceHistory } = createModelPricing(pricePeriods);
-  const users = createUsers(Number(settings.userCount), random);
+  const users = createUsers(Number(settings.userCount), random, enterprise);
   const events = [];
 
   for (let index = 0; index < Number(settings.recordCount); index += 1) {
@@ -290,7 +299,7 @@ export function generateDataset(config) {
       'moonshot.kimi-code', 'kimi-code'
     ].includes(model.name);
     const user = pick(random, users);
-    const taskType = pick(random, TASK_TYPES);
+    const taskType = pick(random, enterprise.taskTypes);
     const profile = tokenProfile(user.persona);
     const anomaly = random() < 0.018;
     const baseMultiplier = isPriorityCommonModel ? integer(random, 2, 4) : 1;
@@ -396,7 +405,7 @@ export function generateDataset(config) {
     };
   }));
   const modelBenchmarks = Object.entries(MODEL_CATALOG).flatMap(([sourceCode, models]) =>
-    models.flatMap(model => TASK_TYPES.map(taskType => ({
+    models.flatMap(model => enterprise.taskTypes.map(taskType => ({
       source_code: sourceCode,
       model_family: model.family,
       model_name: model.name,

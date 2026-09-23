@@ -137,8 +137,8 @@
       "partitionKeyPath": "/source_code"
     },
     "syntheticData": {
-      "recordCount": 12000,
-      "userCount": 500,
+      "recordCount": 15000,
+      "userCount": 2400,
       "requestsPerRecord": 1000,
       "lookbackDays": 180,
       "endDate": "2026-09-18",
@@ -149,7 +149,63 @@
         "oai",
         "cld",
         "msft"
-      ]
+      ],
+      "enterprise": {
+        "name": "Micron-scale Semiconductor Enterprise",
+        "personas": ["casual_user", "heavy_researcher", "agent_builder", "developer", "executive_user"],
+        "taskTypes": ["summarization", "research", "code_generation", "agent_orchestration", "document_analysis", "customer_support"],
+        "environments": ["dev", "test", "prod"],
+        "businessUnits": [
+          "Compute & Networking BU",
+          "Mobile BU",
+          "Embedded BU",
+          "Storage BU",
+          "Corporate & Shared Services"
+        ],
+        "departments": [
+          "Fab Operations",
+          "Yield Engineering",
+          "Process R&D",
+          "Design Engineering",
+          "Supply Chain & Planning",
+          "Quality & Reliability",
+          "Data & AI Platform",
+          "IT & Cybersecurity",
+          "Finance & FinOps",
+          "Sales & Marketing"
+        ],
+        "teams": [
+          "fab-automation", "yield-analytics", "defect-classification", "process-control",
+          "eda-design", "supply-forecast", "reliability-eng", "ai-platform-core",
+          "mlops", "data-engineering", "security-ops", "finops-governance",
+          "customer-quality", "field-apps", "corporate-it"
+        ],
+        "projects": [
+          "yield-copilot",
+          "predictive-maintenance",
+          "defect-vision-ai",
+          "demand-forecasting",
+          "wafer-map-analytics",
+          "eda-assistant",
+          "supply-chain-optimizer",
+          "quality-rma-triage",
+          "fab-knowledge-agent",
+          "energy-optimization",
+          "procurement-copilot",
+          "hr-service-agent",
+          "finance-close-copilot",
+          "security-soc-analyst",
+          "exec-briefing-agent"
+        ],
+        "applications": [
+          "yield-copilot-web", "fab-mes-assistant", "defect-vision-api", "demand-forecast-svc",
+          "wafermap-analyzer", "eda-design-assistant", "supply-optimizer-api", "rma-triage-bot",
+          "fab-knowledge-rag", "energy-optimizer", "procurement-copilot", "hr-servicedesk-agent",
+          "finance-close-copilot", "soc-analyst-agent", "exec-briefing-agent", "sales-insights-app"
+        ],
+        "costCenters": ["CC-FAB-101", "CC-YLD-204", "CC-PRD-309", "CC-EDA-415", "CC-SCM-520", "CC-QAR-631", "CC-AIP-742", "CC-SEC-853", "CC-FIN-964", "CC-SLS-175"],
+        "flagshipProject": "yield-copilot"
+      }
     },
     "fabric": {
       "workspaceName": "Fabric AI Tokenomics",
@@ -403,7 +459,6 @@
     ],
     "cors": {
       "allowedOrigins": [
-        "http://localhost:4200",
         "https://caldova-fabric-costops-ui.azurewebsites.net"
       ]
     }
@@ -419,6 +474,7 @@
     "apiVersion": "2025-05-15-preview",
     "agentName": "tokenomics-analyst",
     "agentDisplayName": "Tokenomics FinOps Analyst",
+    "armApiVersion": "2026-07-15-preview",
     "dataAgentMcp": {
       "connectionName": "tokenomics-data-agent-mcp-oauth",
       "toolLabel": "fabric_tokenomics_data_agent"

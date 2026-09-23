@@ -24,6 +24,13 @@ import {
   pricetagOutline,
   pulseOutline,
   refreshOutline,
+  rocketOutline,
+  arrowDownOutline,
+  logoGithub,
+  personCircleOutline,
+  trendingUpOutline,
+  layersOutline,
+  playCircleOutline,
   searchOutline,
   sendOutline,
   serverOutline,
@@ -37,6 +44,7 @@ import {
 import { AuthService } from './auth.service';
 import { PowerBiEmbed } from './powerbi-embed';
 import { PromptLibraryService } from './prompt-library.service';
+import { ShowcasePage } from './showcase.page';
 import { TokenomicsChart } from './tokenomics-chart';
 import { TokenomicsService } from './tokenomics.service';
 import type {
@@ -70,7 +78,7 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner, TokenomicsChart, PowerBiEmbed],
+  imports: [CommonModule, FormsModule, IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner, TokenomicsChart, PowerBiEmbed, ShowcasePage],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -338,6 +346,13 @@ export class App implements OnInit {
       pricetagOutline,
       pulseOutline,
       refreshOutline,
+      rocketOutline,
+      arrowDownOutline,
+      logoGithub,
+      personCircleOutline,
+      trendingUpOutline,
+      layersOutline,
+      playCircleOutline,
       searchOutline,
       sendOutline,
       serverOutline,

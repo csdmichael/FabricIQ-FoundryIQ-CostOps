@@ -25,6 +25,9 @@
         <button type="button" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')">
           <ion-icon name="chatbubbles-outline"></ion-icon><span>Data Agent Chat</span>
         </button>
+        <button type="button" [class.active]="activeView() === 'showcase'" (click)="setView('showcase')">
+          <ion-icon name="rocket-outline"></ion-icon><span>Showcase</span>
+        </button>
       </nav>
       <div class="nav-foot">
         <div class="environment-dot" [class.live]="tokenomics.isLiveMode()"></div>
@@ -45,6 +48,7 @@
       <button type="button" title="Power BI Reports" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon></button>
       <button type="button" title="12 ML Insights" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon></button>
       <button type="button" title="Data Agent Chat" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon></button>
+      <button type="button" title="Showcase" [class.active]="activeView() === 'showcase'" (click)="setView('showcase')"><ion-icon name="rocket-outline"></ion-icon></button>
     </aside>
 
     <!-- Mobile Phone Bottom Tabs -->
@@ -73,6 +77,7 @@
               @case ('powerbi') { Fabric Power BI Dashboards & Reports }
               @case ('ml-insights') { 12 PySpark Machine Learning Insights }
               @case ('data-agent') { Fabric Data Agent & Prompt Library }
+              @case ('showcase') { Business Value Showcase }
             }
           </h1>
         </div>
@@ -123,7 +128,11 @@
         <div class="updated-at"><span>Updated</span><strong>{{ lastUpdated() || 'Live' }}</strong></div>
       </section>
 
-      @if (loading()) {
+      @if (activeView() === 'showcase') {
+        <div class="dashboard-content">
+          <app-showcase></app-showcase>
+        </div>
+      } @else if (loading()) {
         <section class="state-panel"><ion-spinner name="crescent"></ion-spinner><p>Loading governed usage telemetry</p></section>
       } @else if (error()) {
         <section class="state-panel error-state">
@@ -607,11 +616,21 @@
               <div class="section-intro">
                 <div>
                   <span class="eyebrow">Conversational Intelligence</span>
-                  <h2>Fabric Data Agent & Saved Prompt Library</h2>
+                  <h2>{{ tokenomics.agentName() }}</h2>
                 </div>
                 <button type="button" class="add-prompt-btn" (click)="openAddPromptModal()">
                   <ion-icon name="add-outline"></ion-icon> Save New Prompt
                 </button>
+              </div>
+
+              <!-- Agent identity + governed data path -->
+              <div class="agent-identity-bar">
+                <span class="agent-avatar"><ion-icon name="sparkles-outline"></ion-icon></span>
+                <div class="agent-identity-text">
+                  <strong>{{ tokenomics.agentName() }}</strong>
+                  <small>Microsoft Foundry <em>Tokenomics</em> agent → APIM → Fabric Data Agent → <code>lh_tokenomics</code></small>
+                </div>
+                <span class="agent-path-chip"><ion-icon name="shield-checkmark-outline"></ion-icon> Governed OBO</span>
               </div>
 
               <!-- Saved Prompt Library Filter Chips -->

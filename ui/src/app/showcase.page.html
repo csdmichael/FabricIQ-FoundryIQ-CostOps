@@ -1,0 +1,168 @@
+<section class="showcase-view">
+  <!-- Hero -->
+  <div class="sc-hero">
+    <div class="sc-hero-content">
+      <p class="sc-eyebrow"><span></span> Microsoft Fabric + Foundry + APIM</p>
+      <h1>Multi-Cloud AI <strong>Tokenomics &amp; FinOps</strong></h1>
+      <p class="sc-summary">
+        Govern every AI token across five clouds and fourteen model families on one Microsoft Fabric
+        lakehouse — with live cost attribution, twelve predictive ML models, Power BI, and a Data Agent
+        that answers FinOps questions in plain language.
+      </p>
+      <dl class="sc-hero-stats">
+        <div><dt>5</dt><dd>Clouds unified</dd></div>
+        <div><dt>281B</dt><dd>Tokens / month</dd></div>
+        <div><dt>12</dt><dd>PySpark ML models</dd></div>
+        <div><dt>100%</dt><dd>Attributed spend</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="sc-tabs" role="tablist">
+    @for (tab of tabs; track tab.id) {
+      <button type="button" role="tab" [class.is-active]="activeTab() === tab.id" (click)="setTab(tab.id)">
+        <ion-icon [name]="tab.icon"></ion-icon><span>{{ tab.label }}</span>
+      </button>
+    }
+  </div>
+
+  <!-- VIDEOS -->
+  <div class="sc-panel" [hidden]="activeTab() !== 'videos'">
+    <div class="video-layout">
+      <div class="video-stage">
+        <div class="video-frame">
+          <!-- Placeholder video player: replace poster/src when recordings are available -->
+          <div class="video-placeholder">
+            <ion-icon name="play-circle-outline"></ion-icon>
+            <strong>Video {{ selectedVideo().sequence }} — {{ selectedVideo().title }}</strong>
+            <span>Recording placeholder • {{ selectedVideo().duration }}</span>
+          </div>
+          <div class="video-topline"><span>Video {{ selectedVideo().sequence }}</span><span>{{ selectedVideo().duration }}</span></div>
+        </div>
+        <p class="video-desc">{{ selectedVideo().description }}</p>
+      </div>
+      <ol class="video-list">
+        @for (v of videos; track v.sequence; let i = $index) {
+          <li [class.is-active]="selectedVideoIndex() === i" (click)="selectVideo(i)">
+            <span class="v-seq">{{ v.sequence }}</span>
+            <span class="v-body"><strong>{{ v.title }}</strong><small>{{ v.duration }}</small></span>
+            <ion-icon name="play-circle-outline"></ion-icon>
+          </li>
+        }
+      </ol>
+    </div>
+  </div>
+
+  <!-- BUSINESS VALUE -->
+  <div class="sc-panel" [hidden]="activeTab() !== 'value'">
+    <div class="value-mode-selector">
+      @for (mode of valueModes; track mode.id) {
+        <button type="button" [class.is-active]="selectedValueModeId() === mode.id" (click)="selectValueMode(mode.id)">
+          {{ mode.label }}
+          @if (mode.isDefault) { <small>Default</small> }
+        </button>
+      }
+    </div>
+    <p class="value-mode-desc">{{ selectedValueMode().description }}</p>
+
+    <div class="value-kpis">
+      <div class="value-kpi highlight">
+        <span>Annual savings</span>
+        <strong>{{ selectedValueMode().annualSavings }}</strong>
+        <small>Net of platform run cost</small>
+      </div>
+      <div class="value-kpi">
+        <span>Savings / model family</span>
+        <strong>{{ selectedValueMode().savingsPerModel }}</strong>
+        <small>Average across 14 families</small>
+      </div>
+      <div class="value-kpi">
+        <span>Waste eliminated</span>
+        <strong>{{ selectedValueMode().wasteEliminated }}</strong>
+        <small>Prompt bloat &amp; over-provisioning</small>
+      </div>
+      <div class="value-kpi">
+        <span>Forecast accuracy</span>
+        <strong>{{ selectedValueMode().forecastAccuracy }}</strong>
+        <small>Cost &amp; capacity models</small>
+      </div>
+      <div class="value-kpi">
+        <span>Year-1 ROI</span>
+        <strong>{{ selectedValueMode().yearOneRoi }}</strong>
+        <small>Payback {{ selectedValueMode().payback }}</small>
+      </div>
+    </div>
+
+    <div class="value-bar">
+      <div class="value-bar-fill" [style.width.%]="selectedValueMode().relativeSavings"></div>
+    </div>
+
+    <h3 class="value-subhead">Modeled on a Micron-scale enterprise</h3>
+    <div class="value-assumptions">
+      @for (a of valueAssumptions; track a.label) {
+        <div class="assumption">
+          <span>{{ a.label }}</span>
+          <strong>{{ a.value }}</strong>
+          <small>{{ a.detail }}</small>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="sc-panel" [hidden]="activeTab() !== 'features'">
+    <div class="feature-grid">
+      @for (f of features; track f.title) {
+        <div class="feature-card">
+          <span class="feature-icon"><ion-icon [name]="f.icon"></ion-icon></span>
+          <strong>{{ f.title }}</strong>
+          <p>{{ f.description }}</p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div class="sc-panel" [hidden]="activeTab() !== 'architecture'">
+    <div class="arch-flow">
+      @for (layer of architectureLayers; track layer.title; let last = $last) {
+        <div class="arch-layer">
+          <div class="arch-layer-head"><strong>{{ layer.title }}</strong><small>{{ layer.description }}</small></div>
+          <ul>
+            @for (item of layer.items; track item) { <li>{{ item }}</li> }
+          </ul>
+        </div>
+        @if (!last) { <div class="arch-arrow"><ion-icon name="arrow-down-outline"></ion-icon></div> }
+      }
+    </div>
+  </div>
+
+  <!-- TRY IT -->
+  <div class="sc-panel" [hidden]="activeTab() !== 'try-it'">
+    <div class="try-grid">
+      <a class="try-card" [href]="liveUiUrl" target="_blank" rel="noopener noreferrer">
+        <ion-icon name="open-outline"></ion-icon>
+        <strong>Open the live CostOps portal</strong>
+        <span>Explore dashboards, ML insights, Power BI, and the Data Agent on live Fabric data.</span>
+      </a>
+      <a class="try-card" [href]="githubUrl" target="_blank" rel="noopener noreferrer">
+        <ion-icon name="logo-github"></ion-icon>
+        <strong>View the source on GitHub</strong>
+        <span>Config-driven Fabric, APIM, Foundry, FastAPI, and Angular/Ionic implementation.</span>
+      </a>
+      <a class="try-card" [href]="linkedInUrl" target="_blank" rel="noopener noreferrer">
+        <ion-icon name="person-circle-outline"></ion-icon>
+        <strong>Connect with the author</strong>
+        <span>Michael Yaacoub — Sr Solution Engineer.</span>
+      </a>
+    </div>
+  </div>
+
+  <footer class="sc-footer">
+    <span>Michael Yaacoub</span><span aria-hidden="true">|</span>
+    <span>Sr Solution Engineer</span><span aria-hidden="true">|</span>
+    <a [href]="githubUrl" target="_blank" rel="noopener noreferrer">Github</a><span aria-hidden="true">|</span>
+    <a [href]="linkedInUrl" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+  </footer>
+</section>

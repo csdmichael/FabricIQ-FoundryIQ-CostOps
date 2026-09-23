@@ -2,6 +2,24 @@
 
 Enterprise-grade multi-cloud AI Tokenomics, LLM model pricing normalization, predictive FinOps machine learning, and conversational data intelligence on **Microsoft Fabric**.
 
+## Contents
+
+- [Executive Summary & Multi-Cloud Tokenomics Use Case](#executive-summary--multi-cloud-tokenomics-use-case)
+- [Architecture & Medallion Lifecycle](#architecture--medallion-lifecycle)
+- [Direct URLs & Portals](#direct-urls--portals)
+- [Multi-Cloud Model Pricing Engine](#multi-cloud-model-pricing-engine)
+- [12 PySpark Machine Learning Use Cases](#12-pyspark-machine-learning-use-cases)
+- [Power BI Semantic Model, Reports & Dashboards](#power-bi-semantic-model-reports--dashboards)
+- [Ionic / Angular CostOps Web UI](#ionic--angular-costops-web-ui)
+- [Fabric Data Agent & Configurable Prompt Library](#fabric-data-agent--configurable-prompt-library)
+- [Security, Privacy & Governance](#security-privacy--governance)
+- [Configuration & Deployment](#configuration--deployment)
+- [Business Case & Value Proposition](#business-case--value-proposition)
+- [References](#references)
+
+---
+
+
 ```
   ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
   │                           Multi-Cloud AI Tokenomics & FinOps Platform                            │
@@ -47,22 +65,6 @@ This platform solves multi-cloud tokenomics end-to-end on **Microsoft Fabric**:
 6. **Ionic / Angular CostOps Portal & Fabric Data Agent Chat:** A responsive TypeScript web application featuring interactive tokenomics dashboards, Power BI report viewers, ML notebook insight explorers, model rate card comparison calculators, and an AI chat assistant connected to the **Fabric Data Agent** (`Tokenomics FinOps Analyst`) with a data-driven, configurable **Saved Prompt Library**.
 
 > **Sister Repository:** For caller-delegated Microsoft Foundry and Copilot Studio On-Behalf-Of (OBO) gateway integration with Microsoft Fabric Lakehouse and Data Agents, see [Foundry-Fabric-OBO-Gateway](https://github.com/csdmichael/Foundry-Fabric-OBO-Gateway).
-
----
-
-## Contents
-
-- [Architecture & Medallion Lifecycle](#architecture--medallion-lifecycle)
-- [Multi-Cloud Model Pricing Engine](#multi-cloud-model-pricing-engine)
-- [Microsoft Fabric Medallion Data Platform](#microsoft-fabric-medallion-data-platform)
-- [12 PySpark Machine Learning Use Cases](#12-pyspark-machine-learning-use-cases)
-- [Power BI Semantic Model, Reports & Dashboards](#power-bi-semantic-model-reports--dashboards)
-- [Ionic / Angular CostOps Web UI](#ionic--angular-costops-web-ui)
-- [Fabric Data Agent & Configurable Prompt Library](#fabric-data-agent--configurable-prompt-library)
-- [Security, Privacy & Governance](#security-privacy--governance)
-- [Configuration & Deployment](#configuration--deployment)
-- [Validation & Quality Gates](#validation--quality-gates)
-- [References](#references)
 
 ---
 
@@ -112,6 +114,25 @@ flowchart TD
         SQL --> DataAgent["Tokenomics FinOps Analyst\n(Fabric Data Agent)"]
     end
 ```
+
+---
+
+## Direct URLs & Portals
+
+| Surface | URL | Environment |
+| --- | --- | --- |
+| **CostOps UI (Production)** | [https://caldova-fabric-costops-ui.azurewebsites.net](https://caldova-fabric-costops-ui.azurewebsites.net) | Live Web Portal |
+| **Tokenomics API (Base)** | [https://caldova-apim-westus.azure-api.net/fabric-tokenomics](https://caldova-apim-westus.azure-api.net/fabric-tokenomics) | FastAPI via APIM |
+| **Tokenomics API — Swagger / OpenAPI** | [https://caldova-apim-westus.azure-api.net/fabric-tokenomics/docs](https://caldova-apim-westus.azure-api.net/fabric-tokenomics/docs) · [openapi.json](https://caldova-apim-westus.azure-api.net/fabric-tokenomics/openapi.json) | Interactive API docs |
+| **APIM Gateway** | [https://caldova-apim-westus.azure-api.net](https://caldova-apim-westus.azure-api.net) | Private API Management |
+| **Fabric Workspace** | [Fabric AI Tokenomics](https://app.fabric.microsoft.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e) | Microsoft Fabric |
+| **Fabric Lakehouse** | [lh_tokenomics](https://app.fabric.microsoft.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e/lakehouses/2963b5a6-900d-4364-b141-16913bf4548b) | OneLake Delta Tables |
+| **Power BI — Consumption Report** | [Tokenomics Consumption & Cost Analytics](https://app.powerbi.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e/reports/c6ced143-01f0-4200-bb43-6ab1d11c8f2d) | DirectQuery Report |
+| **Power BI — Executive Dashboard** | [Tokenomics FinOps Executive Dashboard](https://app.powerbi.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e/dashboards/1ba0a93e-c712-4ca7-8b8a-901fc6867595) | Executive Dashboard |
+| **Foundry Project** | `Tokenomics` under `foundry-fabric-costops` | Tokenomics FinOps Analyst agent |
+
+> The Tokenomics API, APIM gateway, and Foundry data plane have public network access disabled; the
+> Swagger/OpenAPI surface is reachable from within the private network or through the CostOps UI host.
 
 ---
 
@@ -290,15 +311,16 @@ config-driven from [`config/deployment.json`](config/deployment.json) and
 
 ---
 
-## Direct URLs & Portals
+## Business Case & Value Proposition
 
-| Surface | URL | Environment |
-| --- | --- | --- |
-| **CostOps UI (Production)** | [https://caldova-fabric-costops-ui.azurewebsites.net](https://caldova-fabric-costops-ui.azurewebsites.net) | Live Web Portal |
-| **CostOps UI (Local)** | [http://localhost:4200/](http://localhost:4200/) | Local Dev Server |
-| **Fabric Workspace** | [Fabric AI Tokenomics](https://app.fabric.microsoft.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e) | Microsoft Fabric |
-| **Fabric Lakehouse** | [lh_tokenomics](https://app.fabric.microsoft.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e/lakehouses/2963b5a6-900d-4364-b141-16913bf4548b) | OneLake Delta Tables |
-| **APIM Gateway** | [https://caldova-apim-westus.azure-api.net](https://caldova-apim-westus.azure-api.net) | Private API Management |
+A full enterprise business case and value proposition are maintained under
+[`docs/business-case/`](docs/business-case):
+
+- [Business Case](docs/business-case/business-case.md) — problem, solution, value model, and savings levers.
+- [Value Proposition](docs/business-case/value-proposition.md) — value pillars, governance modes, and stakeholder value.
+
+The **Business Value Showcase** is also available in the CostOps portal (Showcase tab): video series
+(placeholders), a selectable governance-mode value model, features, architecture, and try-it links.
 
 ---
 

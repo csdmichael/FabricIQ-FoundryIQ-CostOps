@@ -1,4 +1,4 @@
-export type DashboardView = 'overview' | 'allocation' | 'pricing' | 'powerbi' | 'ml-insights' | 'data-agent';
+export type DashboardView = 'overview' | 'allocation' | 'pricing' | 'powerbi' | 'ml-insights' | 'data-agent' | 'showcase';
 export type WindowDays = 1 | 7 | 30 | 90;
 
 export interface RuntimeConfig {
