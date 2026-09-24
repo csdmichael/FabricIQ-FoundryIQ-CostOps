@@ -25,7 +25,10 @@
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "allowedCommonJsDependencies": [
-              "powerbi-client"
+              "powerbi-client",
+              "xlsx",
+              "pptxgenjs",
+              "file-saver"
             ],
             "assets": [
               {

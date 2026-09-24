@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { AuthService } from './auth.service';
+import { formatAgentReply } from './chat-format';
 import { ML_USE_CASES } from './mock-data';
 import { RuntimeConfigService } from './runtime-config.service';
 import type {
@@ -135,11 +136,15 @@ export class TokenomicsService {
     const citationText = data.citations?.length
       ? `\n\n**Sources:** ${data.citations.map(c => `\`${c}\``).join(', ')}`
       : '';
+    const content = `${data.reply}${citationText}`;
+    const formatted = formatAgentReply(content);
     return {
       id: `msg-${Date.now()}`,
       sender: 'agent',
       timestamp,
-      content: `${data.reply}${citationText}`,
+      content,
+      htmlContent: formatted.html,
+      tables: formatted.tables,
     };
   }
 

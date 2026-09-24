@@ -55,10 +55,9 @@ _agent = AgentChatService(settings, _client)
 
 
 def _load_prompts() -> dict:
-    root = Path(__file__).resolve().parents[2]
-    path = Path(
-        os.environ.get("TOKENOMICS_PROMPTS_PATH", root / "config" / "tokenomics-prompts.json")
-    )
+    from .config import _find_file
+
+    path = _find_file("config/tokenomics-prompts.json", "TOKENOMICS_PROMPTS_PATH")
     if not path.exists():
         return {"welcomeMessage": "", "prompts": []}
     with open(path, "r", encoding="utf-8-sig") as handle:

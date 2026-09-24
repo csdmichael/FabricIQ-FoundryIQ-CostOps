@@ -20,6 +20,28 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _find_file(rel: str, env_var: str = "") -> Path:
+    """Robustly locate a bundled file (e.g. ``config/deployment.json``).
+
+    Resolution order, tolerant of both the container layout (``/srv/api/app`` +
+    ``/srv/config``) and the App Service code layout (``<extract>/app`` +
+    ``<extract>/config``):
+      1. An explicit environment override, but only if it actually exists.
+      2. Walk up from this module looking for ``<parent>/<rel>``.
+      3. Fall back to the current working directory.
+    """
+    if env_var:
+        override = os.environ.get(env_var, "")
+        if override and Path(override).exists():
+            return Path(override)
+    here = Path(__file__).resolve()
+    for parent in [here.parent, *here.parents]:
+        candidate = parent / rel
+        if candidate.exists():
+            return candidate
+    return Path.cwd() / rel
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8-sig") as handle:
         return json.load(handle)
@@ -110,14 +132,8 @@ class Settings:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    root = _repo_root()
-    config_path = Path(os.environ.get("TOKENOMICS_CONFIG_PATH", root / "config" / "deployment.json"))
-    fabric_meta_path = Path(
-        os.environ.get(
-            "TOKENOMICS_FABRIC_METADATA_PATH",
-            root / ".generated" / "tokenomics" / "fabric.json",
-        )
-    )
+    config_path = _find_file("config/deployment.json", "TOKENOMICS_CONFIG_PATH")
+    fabric_meta_path = _find_file(".generated/tokenomics/fabric.json", "TOKENOMICS_FABRIC_METADATA_PATH")
 
     config = _load_json(config_path)
     api_cfg = config.get("dashboardApi", {})

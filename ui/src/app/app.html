@@ -641,8 +641,53 @@
                     <div class="chat-msg" [ngClass]="msg.sender">
                       <div class="msg-bubble">
                         <div class="msg-content">
-                          <p [innerHTML]="msg.content"></p>
+                          @if (msg.htmlContent) {
+                            <div [innerHTML]="msg.htmlContent"></div>
+                          } @else {
+                            <p [innerHTML]="msg.content"></p>
+                          }
                         </div>
+
+                        @if (msg.tables?.length) {
+                          @for (tbl of msg.tables; track $index) {
+                            <div class="result-table-block">
+                              <div class="msg-table-wrap">
+                                <table>
+                                  <thead>
+                                    <tr>
+                                      @for (h of tbl.headers; track h) { <th>{{ h }}</th> }
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    @for (r of tbl.rows; track $index) {
+                                      <tr>
+                                        @for (c of r; track $index) { <td>{{ c }}</td> }
+                                      </tr>
+                                    }
+                                  </tbody>
+                                </table>
+                              </div>
+                              @if (tbl.chart) {
+                                <app-result-chart [chart]="tbl.chart"></app-result-chart>
+                              }
+                            </div>
+                          }
+                        }
+
+                        @if (msg.sender === 'agent' && (msg.tables?.length || msg.htmlContent)) {
+                          <div class="msg-export-bar">
+                            <span class="export-label">Export:</span>
+                            <button type="button" (click)="exportMessage(msg, 'excel')" [disabled]="exporting() === msg.id + ':excel'" title="Export to Excel">
+                              <ion-icon name="grid-outline"></ion-icon> Excel
+                            </button>
+                            <button type="button" (click)="exportMessage(msg, 'ppt')" [disabled]="exporting() === msg.id + ':ppt'" title="Export to PowerPoint">
+                              <ion-icon name="easel-outline"></ion-icon> PowerPoint
+                            </button>
+                            <button type="button" (click)="exportMessage(msg, 'word')" [disabled]="exporting() === msg.id + ':word'" title="Export to Word">
+                              <ion-icon name="document-outline"></ion-icon> Word
+                            </button>
+                          </div>
+                        }
 
                         @if (msg.metrics) {
                           <div class="msg-metrics-grid">

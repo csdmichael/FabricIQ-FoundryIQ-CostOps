@@ -118,11 +118,27 @@ export interface SavedPrompt {
   isCustom?: boolean;
 }
 
+export interface ChatChart {
+  type: 'bar' | 'line';
+  labels: string[];
+  values: number[];
+  valueLabel: string;
+}
+
+export interface ChatTable {
+  title?: string;
+  headers: string[];
+  rows: string[][];
+  chart?: ChatChart;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'agent';
   timestamp: string;
   content: string;
+  htmlContent?: string;
+  tables?: ChatTable[];
   sqlQuery?: string;
   daxExpression?: string;
   metrics?: { label: string; value: string }[];

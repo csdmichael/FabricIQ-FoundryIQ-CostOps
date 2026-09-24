@@ -15,6 +15,9 @@ import {
   checkmarkCircleOutline,
   cloudOutline,
   documentTextOutline,
+  downloadOutline,
+  documentOutline,
+  easelOutline,
   flashOutline,
   gridOutline,
   informationCircleOutline,
@@ -43,8 +46,10 @@ import {
   warningOutline,
 } from 'ionicons/icons';
 import { AuthService } from './auth.service';
+import { ChatExportService } from './chat-export';
 import { PowerBiEmbed } from './powerbi-embed';
 import { PromptLibraryService } from './prompt-library.service';
+import { ResultChart } from './result-chart';
 import { ShowcasePage } from './showcase.page';
 import { TokenomicsChart } from './tokenomics-chart';
 import { TokenomicsService } from './tokenomics.service';
@@ -79,7 +84,7 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner, TokenomicsChart, PowerBiEmbed, ShowcasePage],
+  imports: [CommonModule, FormsModule, IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner, TokenomicsChart, PowerBiEmbed, ShowcasePage, ResultChart],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -342,6 +347,7 @@ export class App implements OnInit {
     readonly tokenomics: TokenomicsService,
     readonly auth: AuthService,
     readonly promptLibrary: PromptLibraryService,
+    readonly chatExport: ChatExportService,
   ) {
     addIcons({
       addOutline,
@@ -354,6 +360,9 @@ export class App implements OnInit {
       checkmarkCircleOutline,
       cloudOutline,
       documentTextOutline,
+      downloadOutline,
+      documentOutline,
+      easelOutline,
       flashOutline,
       gridOutline,
       informationCircleOutline,
@@ -514,6 +523,21 @@ export class App implements OnInit {
     }
     keyboardEvent.preventDefault();
     void this.sendCustomChatMessage();
+  }
+
+  /** Export a Data Agent response to Excel / PowerPoint / Word. */
+  readonly exporting = signal<string>('');
+  async exportMessage(message: ChatMessage, format: 'excel' | 'ppt' | 'word'): Promise<void> {
+    this.exporting.set(`${message.id}:${format}`);
+    try {
+      if (format === 'excel') await this.chatExport.toExcel(message);
+      else if (format === 'ppt') await this.chatExport.toPowerPoint(message);
+      else await this.chatExport.toWord(message);
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      this.exporting.set('');
+    }
   }
 
   setProvider(providerId: string): void {
