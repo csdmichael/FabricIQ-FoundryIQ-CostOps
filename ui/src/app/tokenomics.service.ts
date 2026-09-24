@@ -110,12 +110,15 @@ export class TokenomicsService {
   }
 
   getInitialChatMessages(): ChatMessage[] {
+    const content = this.welcomeMessage() || `Hello! I am your **${this.agentName()}**. Ask me any question about multi-cloud AI spend, model pricing, budget overruns, quota, or prompt quality — I answer using the governed tokenomics lakehouse.`;
+    const formatted = formatAgentReply(content);
     return [
       {
         id: 'welcome-1',
         sender: 'agent',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        content: this.welcomeMessage() || `Hello! I am your **${this.agentName()}**. Ask me any question about multi-cloud AI spend, model pricing, budget overruns, quota, or prompt quality — I answer using the governed tokenomics lakehouse.`,
+        content,
+        htmlContent: formatted.html,
       }
     ];
   }
