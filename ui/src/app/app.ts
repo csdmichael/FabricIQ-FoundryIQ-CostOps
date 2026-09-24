@@ -41,12 +41,16 @@ import {
   shieldCheckmarkOutline,
   sparklesOutline,
   speedometerOutline,
+  timeOutline,
+  closeOutline,
+  createOutline,
   trashOutline,
   walletOutline,
   warningOutline,
 } from 'ionicons/icons';
 import { AuthService } from './auth.service';
 import { ChatExportService } from './chat-export';
+import { ChatHistoryService } from './chat-history.service';
 import { PowerBiEmbed } from './powerbi-embed';
 import { PromptLibraryService } from './prompt-library.service';
 import { ResultChart } from './result-chart';
@@ -147,6 +151,10 @@ export class App implements OnInit {
   readonly chatMessages = signal<ChatMessage[]>([]);
   readonly chatInput = signal('');
   readonly isChatSending = signal(false);
+  private currentConversationId = `conv-${Date.now()}`;
+  readonly showHistory = signal(false);
+  /** True once the user has sent at least one message (moves input to bottom). */
+  readonly chatStarted = computed(() => this.chatMessages().some(m => m.sender === 'user'));
   readonly showAddPromptModal = signal(false);
   readonly showPromptPicker = signal(false);
   readonly promptSearch = signal('');
@@ -348,6 +356,7 @@ export class App implements OnInit {
     readonly auth: AuthService,
     readonly promptLibrary: PromptLibraryService,
     readonly chatExport: ChatExportService,
+    readonly chatHistory: ChatHistoryService,
   ) {
     addIcons({
       addOutline,
@@ -386,6 +395,9 @@ export class App implements OnInit {
       shieldCheckmarkOutline,
       sparklesOutline,
       speedometerOutline,
+      timeOutline,
+      closeOutline,
+      createOutline,
       trashOutline,
       walletOutline,
       warningOutline,
@@ -575,6 +587,62 @@ export class App implements OnInit {
   }
 
   // Fabric Data Agent Chat Methods
+  private persistConversation(): void {
+    this.chatHistory.save(this.currentConversationId, this.chatMessages(), this.tokenomics.getChatThreadId());
+  }
+
+  /** Start a fresh conversation (Copilot "New chat"). Saves the current one first. */
+  startNewChat(): void {
+    this.persistConversation();
+    this.currentConversationId = `conv-${Date.now()}`;
+    this.tokenomics.resetChatThread();
+    this.chatInput.set('');
+    this.showHistory.set(false);
+    this.chatMessages.set(this.tokenomics.getInitialChatMessages());
+    this.focusChatInput();
+  }
+
+  /** Open a saved conversation from history. */
+  openConversation(id: string): void {
+    // Persist any in-progress conversation before switching.
+    this.persistConversation();
+    const convo = this.chatHistory.get(id);
+    if (!convo) return;
+    this.currentConversationId = convo.id;
+    this.tokenomics.setChatThreadId(convo.threadId);
+    this.chatMessages.set(convo.messages);
+    this.showHistory.set(false);
+    this.scrollChatToBottom();
+  }
+
+  deleteConversation(id: string, event: Event): void {
+    event.stopPropagation();
+    this.chatHistory.remove(id);
+    if (id === this.currentConversationId) {
+      this.startNewChat();
+    }
+  }
+
+  private focusChatInput(): void {
+    setTimeout(() => {
+      const el = document.querySelector<HTMLTextAreaElement>('.chat-text-input');
+      if (el) el.focus();
+    }, 60);
+  }
+
+  currentConversationIdValue(): string {
+    return this.currentConversationId;
+  }
+
+  formatHistoryDate(ts: number): string {
+    const d = new Date(ts);
+    const today = new Date();
+    const sameDay = d.toDateString() === today.toDateString();
+    return sameDay
+      ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
   async runSavedPrompt(prompt: SavedPrompt): Promise<void> {
     this.chatMessages.update(msgs => [
       ...msgs,
@@ -602,7 +670,9 @@ export class App implements OnInit {
       ]);
     } finally {
       this.isChatSending.set(false);
+      this.persistConversation();
       this.scrollChatToBottom();
+      this.focusChatInput();
     }
   }
 
@@ -637,7 +707,9 @@ export class App implements OnInit {
       ]);
     } finally {
       this.isChatSending.set(false);
+      this.persistConversation();
       this.scrollChatToBottom();
+      this.focusChatInput();
     }
   }
 

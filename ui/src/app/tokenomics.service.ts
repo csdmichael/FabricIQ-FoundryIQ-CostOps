@@ -154,4 +154,14 @@ export class TokenomicsService {
   resetChatThread(): void {
     this.chatThreadId = null;
   }
+
+  /** Current Foundry thread id (for saving conversation history). */
+  getChatThreadId(): string | null {
+    return this.chatThreadId;
+  }
+
+  /** Restore a Foundry thread id when reopening a saved conversation. */
+  setChatThreadId(threadId: string | null): void {
+    this.chatThreadId = threadId;
+  }
 }

@@ -602,7 +602,7 @@
             </section>
           }
 
-          <!-- 6. FABRIC DATA AGENT CHAT & PROMPT LIBRARY VIEW -->
+          <!-- 6. DATA AGENT CHAT & PROMPT LIBRARY VIEW -->
           @if (activeView() === 'data-agent') {
             <section class="data-agent-view">
               <div class="section-intro">
@@ -610,10 +610,43 @@
                   <span class="eyebrow">Conversational Intelligence</span>
                   <h2>{{ tokenomics.agentName() }}</h2>
                 </div>
-                <button type="button" class="add-prompt-btn" (click)="openAddPromptModal()">
-                  <ion-icon name="add-outline"></ion-icon> Save New Prompt
-                </button>
+                <div class="chat-actions">
+                  <button type="button" class="chat-action-btn" (click)="startNewChat()" title="Start a new chat">
+                    <ion-icon name="create-outline"></ion-icon> New chat
+                  </button>
+                  <button type="button" class="chat-action-btn" [class.active]="showHistory()" (click)="showHistory.set(!showHistory())" title="Chat history">
+                    <ion-icon name="time-outline"></ion-icon> History
+                    @if (chatHistory.conversations().length) { <span class="hist-count">{{ chatHistory.conversations().length }}</span> }
+                  </button>
+                  <button type="button" class="add-prompt-btn" (click)="openAddPromptModal()">
+                    <ion-icon name="add-outline"></ion-icon> Save Prompt
+                  </button>
+                </div>
               </div>
+
+              <!-- Chat history panel -->
+              @if (showHistory()) {
+                <div class="chat-history-panel">
+                  <div class="history-head">
+                    <strong>Chat history</strong>
+                    <button type="button" class="history-close" (click)="showHistory.set(false)"><ion-icon name="close-outline"></ion-icon></button>
+                  </div>
+                  @if (chatHistory.conversations().length) {
+                    <div class="history-list">
+                      @for (c of chatHistory.conversations(); track c.id) {
+                        <button type="button" class="history-item" [class.active]="c.id === currentConversationIdValue()" (click)="openConversation(c.id)">
+                          <ion-icon name="chatbubbles-outline"></ion-icon>
+                          <span class="hist-title">{{ c.title }}</span>
+                          <span class="hist-date">{{ formatHistoryDate(c.updatedAt) }}</span>
+                          <ion-icon name="trash-outline" class="hist-del" (click)="deleteConversation(c.id, $event)" title="Delete conversation"></ion-icon>
+                        </button>
+                      }
+                    </div>
+                  } @else {
+                    <p class="history-empty">No saved conversations yet. Ask a question to start.</p>
+                  }
+                </div>
+              }
 
               <!-- Agent identity + governed data path -->
               <div class="agent-identity-bar">
@@ -625,8 +658,10 @@
                 <span class="agent-path-chip"><ion-icon name="shield-checkmark-outline"></ion-icon> Governed</span>
               </div>
 
-              <!-- Conversational AI Chat Interface (primary focus) -->
-              <div class="chat-container chat-primary">
+              <!-- Conversational AI Chat Interface. Input is on top before the first
+                   message (Copilot-style empty state) and moves below the thread once
+                   the conversation has started. -->
+              <div class="chat-container chat-primary" [class.chat-input-top]="!chatStarted()">
                 <div class="chat-header">
                   <div class="agent-avatar"><ion-icon name="sparkles-outline"></ion-icon></div>
                   <div>
@@ -674,7 +709,7 @@
                           }
                         }
 
-                        @if (msg.sender === 'agent' && (msg.tables?.length || msg.htmlContent)) {
+                        @if (msg.sender === 'agent' && msg.id !== 'welcome-1' && (msg.tables?.length || msg.htmlContent)) {
                           <div class="msg-export-bar">
                             <span class="export-label">Export:</span>
                             <button type="button" (click)="exportMessage(msg, 'excel')" [disabled]="exporting() === msg.id + ':excel'" title="Export to Excel">
