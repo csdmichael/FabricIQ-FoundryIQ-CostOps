@@ -18,6 +18,8 @@ import {
   downloadOutline,
   documentOutline,
   easelOutline,
+  pieChartOutline,
+  ellipseOutline,
   flashOutline,
   gridOutline,
   informationCircleOutline,
@@ -53,6 +55,7 @@ import { ChatExportService } from './chat-export';
 import { ChatHistoryService } from './chat-history.service';
 import { PowerBiEmbed } from './powerbi-embed';
 import { PromptLibraryService } from './prompt-library.service';
+import { ResultBlock } from './result-block';
 import { ResultChart } from './result-chart';
 import { ShowcasePage } from './showcase.page';
 import { TokenomicsChart } from './tokenomics-chart';
@@ -88,7 +91,7 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner, TokenomicsChart, PowerBiEmbed, ShowcasePage, ResultChart],
+  imports: [CommonModule, FormsModule, IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner, TokenomicsChart, PowerBiEmbed, ShowcasePage, ResultChart, ResultBlock],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -372,6 +375,8 @@ export class App implements OnInit {
       downloadOutline,
       documentOutline,
       easelOutline,
+      pieChartOutline,
+      ellipseOutline,
       flashOutline,
       gridOutline,
       informationCircleOutline,

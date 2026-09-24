@@ -142,6 +142,55 @@ export function formatAgentReply(text: string): FormattedReply {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    // Mermaid pie block:  ```mermaid \n pie showData \n title ... \n "label" : value ...
+    const fence = /^\s*```(\w+)?\s*$/.exec(line);
+    if (fence) {
+      // Collect the fenced block.
+      const blockLines: string[] = [];
+      let j = i + 1;
+      while (j < lines.length && !/^\s*```\s*$/.test(lines[j])) {
+        blockLines.push(lines[j]);
+        j++;
+      }
+      const isPie = blockLines.some(l => /^\s*pie\b/.test(l));
+      if (isPie) {
+        let title = '';
+        const labels: string[] = [];
+        const values: number[] = [];
+        for (const bl of blockLines) {
+          const titleMatch = /^\s*title\s+(.*)$/.exec(bl);
+          if (titleMatch) { title = titleMatch[1].trim(); continue; }
+          const slice = /^\s*"([^"]+)"\s*:\s*([\d.,]+)/.exec(bl);
+          if (slice) {
+            labels.push(slice[1]);
+            values.push(parseNumber(slice[2]));
+          }
+        }
+        if (labels.length >= 2) {
+          const points = labels
+            .map((label, k) => ({ label, value: values[k] }))
+            .filter(p => !isNaN(p.value))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 12);
+          const headers = ['Category', 'Value'];
+          const rows = points.map(p => [p.label, p.value.toLocaleString()]);
+          tables.push({
+            title: title || 'Distribution',
+            headers,
+            rows,
+            chart: { type: 'pie', labels: points.map(p => p.label), values: points.map(p => p.value), valueLabel: title || 'Value' },
+          });
+          i = j; // skip past the closing fence
+          continue;
+        }
+      }
+      // Non-pie fenced block: keep its inner lines as prose (code).
+      i = j;
+      for (const bl of blockLines) proseLines.push(bl);
+      continue;
+    }
+
     if (isTableRow(line) && i + 1 < lines.length && isSeparatorRow(lines[i + 1])) {
       const headers = splitCells(line);
       const rows: string[][] = [];
@@ -151,7 +200,6 @@ export function formatAgentReply(text: string): FormattedReply {
         i++;
       }
       i--; // step back; outer loop will advance
-      // Normalize row widths to the header width.
       const width = headers.length;
       const norm = rows.map(r => {
         const copy = r.slice(0, width);
@@ -159,13 +207,10 @@ export function formatAgentReply(text: string): FormattedReply {
         return copy;
       });
       tables.push({ headers, rows: norm, chart: buildChart(headers, norm) });
-      proseLines.push(`\u0000TABLE${tables.length - 1}\u0000`);
     } else {
       proseLines.push(line);
     }
   }
 
-  // Render prose, dropping the table placeholders (tables render separately).
-  const cleanProse = proseLines.filter(l => !/^\u0000TABLE\d+\u0000$/.test(l));
-  return { html: proseToHtml(cleanProse), tables };
+  return { html: proseToHtml(proseLines), tables };
 }

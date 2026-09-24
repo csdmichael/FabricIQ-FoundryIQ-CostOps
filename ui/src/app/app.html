@@ -685,41 +685,24 @@
 
                         @if (msg.tables?.length) {
                           @for (tbl of msg.tables; track $index) {
-                            <div class="result-table-block">
-                              <div class="msg-table-wrap">
-                                <table>
-                                  <thead>
-                                    <tr>
-                                      @for (h of tbl.headers; track h) { <th>{{ h }}</th> }
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    @for (r of tbl.rows; track $index) {
-                                      <tr>
-                                        @for (c of r; track $index) { <td>{{ c }}</td> }
-                                      </tr>
-                                    }
-                                  </tbody>
-                                </table>
-                              </div>
-                              @if (tbl.chart) {
-                                <app-result-chart [chart]="tbl.chart"></app-result-chart>
-                              }
-                            </div>
+                            <app-result-block [table]="tbl"></app-result-block>
                           }
                         }
 
                         @if (msg.sender === 'agent' && msg.id !== 'welcome-1' && (msg.tables?.length || msg.htmlContent)) {
                           <div class="msg-export-bar">
                             <span class="export-label">Export:</span>
-                            <button type="button" (click)="exportMessage(msg, 'excel')" [disabled]="exporting() === msg.id + ':excel'" title="Export to Excel">
-                              <ion-icon name="grid-outline"></ion-icon> Excel
+                            <button type="button" class="export-xls" (click)="exportMessage(msg, 'excel')" [disabled]="exporting() === msg.id + ':excel'" title="Export to Excel">
+                              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="2" fill="#1d6f42"/><path d="M7 8l4 8M11 8l-4 8" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><text x="15.5" y="16" font-size="7" font-weight="700" fill="#fff" font-family="Arial">XLS</text></svg>
+                              Excel
                             </button>
-                            <button type="button" (click)="exportMessage(msg, 'ppt')" [disabled]="exporting() === msg.id + ':ppt'" title="Export to PowerPoint">
-                              <ion-icon name="easel-outline"></ion-icon> PowerPoint
+                            <button type="button" class="export-ppt" (click)="exportMessage(msg, 'ppt')" [disabled]="exporting() === msg.id + ':ppt'" title="Export to PowerPoint">
+                              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="2" fill="#c43e1c"/><path d="M7 7h4a3 3 0 010 6H7z" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M7 7v10" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+                              PowerPoint
                             </button>
-                            <button type="button" (click)="exportMessage(msg, 'word')" [disabled]="exporting() === msg.id + ':word'" title="Export to Word">
-                              <ion-icon name="document-outline"></ion-icon> Word
+                            <button type="button" class="export-doc" (click)="exportMessage(msg, 'word')" [disabled]="exporting() === msg.id + ':word'" title="Export to Word">
+                              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="2" fill="#2b579a"/><path d="M6 8l2 8 2-6 2 6 2-8" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>
+                              Word
                             </button>
                           </div>
                         }

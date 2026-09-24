@@ -452,10 +452,14 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .result-table-block app-result-chart { display: block; margin-top: 10px; }
 .msg-export-bar { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); flex-wrap: wrap; }
 .msg-export-bar .export-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-.msg-export-bar button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 11.5px; font-weight: 700; color: #52606f; cursor: pointer; transition: all .15s ease; }
+.msg-export-bar button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 11.5px; font-weight: 700; color: #52606f; cursor: pointer; transition: all .15s ease; }
 .msg-export-bar button:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
 .msg-export-bar button:disabled { opacity: .5; cursor: default; }
 .msg-export-bar button ion-icon { font-size: 15px; }
+.msg-export-bar button svg { flex: 0 0 auto; display: block; }
+.msg-export-bar .export-xls:hover:not(:disabled) { border-color: #1d6f42; color: #1d6f42; }
+.msg-export-bar .export-ppt:hover:not(:disabled) { border-color: #c43e1c; color: #c43e1c; }
+.msg-export-bar .export-doc:hover:not(:disabled) { border-color: #2b579a; color: #2b579a; }
 
 .msg-metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin: 10px 0; }
 .metric-pill { padding: 8px 10px; background: #f1f5f9; border-radius: 4px; font-size: 11px; }

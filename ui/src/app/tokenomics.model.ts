@@ -119,7 +119,7 @@ export interface SavedPrompt {
 }
 
 export interface ChatChart {
-  type: 'bar' | 'line';
+  type: 'bar' | 'line' | 'pie' | 'doughnut';
   labels: string[];
   values: number[];
   valueLabel: string;
