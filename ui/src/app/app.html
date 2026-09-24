@@ -1,4 +1,9 @@
 <ion-app>
+  @if (activeView() === 'showcase') {
+    <div class="showcase-standalone">
+      <app-showcase></app-showcase>
+    </div>
+  } @else {
   <div class="app-frame">
     <!-- Desktop Sidebar Navigation -->
     <aside class="desktop-nav" aria-label="Primary navigation">
@@ -25,15 +30,12 @@
         <button type="button" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')">
           <ion-icon name="chatbubbles-outline"></ion-icon><span>Data Agent Chat</span>
         </button>
-        <button type="button" [class.active]="activeView() === 'showcase'" (click)="setView('showcase')">
-          <ion-icon name="rocket-outline"></ion-icon><span>Showcase</span>
-        </button>
       </nav>
       <div class="nav-foot">
         <div class="environment-dot" [class.live]="tokenomics.isLiveMode()"></div>
         <span>
-          <small>Fabric Workspace</small>
-          <strong>Fabric AI Tokenomics</strong>
+          <small>Workspace</small>
+          <strong>AI Tokenomics</strong>
           <small class="env-tag">{{ tokenomics.environment() }}</small>
         </span>
       </div>
@@ -48,7 +50,6 @@
       <button type="button" title="Power BI Reports" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon></button>
       <button type="button" title="12 ML Insights" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon></button>
       <button type="button" title="Data Agent Chat" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon></button>
-      <button type="button" title="Showcase" [class.active]="activeView() === 'showcase'" (click)="setView('showcase')"><ion-icon name="rocket-outline"></ion-icon></button>
     </aside>
 
     <!-- Mobile Phone Bottom Tabs -->
@@ -68,22 +69,22 @@
           <strong>CostOps</strong>
         </div>
         <div class="page-heading">
-          <p>Microsoft Fabric AI FinOps Control Plane</p>
+          <p>Multi-Cloud AI FinOps Control Plane</p>
           <h1>
             @switch (activeView()) {
               @case ('overview') { Multi-Cloud Token Command Center }
               @case ('allocation') { Cost Attribution & Chargeback }
               @case ('pricing') { Multi-Cloud Model Pricing & Rate Cards }
-              @case ('powerbi') { Fabric Power BI Dashboards & Reports }
+              @case ('powerbi') { Interactive Dashboards & Reports }
               @case ('ml-insights') { 12 PySpark Machine Learning Insights }
-              @case ('data-agent') { Fabric Data Agent & Prompt Library }
+              @case ('data-agent') { Data Agent & Prompt Library }
               @case ('showcase') { Business Value Showcase }
             }
           </h1>
         </div>
         <div class="top-actions">
           <span class="source-chip" [class.live]="tokenomics.isLiveMode() || auth.account()">
-            <span></span>{{ auth.account() ? (tokenomics.isLiveMode() ? 'Live APIM Telemetry' : 'Fabric Tenant Connected') : 'Governed Lakehouse Data' }}
+            <span></span>{{ auth.account() ? (tokenomics.isLiveMode() ? 'Live Telemetry' : 'Tenant Connected') : 'Governed Lakehouse Data' }}
           </span>
           <ion-button fill="clear" color="dark" title="Refresh data" aria-label="Refresh data" (click)="refresh()" [disabled]="loading()">
             <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
@@ -128,11 +129,7 @@
         <div class="updated-at"><span>Updated</span><strong>{{ lastUpdated() || 'Live' }}</strong></div>
       </section>
 
-      @if (activeView() === 'showcase') {
-        <div class="dashboard-content">
-          <app-showcase></app-showcase>
-        </div>
-      } @else if (loading()) {
+      @if (loading()) {
         <section class="state-panel"><ion-spinner name="crescent"></ion-spinner><p>Loading governed usage telemetry</p></section>
       } @else if (error()) {
         <section class="state-panel error-state">
@@ -172,7 +169,7 @@
                   <article class="kpi green">
                     <div class="kpi-icon"><ion-icon name="wallet-outline"></ion-icon></div>
                     <span>Billed Model Cost</span><strong>{{ money(summary.dedicatedModelCost, 2) }}</strong>
-                    <small>{{ summary.billedThrough ? 'ActualCost through ' + summary.billedThrough : 'Fabric Lakehouse Gold' }}</small>
+                    <small>{{ summary.billedThrough ? 'ActualCost through ' + summary.billedThrough : 'Governed Lakehouse Gold' }}</small>
                   </article>
                   <article class="kpi teal">
                     <div class="kpi-icon"><ion-icon name="cash-outline"></ion-icon></div>
@@ -433,13 +430,8 @@
             <section class="powerbi-view">
               <div class="section-intro">
                 <div>
-                  <span class="eyebrow">Fabric SQL DirectQuery Serving</span>
-                  <h2>Fabric Power BI Semantic Models & Reports</h2>
-                </div>
-                <div class="powerbi-external-actions">
-                  <a href="https://app.fabric.microsoft.com/groups/1e14d1a0-d6cd-4810-a23e-094a58dae55e" target="_blank" rel="noopener noreferrer" class="open-fabric-btn">
-                    <ion-icon name="open-outline"></ion-icon> Open in Microsoft Fabric
-                  </a>
+                  <span class="eyebrow">Live DirectQuery Serving</span>
+                  <h2>Interactive Semantic Models & Reports</h2>
                 </div>
               </div>
 
@@ -488,7 +480,7 @@
               <!-- Live Power BI Embed (user-owns-data via Entra ID) -->
               <div class="pbi-canvas">
                 <div class="pbi-canvas-header">
-                  <div class="pbi-brand"><span class="pbi-logo">PBI</span><strong>{{ currentPowerBiArtifact()?.name || 'Microsoft Power BI (DirectQuery on Fabric OneLake)' }}</strong></div>
+                  <div class="pbi-brand"><span class="pbi-logo">PBI</span><strong>{{ currentPowerBiArtifact()?.name || 'Interactive Reports (DirectQuery)' }}</strong></div>
                   <span>DirectQuery: Tokenomics FinOps Model</span>
                 </div>
                 @if (currentPowerBiArtifact() && powerBiToken()) {
@@ -503,7 +495,7 @@
                   <div class="pbi-empty-state">
                     <ion-icon name="shield-checkmark-outline"></ion-icon>
                     <h3>Sign in to view the live Power BI reports</h3>
-                    <p>These reports run DirectQuery on the Fabric <code>lh_tokenomics</code> OneLake tables and require your Entra ID sign-in.</p>
+                    <p>These interactive reports run on the governed tokenomics lakehouse and require sign-in.</p>
                     <div class="pbi-empty-actions">
                       <ion-button size="small" (click)="toggleAuthentication()">Sign in</ion-button>
                       @if (currentPowerBiArtifact()) {
@@ -524,7 +516,7 @@
                   <span class="eyebrow">PySpark Machine Learning</span>
                   <h2>12 Production FinOps ML Use Cases</h2>
                 </div>
-                <p>Training and Inference notebook pipelines writing to Microsoft Fabric Lakehouse <code>ml.*</code></p>
+                <p>Training and Inference ML pipelines writing to the governed lakehouse (<code>ml.*</code>)</p>
               </div>
 
               <!-- ML Use Cases Grid -->
@@ -557,7 +549,7 @@
                       <span class="eyebrow">Algorithm {{ selected.number }} Deep Dive</span>
                       <h3>{{ selected.title }}</h3>
                     </div>
-                    <div class="folder-badge"><code>fabric/notebooks/{{ selected.folderName }}/</code></div>
+                    <div class="folder-badge"><code>notebooks/{{ selected.folderName }}/</code></div>
                   </header>
 
                   <div class="ml-detail-content">
@@ -628,54 +620,18 @@
                 <span class="agent-avatar"><ion-icon name="sparkles-outline"></ion-icon></span>
                 <div class="agent-identity-text">
                   <strong>{{ tokenomics.agentName() }}</strong>
-                  <small>Microsoft Foundry <em>Tokenomics</em> agent → APIM → Fabric Data Agent → <code>lh_tokenomics</code></small>
+                  <small>Tokenomics AI Analyst → Governed Lakehouse (<code>tokenomics</code>)</small>
                 </div>
-                <span class="agent-path-chip"><ion-icon name="shield-checkmark-outline"></ion-icon> Governed OBO</span>
+                <span class="agent-path-chip"><ion-icon name="shield-checkmark-outline"></ion-icon> Governed</span>
               </div>
 
-              <!-- Saved Prompt Library Filter Chips -->
-              <div class="prompt-library-section">
-                <div class="library-header">
-                  <div class="lib-title"><ion-icon name="document-text-outline"></ion-icon><strong>Saved Prompt Library (Data Driven & Configurable)</strong></div>
-                  <div class="category-chips">
-                    @for (cat of promptLibrary.categories; track cat) {
-                      <button type="button" [class.active]="promptLibrary.selectedCategory() === cat" (click)="promptLibrary.selectedCategory.set(cat)">
-                        {{ cat }}
-                      </button>
-                    }
-                  </div>
-                </div>
-
-                <!-- Prompt Cards -->
-                <div class="prompt-cards-slider">
-                  @for (p of promptLibrary.filteredPrompts(); track p.id) {
-                    <div class="prompt-card" (click)="runSavedPrompt(p)">
-                      <div class="prompt-card-top">
-                        <span class="prompt-cat-badge">{{ p.category }}</span>
-                        @if (p.isCustom) {
-                          <button type="button" class="del-prompt-btn" (click)="deletePrompt(p.id, $event)" title="Delete custom prompt">
-                            <ion-icon name="trash-outline"></ion-icon>
-                          </button>
-                        }
-                      </div>
-                      <h4>{{ p.title }}</h4>
-                      <p>{{ p.description }}</p>
-                      <div class="prompt-run-action">
-                        <span>Run Query</span>
-                        <ion-icon name="send-outline"></ion-icon>
-                      </div>
-                    </div>
-                  }
-                </div>
-              </div>
-
-              <!-- Conversational AI Chat Interface -->
-              <div class="chat-container">
+              <!-- Conversational AI Chat Interface (primary focus) -->
+              <div class="chat-container chat-primary">
                 <div class="chat-header">
                   <div class="agent-avatar"><ion-icon name="sparkles-outline"></ion-icon></div>
                   <div>
                     <strong>Tokenomics FinOps Analyst</strong>
-                    <small>Fabric Data Agent • Gold & ML Delta Tables Connected</small>
+                    <small>Governed Lakehouse • Gold & ML Tables Connected</small>
                   </div>
                   <span class="agent-status-badge">Online</span>
                 </div>
@@ -701,7 +657,7 @@
 
                         @if (msg.sqlQuery) {
                           <div class="sql-box">
-                            <span class="sql-label">Fabric Lakehouse SQL Query:</span>
+                            <span class="sql-label">Governed Lakehouse SQL Query:</span>
                             <pre><code>{{ msg.sqlQuery }}</code></pre>
                           </div>
                         }
@@ -748,22 +704,57 @@
                     <div class="chat-msg agent">
                       <div class="msg-bubble typing">
                         <ion-spinner name="dots"></ion-spinner>
-                        <span>Querying Fabric Lakehouse Delta tables...</span>
+                        <span>Querying governed lakehouse tables...</span>
                       </div>
                     </div>
                   }
                 </div>
 
-                <!-- Chat Input Box -->
+                <!-- Compact saved-prompts picker + input -->
                 <div class="chat-input-bar">
-                  <input
-                    type="text"
-                    placeholder="Ask Fabric Data Agent (e.g. 'Predict Q4 spend for Engineering', 'Show Claude vs GPT-5 costs')..."
+                  <div class="prompt-picker" [class.open]="showPromptPicker()">
+                    <button type="button" class="prompt-picker-btn" (click)="showPromptPicker.set(!showPromptPicker())" title="Saved prompts">
+                      <ion-icon name="document-text-outline"></ion-icon>
+                      <span>Prompts</span>
+                    </button>
+                    @if (showPromptPicker()) {
+                      <div class="prompt-picker-menu">
+                        <input
+                          type="text"
+                          class="prompt-search"
+                          placeholder="Search saved prompts..."
+                          [value]="promptSearch()"
+                          (input)="promptSearch.set($any($event.target).value)"
+                        />
+                        <div class="prompt-picker-list">
+                          @for (p of pickerPrompts(); track p.id) {
+                            <button type="button" class="prompt-picker-item" (click)="pickPrompt(p)">
+                              <span class="pp-badge">{{ p.category }}</span>
+                              <span class="pp-title">{{ p.title }}</span>
+                              @if (p.isCustom) {
+                                <ion-icon name="trash-outline" class="pp-del" (click)="deletePrompt(p.id, $event)" title="Delete custom prompt"></ion-icon>
+                              }
+                            </button>
+                          }
+                          @if (pickerPrompts().length === 0) {
+                            <p class="pp-empty">No matching prompts.</p>
+                          }
+                        </div>
+                        <button type="button" class="pp-add" (click)="openAddPromptModal(); showPromptPicker.set(false)">
+                          <ion-icon name="add-outline"></ion-icon> Save new prompt
+                        </button>
+                      </div>
+                    }
+                  </div>
+                  <textarea
+                    class="chat-text-input"
+                    rows="3"
+                    placeholder="Ask the Tokenomics Data Agent (e.g. 'Predict Q4 spend for Yield Engineering', 'Claude Opus vs GPT Astra cost'). Press Enter to send, Shift+Enter for a new line..."
                     [value]="chatInput()"
                     (input)="chatInput.set($any($event.target).value)"
-                    (keyup.enter)="sendCustomChatMessage()"
+                    (keydown.enter)="onChatEnter($event)"
                     [disabled]="isChatSending()"
-                  />
+                  ></textarea>
                   <button type="button" class="send-btn" (click)="sendCustomChatMessage()" [disabled]="!chatInput().trim() || isChatSending()">
                     <ion-icon name="send-outline"></ion-icon>
                   </button>
@@ -795,7 +786,7 @@
                       </label>
                       <label>
                         <span>Full Prompt:</span>
-                        <textarea rows="3" placeholder="Enter the exact prompt question for the Fabric Data Agent..." [value]="newPromptText()" (input)="newPromptText.set($any($event.target).value)"></textarea>
+                        <textarea rows="3" placeholder="Enter the exact prompt question for the Data Agent..." [value]="newPromptText()" (input)="newPromptText.set($any($event.target).value)"></textarea>
                       </label>
                       <label>
                         <span>Description / Hint:</span>
@@ -826,4 +817,5 @@
       </footer>
     </main>
   </div>
+  }
 </ion-app>

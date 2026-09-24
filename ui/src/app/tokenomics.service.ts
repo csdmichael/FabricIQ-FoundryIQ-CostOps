@@ -20,7 +20,7 @@ export class TokenomicsService {
   private config?: RuntimeConfig;
   private chatThreadId: string | null = null;
   readonly configured = signal(false);
-  readonly environment = signal('Caldova Private');
+  readonly environment = signal('Enterprise');
   readonly isLiveMode = signal(false);
   readonly agentName = signal('Tokenomics FinOps Analyst');
   readonly welcomeMessage = signal('');
@@ -32,7 +32,7 @@ export class TokenomicsService {
 
   async initialize(): Promise<void> {
     this.config = await this.runtimeConfig.load();
-    this.environment.set(this.config.environment || 'Caldova Private');
+    this.environment.set(this.config.environment || 'Enterprise');
     this.configured.set(Boolean(this.config.apiBaseUrl && this.config.tenantId && this.config.clientId && this.config.scope));
     if (this.configured()) {
       await this.auth.configure(this.config);
@@ -55,7 +55,7 @@ export class TokenomicsService {
     if (!this.config) await this.initialize();
     const response = await this.authorizedFetch(`/summary?days=${days}`);
     if (!response.ok) {
-      throw new Error(`Live tokenomics telemetry is unavailable (HTTP ${response.status}). Sign in and confirm the Fabric API is reachable.`);
+      throw new Error(`Live tokenomics telemetry is unavailable (HTTP ${response.status}). Sign in and confirm the analytics API is reachable.`);
     }
     const data = await response.json() as TokenomicsDashboard;
     this.isLiveMode.set(true);
@@ -114,7 +114,7 @@ export class TokenomicsService {
         id: 'welcome-1',
         sender: 'agent',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        content: this.welcomeMessage() || `Hello! I am your **${this.agentName()}**. Ask me any question about multi-cloud AI spend, model pricing, budget overruns, quota, or prompt quality - I answer using the governed Microsoft Fabric Lakehouse via the Fabric Data Agent.`,
+        content: this.welcomeMessage() || `Hello! I am your **${this.agentName()}**. Ask me any question about multi-cloud AI spend, model pricing, budget overruns, quota, or prompt quality — I answer using the governed tokenomics lakehouse.`,
       }
     ];
   }

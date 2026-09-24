@@ -2,11 +2,11 @@
   <!-- Hero -->
   <div class="sc-hero">
     <div class="sc-hero-content">
-      <p class="sc-eyebrow"><span></span> Microsoft Fabric + Foundry + APIM</p>
+      <p class="sc-eyebrow"><span></span> Multi-Cloud AI FinOps</p>
       <h1>Multi-Cloud AI <strong>Tokenomics &amp; FinOps</strong></h1>
       <p class="sc-summary">
-        Govern every AI token across five clouds and fourteen model families on one Microsoft Fabric
-        lakehouse — with live cost attribution, twelve predictive ML models, Power BI, and a Data Agent
+        Govern every AI token across five clouds and fourteen model families on one governed
+        lakehouse — with live cost attribution, twelve predictive ML models, interactive reports, and a Data Agent
         that answers FinOps questions in plain language.
       </p>
       <dl class="sc-hero-stats">
@@ -125,6 +125,10 @@
 
   <!-- ARCHITECTURE -->
   <div class="sc-panel" [hidden]="activeTab() !== 'architecture'">
+    <figure class="arch-figure">
+      <img src="assets/architecture.png" alt="AI Tokenomics architecture and solution overview" loading="lazy" />
+      <figcaption>End-to-end AI Tokenomics architecture — from multi-cloud ingestion through the governed medallion lakehouse, 12 PySpark ML models, and the serving layer.</figcaption>
+    </figure>
     <div class="arch-flow">
       @for (layer of architectureLayers; track layer.title; let last = $last) {
         <div class="arch-layer">
@@ -141,15 +145,15 @@
   <!-- TRY IT -->
   <div class="sc-panel" [hidden]="activeTab() !== 'try-it'">
     <div class="try-grid">
-      <a class="try-card" [href]="liveUiUrl" target="_blank" rel="noopener noreferrer">
+      <a class="try-card" href="/overview">
         <ion-icon name="open-outline"></ion-icon>
         <strong>Open the live CostOps portal</strong>
-        <span>Explore dashboards, ML insights, Power BI, and the Data Agent on live Fabric data.</span>
+        <span>Go to the Tokenomics home and explore dashboards, ML insights, reports, and the Data Agent on live governed data.</span>
       </a>
       <a class="try-card" [href]="githubUrl" target="_blank" rel="noopener noreferrer">
         <ion-icon name="logo-github"></ion-icon>
         <strong>View the source on GitHub</strong>
-        <span>Config-driven Fabric, APIM, Foundry, FastAPI, and Angular/Ionic implementation.</span>
+        <span>Config-driven, multi-cloud AI tokenomics and FinOps implementation.</span>
       </a>
       <a class="try-card" [href]="linkedInUrl" target="_blank" rel="noopener noreferrer">
         <ion-icon name="person-circle-outline"></ion-icon>

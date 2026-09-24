@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "welcomeMessage": "Hello! I am your **Tokenomics FinOps Analyst**. I answer questions by querying the governed Microsoft Fabric Lakehouse (`lh_tokenomics`) Gold tables through the Fabric Data Agent, exposed via Foundry and the APIM gateway. Ask about multi-cloud spend, model pricing, budget overruns, quota, prompt quality, or pick one of the sample prompts below.",
+  "welcomeMessage": "Hello! I am your **Tokenomics FinOps Analyst**. I answer questions by querying the governed tokenomics lakehouse (Gold and ML tables). Ask about multi-cloud spend, model pricing, budget overruns, quota, prompt quality, or pick one of the sample prompts below.",
   "prompts": [
     {
       "id": "exec-summary",

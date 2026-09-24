@@ -51,7 +51,7 @@ if settings.cors_allowed_origins:
 
 _client = FabricSqlClient(settings)
 _service = DashboardService(settings, _client)
-_agent = AgentChatService(settings.foundry)
+_agent = AgentChatService(settings, _client)
 
 
 def _load_prompts() -> dict:

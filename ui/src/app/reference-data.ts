@@ -56,8 +56,8 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
     summaryValue: '99.4%',
     summaryUnit: 'attributed',
     riskOrStatus: 'optimal',
-    details: 'Automated attribution engine joins hashed user sessions, APIM client headers, and business entity trees to attribute 100% of multi-cloud token invoices down to Department, Project, Cost Center, and Environment (Dev/Test/Prod).',
-    recommendation: 'Enable automated monthly chargeback PDF generation and Fabric tenant subscription billing breakdown for Finance.',
+    details: 'Automated attribution engine joins hashed user sessions, gateway client headers, and business entity trees to attribute 100% of multi-cloud token invoices down to Department, Project, Cost Center, and Environment (Dev/Test/Prod).',
+    recommendation: 'Enable automated monthly chargeback PDF generation and tenant subscription billing breakdown for Finance.',
     kpis: [
       { label: 'Active Cost Centers', value: '18' },
       { label: 'Top Consuming Dept', value: 'Engineering ($28.4k)' },
@@ -201,10 +201,10 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
     summaryValue: '104.2%',
     summaryUnit: 'on schedule',
     riskOrStatus: 'optimal',
-    details: 'Forecasts enterprise multi-region infrastructure requirements (APIM gateway throughput, regional model capacity, vector search indices) across 12-month planning horizons.',
-    recommendation: 'Provision secondary APIM gateway unit in East US by Nov 2026 to accommodate projected 2.4x multi-region growth.',
+    details: 'Forecasts enterprise multi-region infrastructure requirements (API gateway throughput, regional model capacity, vector search indices) across 12-month planning horizons.',
+    recommendation: 'Provision a secondary API gateway unit in East US by Nov 2026 to accommodate projected 2.4x multi-region growth.',
     kpis: [
-      { label: 'Peak APIM Gateway RPS', value: '420 rps' },
+      { label: 'Peak API Gateway RPS', value: '420 rps' },
       { label: 'Regional Load Balance', value: 'West US (62%), East US (38%)' },
       { label: 'MACC Spend Attainment', value: '$240k / $230k committed' }
     ]

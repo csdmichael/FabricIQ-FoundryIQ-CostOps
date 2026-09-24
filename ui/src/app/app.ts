@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
@@ -83,6 +84,8 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
   styleUrl: './app.scss'
 })
 export class App implements OnInit {
+  private readonly location = inject(Location);
+  private readonly validViews: DashboardView[] = ['overview', 'allocation', 'pricing', 'powerbi', 'ml-insights', 'data-agent', 'showcase'];
   readonly dashboard = signal<Awaited<ReturnType<TokenomicsService['dashboard']>> | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
@@ -140,6 +143,8 @@ export class App implements OnInit {
   readonly chatInput = signal('');
   readonly isChatSending = signal(false);
   readonly showAddPromptModal = signal(false);
+  readonly showPromptPicker = signal(false);
+  readonly promptSearch = signal('');
   readonly newPromptTitle = signal('');
   readonly newPromptCategory = signal<SavedPrompt['category']>('Executive & FinOps');
   readonly newPromptText = signal('');
@@ -379,6 +384,18 @@ export class App implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    // Initialize the active view from the URL and keep them in sync (deep-linkable,
+    // browser back/forward supported).
+    this.applyViewFromUrl();
+    this.location.onUrlChange(() => this.applyViewFromUrl());
+
+    // The showcase is a standalone, unauthenticated marketing page — it does not
+    // need the dashboard telemetry, pricing, prompts, or Power BI to be loaded.
+    if (this.activeView() === 'showcase') {
+      this.loading.set(false);
+      return;
+    }
+
     await this.tokenomics.initialize();
     const useCases = this.tokenomics.getMlUseCases();
     this.mlUseCases.set(useCases);
@@ -426,8 +443,20 @@ export class App implements OnInit {
     await this.refresh();
   }
 
+  private applyViewFromUrl(): void {
+    const path = this.location.path().split('?')[0].replace(/^\/+|\/+$/g, '') as DashboardView;
+    const next = this.validViews.includes(path) ? path : 'overview';
+    if (this.activeView() !== next) {
+      this.activeView.set(next);
+    }
+  }
+
   setView(view: DashboardView): void {
     this.activeView.set(view);
+    // Reflect the current page in the URL so it is deep-linkable and shareable.
+    if (this.location.path().split('?')[0].replace(/^\/+|\/+$/g, '') !== view) {
+      this.location.go('/' + view);
+    }
     const frame = document.querySelector<HTMLElement>('.app-frame');
     if (frame) {
       frame.scrollTop = 0;
@@ -448,6 +477,43 @@ export class App implements OnInit {
 
   selectMlUseCase(useCase: MlUseCaseInfo): void {
     this.selectedMlUseCase.set(useCase);
+  }
+
+  /** Saved prompts filtered by the picker search box. */
+  pickerPrompts(): SavedPrompt[] {
+    const search = this.promptSearch().toLowerCase().trim();
+    const all = this.promptLibrary.prompts();
+    if (!search) return all;
+    return all.filter(p =>
+      p.title.toLowerCase().includes(search) ||
+      p.category.toLowerCase().includes(search) ||
+      (p.description || '').toLowerCase().includes(search)
+    );
+  }
+
+  /** Put a saved prompt into the input so the user can tweak it before sending. */
+  pickPrompt(prompt: SavedPrompt): void {
+    this.showPromptPicker.set(false);
+    this.promptSearch.set('');
+    this.chatInput.set(prompt.prompt);
+    // Focus the textarea so the user can edit immediately.
+    setTimeout(() => {
+      const el = document.querySelector<HTMLTextAreaElement>('.chat-text-input');
+      if (el) {
+        el.focus();
+        el.selectionStart = el.selectionEnd = el.value.length;
+      }
+    }, 0);
+  }
+
+  /** Enter sends the message; Shift+Enter inserts a new line. */
+  onChatEnter(event: Event): void {
+    const keyboardEvent = event as KeyboardEvent;
+    if (keyboardEvent.shiftKey) {
+      return; // allow newline
+    }
+    keyboardEvent.preventDefault();
+    void this.sendCustomChatMessage();
   }
 
   setProvider(providerId: string): void {
@@ -542,7 +608,7 @@ export class App implements OnInit {
           id: `err-${Date.now()}`,
           sender: 'agent',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          content: 'Unable to reach Fabric Data Agent. Returning to cached intelligence.'
+          content: 'Unable to reach the Data Agent right now. Please try again.'
         }
       ]);
     } finally {

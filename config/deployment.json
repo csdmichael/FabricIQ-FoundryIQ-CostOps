@@ -429,7 +429,7 @@
     "redirectUris": [
       "https://caldova-fabric-costops-ui.azurewebsites.net"
     ],
-    "environment": "Caldova Private"
+    "environment": "Enterprise"
   },
   "deployment": {
     "environmentName": "fabric-tokenomics",
@@ -473,21 +473,20 @@
     }
   },
   "foundry": {
-    "accountName": "foundry-fabric-costops",
-    "existingProjectName": "fabric-costops",
-    "tokenomicsProjectName": "Tokenomics",
-    "tokenomicsProjectDisplayName": "Tokenomics",
-    "tokenomicsProjectDescription": "Tokenomics FinOps analytics project. Hosts the Tokenomics FinOps Analyst agent that answers multi-cloud AI cost and usage questions using the Microsoft Fabric Data Agent through the APIM gateway.",
+    "accountName": "foundry-myaacoub",
+    "projectName": "Tokenomics",
+    "projectEndpoint": "https://foundry-myaacoub.services.ai.azure.com/api/projects/Tokenomics",
     "location": "westus",
-    "modelDeployment": "gpt-5.6-sol",
+    "modelDeployment": "gpt-5.2",
     "apiVersion": "2025-05-15-preview",
+    "armApiVersion": "2025-06-01",
     "agentName": "tokenomics-analyst",
     "agentDisplayName": "Tokenomics FinOps Analyst",
-    "armApiVersion": "2026-07-15-preview",
-    "dataAgentMcp": {
-      "connectionName": "tokenomics-data-agent-mcp-oauth",
-      "toolLabel": "fabric_tokenomics_data_agent"
+    "tracing": {
+      "enabled": true,
+      "applicationInsightsConnectionStringEnv": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+      "contentRecordingEnabled": true
     },
-    "instructions": "You are the Tokenomics FinOps Analyst, an expert assistant for multi-cloud AI cost governance on Microsoft Fabric. Answer questions about token consumption, model pricing, cost attribution and chargeback, budget overruns, anomalies, quota and capacity, prompt quality, and agent ROI across AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude. ALWAYS ground every quantitative answer by calling the Fabric Data Agent tool, which queries the governed lh_tokenomics Lakehouse Gold tables (ml.tokenomics_usage_fact, ml.model_price_history, and the 12 ml.* insight outputs). Never fabricate numbers. Be concise, lead with the headline finding, cite the tables you used, and end with one actionable FinOps recommendation."
+    "instructions": "You are the Tokenomics FinOps Analyst, an expert assistant for multi-cloud AI cost governance on Microsoft Fabric. Answer questions about token consumption, model pricing, cost attribution and chargeback, budget overruns, anomalies, quota and capacity, prompt quality, and agent ROI across AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude. ALWAYS ground every quantitative answer by calling the provided tools, which query the governed Fabric lh_tokenomics Lakehouse Gold and ML tables (ml.tokenomics_usage_fact, ml.model_price_history, and the 12 ml.* insight outputs) — the same governed data the Fabric Data Agent uses. Never fabricate numbers. Be concise, lead with the headline finding, cite the tables you used, and end with one actionable FinOps recommendation."
   }
 }

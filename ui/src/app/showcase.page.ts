@@ -55,12 +55,12 @@ export class ShowcasePage {
   ];
 
   readonly videos: VideoItem[] = [
-    { sequence: '01', title: 'Platform Overview', description: 'Multi-cloud AI tokenomics, the Fabric medallion lakehouse, and the FinOps control plane in five minutes.', duration: '05:12' },
-    { sequence: '02', title: 'Live Dashboard Walkthrough', description: 'Command center, cost attribution, model rate cards, and provider filtering on live Fabric data.', duration: '08:40' },
+    { sequence: '01', title: 'Platform Overview', description: 'Multi-cloud AI tokenomics, the governed medallion lakehouse, and the FinOps control plane in five minutes.', duration: '05:12' },
+    { sequence: '02', title: 'Live Dashboard Walkthrough', description: 'Command center, cost attribution, model rate cards, and provider filtering on live governed data.', duration: '08:40' },
     { sequence: '03', title: '12 PySpark ML Insights', description: 'Anomaly detection, budget overrun prediction, model optimization, and quota management outputs.', duration: '07:15' },
-    { sequence: '04', title: 'Tokenomics Data Agent', description: 'Ask natural-language FinOps questions answered live by the Foundry agent via the Fabric Data Agent.', duration: '06:28' },
-    { sequence: '05', title: 'Power BI DirectQuery', description: 'Executive dashboards and reports built directly on the OneLake tokenomics tables.', duration: '04:50' },
-    { sequence: '06', title: 'Architecture & Governance', description: 'APIM boundary, OBO identity, private networking, and the config-driven deployment pipeline.', duration: '09:05' },
+    { sequence: '04', title: 'Tokenomics Data Agent', description: 'Ask natural-language FinOps questions answered live from the governed tokenomics lakehouse.', duration: '06:28' },
+    { sequence: '05', title: 'Interactive Reports', description: 'Executive dashboards and reports built directly on the governed tokenomics lakehouse.', duration: '04:50' },
+    { sequence: '06', title: 'Architecture & Governance', description: 'The secure gateway boundary, delegated identity, private networking, and the config-driven deployment pipeline.', duration: '09:05' },
   ];
   readonly selectedVideo = computed(() => this.videos[this.selectedVideoIndex()]);
 
@@ -112,27 +112,27 @@ export class ShowcasePage {
     { label: 'Annual AI spend', value: '$89M', detail: 'Across AWS Bedrock, GCP Vertex, Azure OpenAI, OpenAI, and Anthropic.' },
     { label: 'Governed tokens', value: '281B / mo', detail: '15K+ workloads across 5 clouds and 14 model families.' },
     { label: 'Addressable waste', value: '30–45%', detail: 'Prompt bloat, over-provisioned frontier models, and idle quota.' },
-    { label: 'Platform run cost', value: '$1.9M / year', detail: 'Fabric capacity, APIM, App Service, and model tokens.' },
+    { label: 'Platform run cost', value: '$1.9M / year', detail: 'Cloud data capacity, gateway, hosting, and model tokens.' },
     { label: 'Year-1 investment', value: '$6.4M', detail: 'Build, connectors, ML models, enablement, and platform run.' },
   ];
 
   readonly features: FeatureItem[] = [
     { icon: 'cloud-outline', title: 'Five-cloud ingestion', description: 'Normalized token telemetry from AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude.' },
     { icon: 'pricetag-outline', title: 'Time-series rate cards', description: 'SHA-256-provenanced market and negotiated pricing with effective-dated joins across every provider.' },
-    { icon: 'server-outline', title: 'Fabric medallion lakehouse', description: 'Bronze/Silver/Gold Delta tables in OneLake with a governed ml.tokenomics_usage_fact star schema.' },
+    { icon: 'server-outline', title: 'Governed medallion lakehouse', description: 'Bronze/Silver/Gold tables with a governed tokenomics usage-fact star schema.' },
     { icon: 'sparkles-outline', title: '12 PySpark ML models', description: 'Anomaly detection, cost forecasting, chargeback, budget overrun, quota, prompt quality, and agent ROI.' },
-    { icon: 'bar-chart-outline', title: 'Power BI DirectQuery', description: 'Executive and ML dashboards built directly on the OneLake tokenomics tables — no data copy.' },
-    { icon: 'chatbubbles-outline', title: 'Tokenomics Data Agent', description: 'A Foundry agent answers FinOps questions live via the Fabric Data Agent through the APIM gateway.' },
+    { icon: 'bar-chart-outline', title: 'Interactive DirectQuery reports', description: 'Executive and ML dashboards built directly on the governed lakehouse — no data copy.' },
+    { icon: 'chatbubbles-outline', title: 'Tokenomics Data Agent', description: 'A conversational AI analyst answers FinOps questions live from the governed tokenomics lakehouse.' },
     { icon: 'people-outline', title: 'Attribution & chargeback', description: 'Every token attributed to business unit, department, team, project, cost center, and application.' },
-    { icon: 'shield-checkmark-outline', title: 'Governed OBO security', description: 'On-behalf-of identity, private networking, and APIM policy across Foundry, Lakehouse, and Data Agent.' },
-    { icon: 'options-outline', title: 'Config-driven deployment', description: 'A single deployment.json drives data, APIM, Foundry, Power BI, and UI — no hard-coded values.' },
+    { icon: 'shield-checkmark-outline', title: 'Governed security', description: 'Delegated on-behalf-of identity, private networking, and policy enforced across every layer.' },
+    { icon: 'options-outline', title: 'Config-driven deployment', description: 'A single configuration file drives data, APIs, agent, reports, and UI — no hard-coded values.' },
   ];
 
   readonly architectureLayers: ArchitectureLayer[] = [
-    { title: 'Ingestion', description: 'Multi-cloud token telemetry and published pricing.', items: ['AWS Bedrock', 'GCP Vertex AI', 'Azure OpenAI / Foundry', 'OpenAI Direct', 'Anthropic Claude'] },
-    { title: 'Fabric Medallion Lakehouse', description: 'Governed Delta tables in OneLake.', items: ['Bronze / Silver provider schemas', 'Gold ml.tokenomics_usage_fact', '12 PySpark ML outputs (ml.*)', 'SQL analytics endpoint'] },
-    { title: 'Serving & Intelligence', description: 'APIs, agent, and BI on one source of truth.', items: ['Python FastAPI service', 'Foundry Tokenomics agent', 'Fabric Data Agent (MCP)', 'Power BI DirectQuery'] },
-    { title: 'Experience & Governance', description: 'Secure, responsive control plane.', items: ['Angular / Ionic CostOps UI', 'APIM gateway + OBO identity', 'Private networking', 'Entra ID sign-in'] },
+    { title: 'Ingestion', description: 'Multi-cloud token telemetry and published pricing.', items: ['AWS Bedrock', 'GCP Vertex AI', 'Azure OpenAI', 'OpenAI Direct', 'Anthropic Claude'] },
+    { title: 'Governed Medallion Lakehouse', description: 'Governed tables in the data lake.', items: ['Bronze / Silver provider schemas', 'Gold tokenomics usage fact', '12 PySpark ML outputs (ml.*)', 'SQL analytics endpoint'] },
+    { title: 'Serving & Intelligence', description: 'APIs, agent, and BI on one source of truth.', items: ['Python analytics API', 'Tokenomics AI agent', 'Governed Data Agent', 'DirectQuery reports'] },
+    { title: 'Experience & Governance', description: 'Secure, responsive control plane.', items: ['Angular / Ionic CostOps UI', 'Secure API gateway + identity', 'Private networking', 'Enterprise sign-in'] },
   ];
 
   setTab(tab: ShowcaseTab): void { this.activeTab.set(tab); }

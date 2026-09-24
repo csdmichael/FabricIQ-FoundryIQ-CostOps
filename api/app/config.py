@@ -48,13 +48,13 @@ class FoundrySettings:
     agent_name: str
     agent_display_name: str
     instructions: str
-    data_agent_mcp_target: str
-    data_agent_connection_name: str
-    data_agent_tool_label: str
+    tracing_enabled: bool = False
+    tracing_conn_env: str = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+    tracing_content_recording: bool = False
 
     @property
     def configured(self) -> bool:
-        return bool(self.project_endpoint and self.agent_name)
+        return bool(self.project_endpoint and self.agent_name and self.model_deployment)
 
 
 @dataclass(frozen=True)
@@ -178,7 +178,7 @@ def get_settings() -> Settings:
     foundry: Optional[FoundrySettings] = None
     if foundry_cfg:
         account = str(foundry_cfg.get("accountName", "")).strip()
-        project = str(foundry_cfg.get("tokenomicsProjectName", "")).strip()
+        project = str(foundry_cfg.get("projectName", foundry_cfg.get("tokenomicsProjectName", ""))).strip()
         default_endpoint = (
             f"https://{account}.services.ai.azure.com/api/projects/{project}"
             if account and project
@@ -186,12 +186,9 @@ def get_settings() -> Settings:
         )
         project_endpoint = os.environ.get(
             "TOKENOMICS_FOUNDRY_PROJECT_ENDPOINT",
-            str(foundry_cfg.get("tokenomicsProjectEndpoint", default_endpoint)),
+            str(foundry_cfg.get("projectEndpoint", foundry_cfg.get("tokenomicsProjectEndpoint", default_endpoint))),
         )
-        gateway = str(apim_cfg.get("gatewayUrl", "")).rstrip("/")
-        mcp_path = str(apim_cfg.get("dataAgentMcpPath", "")).strip("/")
-        mcp_target = f"{gateway}/{mcp_path}/mcp" if gateway and mcp_path else ""
-        mcp_cfg = foundry_cfg.get("dataAgentMcp", {})
+        tracing_cfg = foundry_cfg.get("tracing", {})
         foundry = FoundrySettings(
             account_name=account,
             project_name=project,
@@ -201,9 +198,9 @@ def get_settings() -> Settings:
             agent_name=str(foundry_cfg.get("agentName", "")),
             agent_display_name=str(foundry_cfg.get("agentDisplayName", foundry_cfg.get("agentName", ""))),
             instructions=str(foundry_cfg.get("instructions", "")),
-            data_agent_mcp_target=str(mcp_cfg.get("target", mcp_target)),
-            data_agent_connection_name=str(mcp_cfg.get("connectionName", "")),
-            data_agent_tool_label=str(mcp_cfg.get("toolLabel", "fabric_tokenomics_data_agent")),
+            tracing_enabled=bool(tracing_cfg.get("enabled", False)),
+            tracing_conn_env=str(tracing_cfg.get("applicationInsightsConnectionStringEnv", "APPLICATIONINSIGHTS_CONNECTION_STRING")),
+            tracing_content_recording=bool(tracing_cfg.get("contentRecordingEnabled", False)),
         )
 
     return Settings(

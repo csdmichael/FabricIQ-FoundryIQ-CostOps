@@ -28,6 +28,7 @@ body { background: var(--canvas); color: var(--ink); }
 button, input, select, textarea { font: inherit; letter-spacing: 0; }
 button { cursor: pointer; }
 .app-frame { height: 100vh; min-height: 100vh; overflow-x: hidden; overflow-y: auto; background: var(--canvas); }
+.showcase-standalone { height: 100vh; min-height: 100vh; overflow-y: auto; overflow-x: hidden; background: var(--canvas); padding: 0 24px 24px; }
 
 /* Desktop Navigation */
 .desktop-nav { position: fixed; inset: 0 auto 0 0; z-index: 20; width: var(--nav-width); padding: 24px 16px; display: flex; flex-direction: column; background: #102644; color: #fff; border-right: 1px solid #26405f; }
@@ -403,6 +404,7 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .prompt-run-action { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; color: var(--teal); padding-top: 8px; border-top: 1px solid var(--line); }
 
 .chat-container { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; display: flex; flex-direction: column; height: 600px; }
+.chat-primary { height: calc(100vh - 260px); min-height: 520px; }
 .chat-header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; background: #102644; color: #fff; border-radius: 6px 6px 0 0; }
 .agent-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--teal); display: grid; place-items: center; font-size: 18px; color: #fff; }
 .chat-header strong { display: block; font-size: 14px; }
@@ -440,9 +442,38 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .msg-time { display: block; font-size: 9.5px; color: var(--muted); margin-top: 6px; text-align: right; }
 .typing { display: flex; align-items: center; gap: 10px; color: var(--muted); }
 
-.chat-input-bar { display: flex; gap: 10px; padding: 12px 18px; background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 6px 6px; }
-.chat-input-bar input { flex: 1; padding: 10px 14px; border: 1px solid var(--line); border-radius: 4px; font-size: 13px; outline: none; }
+.chat-input-bar { display: flex; gap: 10px; padding: 12px 18px; background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 6px 6px; align-items: flex-start; }
+.chat-input-bar textarea.chat-text-input,
+.chat-input-bar input.chat-text-input { flex: 1; padding: 12px 16px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; outline: none; }
+.chat-input-bar textarea.chat-text-input { min-height: 72px; max-height: 180px; resize: vertical; font-family: inherit; line-height: 1.45; }
+.chat-input-bar textarea.chat-text-input:focus,
 .chat-input-bar input:focus { border-color: var(--blue); }
+.chat-input-bar .send-btn { align-self: stretch; }
+
+/* Textarea on top, responses below (chat-primary layout) */
+.chat-primary .chat-header { order: 0; }
+.chat-primary .chat-input-bar { order: 1; border-top: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+.chat-primary .chat-thread { order: 2; border-radius: 0 0 6px 6px; }
+.chat-primary .prompt-picker-menu { top: calc(100% + 8px); bottom: auto; }
+
+/* Compact saved-prompts picker */
+.prompt-picker { position: relative; flex: 0 0 auto; }
+.prompt-picker-btn { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 12.5px; font-weight: 700; color: #52606f; cursor: pointer; }
+.prompt-picker-btn ion-icon { font-size: 17px; color: var(--blue); }
+.prompt-picker.open .prompt-picker-btn { border-color: var(--blue); color: var(--ink); }
+.prompt-picker-menu { position: absolute; bottom: calc(100% + 8px); left: 0; width: min(420px, 80vw); max-height: 360px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.16); overflow: hidden; z-index: 40; }
+.prompt-search { margin: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 12.5px; outline: none; }
+.prompt-search:focus { border-color: var(--blue); }
+.prompt-picker-list { overflow-y: auto; padding: 0 6px; }
+.prompt-picker-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 0; background: transparent; border-radius: 6px; text-align: left; cursor: pointer; }
+.prompt-picker-item:hover { background: #eef4fb; }
+.pp-badge { flex: 0 0 auto; font-size: 9px; font-weight: 800; text-transform: uppercase; color: #2a4a6b; background: #e6eef7; padding: 2px 6px; border-radius: 10px; }
+.pp-title { flex: 1; font-size: 12.5px; color: var(--ink); }
+.pp-del { flex: 0 0 auto; font-size: 15px; color: var(--muted); }
+.pp-del:hover { color: var(--red); }
+.pp-empty { padding: 12px; margin: 0; color: var(--muted); font-size: 12px; text-align: center; }
+.pp-add { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 6px; padding: 9px; border: 1px dashed var(--line); background: #fafbfc; border-radius: 6px; font-size: 12px; font-weight: 700; color: var(--blue); cursor: pointer; }
+.pp-add:hover { background: #eef4fb; }
 .send-btn { width: 42px; height: 42px; background: var(--blue); color: #fff; border: 0; border-radius: 4px; display: grid; place-items: center; font-size: 18px; }
 .send-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
 
