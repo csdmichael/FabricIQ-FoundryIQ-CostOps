@@ -538,6 +538,32 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 /* Responsive Media Queries */
 .tablet-rail, .phone-tabs { display: none; }
 
+/* Global floating Data Agent action button */
+.agent-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 90;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 20px 0 16px;
+  border: 0;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #16a3a5, #1d4e8a);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 10px 26px rgba(16, 38, 68, .32);
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.agent-fab:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(16, 38, 68, .4); filter: brightness(1.04); }
+.agent-fab:focus-visible { outline: 3px solid rgba(111, 227, 214, .7); outline-offset: 2px; }
+.agent-fab ion-icon { font-size: 24px; }
+.agent-fab__label { white-space: nowrap; }
+
 @media (min-width: 768px) and (max-width: 1199px) {
 :root { --rail-width: 68px; }
 .desktop-nav { display: none; }
@@ -584,6 +610,8 @@ ion-segment { width: 100%; }
 .phone-tabs button ion-icon { font-size: 18px; }
 .phone-tabs button.active { color: #fff; }
 .phone-tabs button.active::before { content: ''; position: absolute; top: -4px; width: 28px; height: 3px; background: var(--teal); }
+.agent-fab { right: 16px; bottom: 78px; width: 52px; height: 52px; padding: 0; justify-content: center; }
+.agent-fab__label { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

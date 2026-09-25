@@ -6,6 +6,10 @@ import { IonApp, IonButton, IonIcon, IonSegment, IonSegmentButton, IonSpinner } 
 import { addIcons } from 'ionicons';
 import {
   addOutline,
+  arrowForward,
+  constructOutline,
+  mailOutline,
+  optionsOutline,
   alertCircleOutline,
   analyticsOutline,
   barChartOutline,
@@ -363,6 +367,10 @@ export class App implements OnInit {
   ) {
     addIcons({
       addOutline,
+      arrowForward,
+      constructOutline,
+      mailOutline,
+      optionsOutline,
       alertCircleOutline,
       analyticsOutline,
       barChartOutline,

@@ -3,22 +3,26 @@ import { Component, computed, signal } from '@angular/core';
 import { IonIcon } from '@ionic/angular/standalone';
 
 type ShowcaseTab = 'videos' | 'value' | 'features' | 'architecture' | 'try-it';
-type ValueModeId = 'observability' | 'optimization' | 'autonomous';
+type ValueScenarioId = 'lower' | 'planning' | 'higher';
 
 interface ShowcaseTabItem { id: ShowcaseTab; label: string; icon: string; }
 interface VideoItem { sequence: string; title: string; description: string; duration: string; }
 interface FeatureItem { icon: string; title: string; description: string; }
-interface ValueMode {
-  id: ValueModeId;
+interface SavingsLever { label: string; amount: string; note: string; kind: 'add' | 'subtract'; }
+interface ValueScenario {
+  id: ValueScenarioId;
   label: string;
+  selectorLabel: string;
   description: string;
-  annualSavings: string;
-  savingsPerModel: string;
-  wasteEliminated: string;
-  forecastAccuracy: string;
-  yearOneRoi: string;
-  payback: string;
+  monthlySpend: string;
+  grossSavingsMonthly: string;
+  platformCostMonthly: string;
+  netSavingsMonthly: string;
+  annualRunRate: string;
+  oneTimeSetup: string;
+  yearOneNet: string;
   relativeSavings: number;
+  levers: SavingsLever[];
   isDefault?: boolean;
 }
 interface ValueAssumption { label: string; value: string; detail: string; }
@@ -27,8 +31,10 @@ interface ArchitectureLayer { title: string; description: string; items: string[
 /**
  * Business-value showcase for the Multi-Cloud AI Tokenomics & FinOps platform.
  * Mirrors the structure of the Agentic SDLC showcase: video series (placeholders),
- * business value with selectable governance modes, features, architecture, and a
- * try-it panel. All figures model a Micron-scale semiconductor enterprise.
+ * business value with selectable spend scenarios, features, architecture, and a
+ * try-it panel. Financial figures follow the auditable planning model in the
+ * executive business-case deck (see docs/business-case). They are illustrative
+ * planning assumptions — not Micron spend, Microsoft pricing quotes, or guaranteed savings.
  */
 @Component({
   selector: 'app-showcase',
@@ -40,11 +46,22 @@ interface ArchitectureLayer { title: string; description: string; items: string[
 export class ShowcasePage {
   readonly activeTab = signal<ShowcaseTab>('videos');
   readonly selectedVideoIndex = signal(0);
-  readonly selectedValueModeId = signal<ValueModeId>('optimization');
+  readonly selectedValueScenarioId = signal<ValueScenarioId>('planning');
 
   readonly liveUiUrl = 'https://caldova-fabric-costops-ui.azurewebsites.net';
   readonly linkedInUrl = 'https://www.linkedin.com/in/michael-yaacoub-7a46436/';
   readonly githubUrl = 'https://github.com/csdmichael/FabricIQ-FoundryIQ-CostOps';
+
+  private readonly docsRoot = 'https://raw.githubusercontent.com/csdmichael/FabricIQ-FoundryIQ-CostOps-Docs/main/docs';
+  readonly docsUrl = 'https://github.com/csdmichael/FabricIQ-FoundryIQ-CostOps-Docs';
+  readonly setupGuideUrl = `${this.docsUrl}/blob/main/docs/setup/README.md`;
+  readonly userGuideUrl = `${this.docsUrl}/blob/main/docs/user-guide/README.md`;
+  readonly guidePdfUrl = '/assets/user-guide/AI-Tokenomics-User-Guide.pdf';
+  readonly businessCasePdfUrl = `${this.docsRoot}/business-case/AI%20Tokenomics%20-%20Executive%20Value%20and%20Architecture.pdf`;
+  readonly businessCasePptxUrl = `${this.docsRoot}/business-case/AI%20Tokenomics%20-%20Executive%20Value%20and%20Architecture.pptx`;
+  readonly businessCaseDocUrl = `${this.docsUrl}/blob/main/docs/business-case/business-case.md`;
+  readonly accessRequestUrl =
+    'mailto:myaacoub@microsoft.com?subject=Source%20code%20access%20request%20-%20FabricIQ%20FoundryIQ%20CostOps&body=Hello%20Michael%2C%0D%0A%0D%0AI%20would%20like%20to%20request%20source%20code%20access%20to%20the%20Multi-Cloud%20AI%20Tokenomics%20%26%20FinOps%20platform%20(https%3A%2F%2Fgithub.com%2Fcsdmichael%2FFabricIQ-FoundryIQ-CostOps).%0D%0A%0D%0AName%3A%0D%0AOrganization%3A%0D%0AUse%20case%3A%0D%0A';
 
   readonly tabs: ShowcaseTabItem[] = [
     { id: 'videos', label: 'Video series', icon: 'play-circle-outline' },
@@ -64,56 +81,80 @@ export class ShowcasePage {
   ];
   readonly selectedVideo = computed(() => this.videos[this.selectedVideoIndex()]);
 
-  readonly valueModes: ValueMode[] = [
+  readonly valueScenarios: ValueScenario[] = [
     {
-      id: 'observability',
-      label: 'Observability',
-      description: 'Unified multi-cloud visibility: every token, model, and dollar attributed to a team, project, and cost center.',
-      annualSavings: '$14.8M',
-      savingsPerModel: '$412K',
-      wasteEliminated: '18%',
-      forecastAccuracy: '88%',
-      yearOneRoi: '6.4x',
-      payback: '1.9 months',
-      relativeSavings: 52,
+      id: 'lower',
+      label: 'Lower spend',
+      selectorLabel: '$1M / mo',
+      description: 'A smaller in-scope footprint — early adoption or a single business unit piloting governed AI.',
+      monthlySpend: '$1.0M',
+      grossSavingsMonthly: '$230,880',
+      platformCostMonthly: '$50,000',
+      netSavingsMonthly: '$180,880',
+      annualRunRate: '$2.17M',
+      oneTimeSetup: '$300,000',
+      yearOneNet: '$1.52M',
+      relativeSavings: 8,
+      levers: [
+        { label: 'Model rightsizing', amount: '+$120,000', note: 'Route routine requests off frontier models.', kind: 'add' },
+        { label: 'Prompt / cache efficiency', amount: '+$70,400', note: 'Trim bloated context; exploit cache-read discounts.', kind: 'add' },
+        { label: 'Anomaly / waste', amount: '+$40,480', note: 'Catch retry loops, spikes, and idle quota.', kind: 'add' },
+        { label: 'Platform operations', amount: '−$50,000', note: 'Fabric capacity, gateway, hosting, and tokens.', kind: 'subtract' },
+      ],
     },
     {
-      id: 'optimization',
-      label: 'Active Optimization',
-      description: 'The default enterprise balance: ML-driven model routing, prompt-caching, and budget guardrails act on the insights.',
-      annualSavings: '$27.6M',
-      savingsPerModel: '$768K',
-      wasteEliminated: '31%',
-      forecastAccuracy: '93%',
-      yearOneRoi: '11.3x',
-      payback: '1.1 months',
-      relativeSavings: 78,
+      id: 'planning',
+      label: 'Planning case',
+      selectorLabel: '$5M / mo',
+      description: 'The planning baseline: $5M / month of in-scope AI consumption with equal, quality-safe optimization rates.',
+      monthlySpend: '$5.0M',
+      grossSavingsMonthly: '$1,154,400',
+      platformCostMonthly: '$100,000',
+      netSavingsMonthly: '$1,054,400',
+      annualRunRate: '$12.65M',
+      oneTimeSetup: '$600,000',
+      yearOneNet: '$10.32M',
+      relativeSavings: 49,
       isDefault: true,
+      levers: [
+        { label: 'Model rightsizing', amount: '+$600,000', note: 'Route routine requests off frontier models.', kind: 'add' },
+        { label: 'Prompt / cache efficiency', amount: '+$352,000', note: 'Trim bloated context; exploit cache-read discounts.', kind: 'add' },
+        { label: 'Anomaly / waste', amount: '+$202,400', note: 'Catch retry loops, spikes, and idle quota.', kind: 'add' },
+        { label: 'Platform operations', amount: '−$100,000', note: 'Fabric capacity, gateway, hosting, and tokens.', kind: 'subtract' },
+      ],
     },
     {
-      id: 'autonomous',
-      label: 'Autonomous FinOps',
-      description: 'Policy enforces quota, model downgrades, and anomaly throttling automatically once every guardrail passes.',
-      annualSavings: '$41.2M',
-      savingsPerModel: '$1.14M',
-      wasteEliminated: '44%',
-      forecastAccuracy: '96%',
-      yearOneRoi: '16.8x',
-      payback: '0.8 months',
+      id: 'higher',
+      label: 'Higher spend',
+      selectorLabel: '$10M / mo',
+      description: 'A broad, enterprise-wide rollout with in-scope AI consumption at scale across every business unit.',
+      monthlySpend: '$10.0M',
+      grossSavingsMonthly: '$2,308,800',
+      platformCostMonthly: '$150,000',
+      netSavingsMonthly: '$2,158,800',
+      annualRunRate: '$25.91M',
+      oneTimeSetup: '$900,000',
+      yearOneNet: '$21.54M',
       relativeSavings: 100,
+      levers: [
+        { label: 'Model rightsizing', amount: '+$1,200,000', note: 'Route routine requests off frontier models.', kind: 'add' },
+        { label: 'Prompt / cache efficiency', amount: '+$704,000', note: 'Trim bloated context; exploit cache-read discounts.', kind: 'add' },
+        { label: 'Anomaly / waste', amount: '+$404,800', note: 'Catch retry loops, spikes, and idle quota.', kind: 'add' },
+        { label: 'Platform operations', amount: '−$150,000', note: 'Fabric capacity, gateway, hosting, and tokens.', kind: 'subtract' },
+      ],
     },
   ];
-  readonly selectedValueMode = computed(
-    () => this.valueModes.find(m => m.id === this.selectedValueModeId()) ?? this.valueModes[1],
+  readonly selectedValueScenario = computed(
+    () => this.valueScenarios.find(s => s.id === this.selectedValueScenarioId()) ?? this.valueScenarios[1],
   );
 
   readonly valueAssumptions: ValueAssumption[] = [
-    { label: 'Enterprise scale', value: '48,000 FTE', detail: 'Semiconductor design, fab operations, and shared services.' },
-    { label: 'Annual AI spend', value: '$89M', detail: 'Across AWS Bedrock, GCP Vertex, Azure OpenAI, OpenAI, and Anthropic.' },
-    { label: 'Governed tokens', value: '281B / mo', detail: '15K+ workloads across 5 clouds and 14 model families.' },
-    { label: 'Addressable waste', value: '30–45%', detail: 'Prompt bloat, over-provisioned frontier models, and idle quota.' },
-    { label: 'Platform run cost', value: '$1.9M / year', detail: 'Cloud data capacity, gateway, hosting, and model tokens.' },
-    { label: 'Year-1 investment', value: '$6.4M', detail: 'Build, connectors, ML models, enablement, and platform run.' },
+    { label: 'In-scope AI consumption', value: '$5M / mo', detail: 'Planning baseline for the default case; benefit scales with spend.' },
+    { label: 'Gross opportunity', value: '23.088%', detail: '1 − 0.88 × 0.92 × 0.95 across three non-overlapping levers.' },
+    { label: 'Model rightsizing', value: '12%', detail: 'Route routine requests off frontier models; preserve quality and latency.' },
+    { label: 'Prompt & cache efficiency', value: '8%', detail: 'Trim bloated context and exploit prompt cache-read discounts.' },
+    { label: 'Anomaly & waste', value: '5%', detail: 'Catch retry loops, spikes, and idle reserved quota.' },
+    { label: 'Platform run cost', value: '$100K / mo', detail: 'Fabric capacity, APIM gateway, hosting, and model tokens (default case).' },
   ];
 
   readonly features: FeatureItem[] = [
@@ -137,5 +178,5 @@ export class ShowcasePage {
 
   setTab(tab: ShowcaseTab): void { this.activeTab.set(tab); }
   selectVideo(index: number): void { this.selectedVideoIndex.set(index); }
-  selectValueMode(id: ValueModeId): void { this.selectedValueModeId.set(id); }
+  selectValueScenario(id: ValueScenarioId): void { this.selectedValueScenarioId.set(id); }
 }

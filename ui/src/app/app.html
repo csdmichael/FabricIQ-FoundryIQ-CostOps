@@ -881,4 +881,18 @@
     </main>
   </div>
   }
+
+  <!-- Global floating Data Agent button (visible on every page except the showcase and the agent page itself) -->
+  @if (activeView() !== 'data-agent' && activeView() !== 'showcase') {
+    <button
+      type="button"
+      class="agent-fab"
+      (click)="setView('data-agent')"
+      aria-label="Open the Tokenomics Data Agent chat"
+      title="Ask the Tokenomics Data Agent"
+    >
+      <ion-icon name="chatbubbles-outline" aria-hidden="true"></ion-icon>
+      <span class="agent-fab__label">Ask the Data Agent</span>
+    </button>
+  }
 </ion-app>

@@ -18,6 +18,23 @@
     </div>
   </div>
 
+  <!-- Value proposition gadget -->
+  <aside class="sc-valueprop" aria-label="Value proposition">
+    <div class="vp-copy">
+      <p class="vp-eyebrow"><ion-icon name="trending-up-outline"></ion-icon> Value proposition</p>
+      <h2>Turn ungoverned multi-cloud AI spend into billed savings</h2>
+      <p>Govern, attribute, and optimize every token — a quality-safe FinOps control plane that cuts 30–45% of avoidable AI cost.</p>
+    </div>
+    <dl class="vp-metrics">
+      <div><dt>$1.05M</dt><dd>Net savings / month</dd></div>
+      <div><dt>$12.65M</dt><dd>Annual net run-rate</dd></div>
+      <div><dt>23.088%</dt><dd>Gross opportunity</dd></div>
+    </dl>
+    <button type="button" class="vp-cta" (click)="setTab('value')">
+      Explore the business value <ion-icon name="arrow-forward"></ion-icon>
+    </button>
+  </aside>
+
   <!-- Tabs -->
   <div class="sc-tabs" role="tablist">
     @for (tab of tabs; track tab.id) {
@@ -56,49 +73,86 @@
 
   <!-- BUSINESS VALUE -->
   <div class="sc-panel" [hidden]="activeTab() !== 'value'">
+    <p class="value-mode-desc value-intro">
+      An auditable planning model: turn governed visibility into quality-safe optimization and billed savings.
+      Figures follow the executive business case and scale with in-scope AI consumption.
+    </p>
+
     <div class="value-mode-selector">
-      @for (mode of valueModes; track mode.id) {
-        <button type="button" [class.is-active]="selectedValueModeId() === mode.id" (click)="selectValueMode(mode.id)">
-          {{ mode.label }}
-          @if (mode.isDefault) { <small>Default</small> }
+      @for (scenario of valueScenarios; track scenario.id) {
+        <button type="button" [class.is-active]="selectedValueScenarioId() === scenario.id" (click)="selectValueScenario(scenario.id)">
+          {{ scenario.label }} <small>{{ scenario.selectorLabel }}</small>
+          @if (scenario.isDefault) { <em>Planning case</em> }
         </button>
       }
     </div>
-    <p class="value-mode-desc">{{ selectedValueMode().description }}</p>
+    <p class="value-mode-desc">{{ selectedValueScenario().description }}</p>
 
     <div class="value-kpis">
       <div class="value-kpi highlight">
-        <span>Annual savings</span>
-        <strong>{{ selectedValueMode().annualSavings }}</strong>
-        <small>Net of platform run cost</small>
+        <span>Net savings / month</span>
+        <strong>{{ selectedValueScenario().netSavingsMonthly }}</strong>
+        <small>Gross minus platform run cost</small>
+      </div>
+      <div class="value-kpi highlight">
+        <span>Net annual run-rate</span>
+        <strong>{{ selectedValueScenario().annualRunRate }}</strong>
+        <small>Steady state, 12-month</small>
+      </div>
+      <div class="value-kpi highlight">
+        <span>Year-one net benefit</span>
+        <strong>{{ selectedValueScenario().yearOneNet }}</strong>
+        <small>After ramp + one-time setup</small>
       </div>
       <div class="value-kpi">
-        <span>Savings / model family</span>
-        <strong>{{ selectedValueMode().savingsPerModel }}</strong>
-        <small>Average across 14 families</small>
+        <span>In-scope AI spend</span>
+        <strong>{{ selectedValueScenario().monthlySpend }}</strong>
+        <small>Per month, in scope</small>
       </div>
       <div class="value-kpi">
-        <span>Waste eliminated</span>
-        <strong>{{ selectedValueMode().wasteEliminated }}</strong>
-        <small>Prompt bloat &amp; over-provisioning</small>
+        <span>Gross savings / month</span>
+        <strong>{{ selectedValueScenario().grossSavingsMonthly }}</strong>
+        <small>23.088% gross opportunity</small>
       </div>
       <div class="value-kpi">
-        <span>Forecast accuracy</span>
-        <strong>{{ selectedValueMode().forecastAccuracy }}</strong>
-        <small>Cost &amp; capacity models</small>
-      </div>
-      <div class="value-kpi">
-        <span>Year-1 ROI</span>
-        <strong>{{ selectedValueMode().yearOneRoi }}</strong>
-        <small>Payback {{ selectedValueMode().payback }}</small>
+        <span>One-time setup</span>
+        <strong>{{ selectedValueScenario().oneTimeSetup }}</strong>
+        <small>Build, connectors &amp; enablement</small>
       </div>
     </div>
 
     <div class="value-bar">
-      <div class="value-bar-fill" [style.width.%]="selectedValueMode().relativeSavings"></div>
+      <div class="value-bar-fill" [style.width.%]="selectedValueScenario().relativeSavings"></div>
     </div>
 
-    <h3 class="value-subhead">Modeled on a Micron-scale enterprise</h3>
+    <h3 class="value-subhead">Three levers. One non-overlapping model.</h3>
+    <div class="value-levers">
+      @for (lever of selectedValueScenario().levers; track lever.label) {
+        <div class="value-lever" [class.is-subtract]="lever.kind === 'subtract'">
+          <strong>{{ lever.amount }}</strong>
+          <span>{{ lever.label }}</span>
+          <small>{{ lever.note }}</small>
+        </div>
+      }
+      <div class="value-lever net">
+        <strong>{{ selectedValueScenario().netSavingsMonthly }}</strong>
+        <span>Net monthly benefit</span>
+        <small>Monthly benefit builds sequentially, not additively.</small>
+      </div>
+    </div>
+
+    <div class="value-method">
+      <p class="value-equation">
+        <strong>{{ selectedValueScenario().monthlySpend }} in-scope spend</strong><span>×</span><strong>23.088% gross opportunity</strong><span>−</span><strong>{{ selectedValueScenario().platformCostMonthly }}/mo platform</strong><span>=</span><strong>{{ selectedValueScenario().netSavingsMonthly }} net / month</strong>
+      </p>
+      <p class="value-note">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        Illustrative planning assumptions — not Micron spend, Microsoft pricing quotes, or guaranteed savings.
+        Approve only quality-safe optimizations; Finance validates realized savings against invoices.
+      </p>
+    </div>
+
+    <h3 class="value-subhead">Auditable financial assumptions</h3>
     <div class="value-assumptions">
       @for (a of valueAssumptions; track a.label) {
         <div class="assumption">
@@ -107,6 +161,13 @@
           <small>{{ a.detail }}</small>
         </div>
       }
+    </div>
+
+    <div class="value-sources" aria-label="Business case source material">
+      <span>Source material</span>
+      <a [href]="businessCasePdfUrl" target="_blank" rel="noopener noreferrer">Executive value &amp; architecture PDF <ion-icon name="open-outline"></ion-icon></a>
+      <a [href]="businessCasePptxUrl" target="_blank" rel="noopener noreferrer">Download presentation <ion-icon name="download-outline"></ion-icon></a>
+      <a [href]="businessCaseDocUrl" target="_blank" rel="noopener noreferrer">Full business case <ion-icon name="document-text-outline"></ion-icon></a>
     </div>
   </div>
 
@@ -126,8 +187,8 @@
   <!-- ARCHITECTURE -->
   <div class="sc-panel" [hidden]="activeTab() !== 'architecture'">
     <figure class="arch-figure">
-      <img src="assets/architecture.png" alt="AI Tokenomics architecture and solution overview" loading="lazy" />
-      <figcaption>End-to-end AI Tokenomics architecture — from multi-cloud ingestion through the governed medallion lakehouse, 12 PySpark ML models, and the serving layer.</figcaption>
+      <img src="assets/architecture.png" alt="AI Tokenomics end-to-end architecture" loading="lazy" />
+      <figcaption>AI Tokenomics — end-to-end architecture: multi-cloud token consumption and Microsoft Foundry through Blob/ETL/Cosmos ingestion, the Microsoft Fabric Tokenomics workspace (OneLake lakehouse, Fabric Data Agent, and 12 PySpark ML outputs), and the user-experience &amp; business-insights layer (Angular/Ionic portal, reports, Power BI, and Foundry agent).</figcaption>
     </figure>
     <div class="arch-flow">
       @for (layer of architectureLayers; track layer.title; let last = $last) {
@@ -150,10 +211,38 @@
         <strong>Open the live CostOps portal</strong>
         <span>Go to the Tokenomics home and explore dashboards, ML insights, reports, and the Data Agent on live governed data.</span>
       </a>
-      <a class="try-card" [href]="githubUrl" target="_blank" rel="noopener noreferrer">
-        <ion-icon name="logo-github"></ion-icon>
-        <strong>View the source on GitHub</strong>
-        <span>Config-driven, multi-cloud AI tokenomics and FinOps implementation.</span>
+      <div class="try-card">
+        <ion-icon name="document-text-outline"></ion-icon>
+        <strong>User guide</strong>
+        <span>Step-by-step walkthrough of every CostOps screen and how to use the platform.</span>
+        <div class="try-actions">
+          <a [href]="guidePdfUrl" target="_blank" rel="noopener noreferrer">Open PDF <ion-icon name="open-outline"></ion-icon></a>
+          <a [href]="guidePdfUrl" download="AI-Tokenomics-User-Guide.pdf">Download PDF <ion-icon name="download-outline"></ion-icon></a>
+          <a [href]="userGuideUrl" target="_blank" rel="noopener noreferrer">View on GitHub <ion-icon name="logo-github"></ion-icon></a>
+        </div>
+      </div>
+      <div class="try-card">
+        <ion-icon name="construct-outline"></ion-icon>
+        <strong>Setup &amp; deployment guide</strong>
+        <span>Provision Fabric, Foundry, APIM, and the CostOps portal in your own Azure environment.</span>
+        <div class="try-actions">
+          <a [href]="setupGuideUrl" target="_blank" rel="noopener noreferrer">Setup guide <ion-icon name="open-outline"></ion-icon></a>
+          <a [href]="docsUrl" target="_blank" rel="noopener noreferrer">Open GitHub docs <ion-icon name="logo-github"></ion-icon></a>
+        </div>
+      </div>
+      <div class="try-card">
+        <ion-icon name="trending-up-outline"></ion-icon>
+        <strong>Executive business case</strong>
+        <span>The auditable value model, architecture brief, and 90-day pilot plan.</span>
+        <div class="try-actions">
+          <a [href]="businessCasePdfUrl" target="_blank" rel="noopener noreferrer">Value &amp; architecture PDF <ion-icon name="open-outline"></ion-icon></a>
+          <a [href]="businessCasePptxUrl" target="_blank" rel="noopener noreferrer">Download presentation <ion-icon name="download-outline"></ion-icon></a>
+        </div>
+      </div>
+      <a class="try-card" [href]="accessRequestUrl">
+        <ion-icon name="mail-outline"></ion-icon>
+        <strong>Request source code access</strong>
+        <span>Draft an email to Michael Yaacoub (myaacoub&#64;microsoft.com) for access to the platform repository.</span>
       </a>
       <a class="try-card" [href]="linkedInUrl" target="_blank" rel="noopener noreferrer">
         <ion-icon name="person-circle-outline"></ion-icon>
