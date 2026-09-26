@@ -91,6 +91,78 @@
       "description": "Queries Algorithm 08 (Agent ROI Analytics) for business-outcome traceability.",
       "targetTables": ["ml.agent_roi_output", "ml.tokenomics_usage_fact"],
       "suggestedDimensions": ["business_unit_id", "agent_id", "roi_ratio"]
+    },
+    {
+      "id": "pricing-rate-cards",
+      "title": "Current Model Rate Cards by Provider",
+      "category": "Model Pricing",
+      "prompt": "Show the current token rate cards from the governed prices schema. List market and negotiated input and output price per million tokens for each model, ordered from cheapest to most expensive input rate, and highlight the enterprise discount percentage per model.",
+      "description": "Reads prices.token_price_history (is_current) to show live market vs negotiated rate cards and discounts.",
+      "targetTables": ["prices.token_price_history"],
+      "suggestedDimensions": ["source_code", "model_name", "market_input_usd_per_million", "negotiated_input_usd_per_million"]
+    },
+    {
+      "id": "pricing-cheapest-model",
+      "title": "Cheapest Model for a Task at Equal Quality",
+      "category": "Model Pricing",
+      "prompt": "For summarization workloads, which model has the lowest negotiated output price per million tokens while keeping a benchmark quality score of at least 0.9? Compare the top candidates and quantify the price gap versus the frontier model we use today.",
+      "description": "Joins prices.token_price_history with ml.model_benchmark to find the best price-performance model for a task.",
+      "targetTables": ["prices.token_price_history", "ml.model_benchmark"],
+      "suggestedDimensions": ["model_name", "task_type", "negotiated_output_usd_per_million", "quality_score"]
+    },
+    {
+      "id": "pricing-history",
+      "title": "When Did Token Prices Change?",
+      "category": "Model Pricing",
+      "prompt": "Show the effective-dated price-change history for GPT and Claude models. For each model, list when the token price changed, the old versus new market input and output rate, and which price source published the change.",
+      "description": "Reads the SCD-2 prices.token_price_history to trace when and why model prices changed over time.",
+      "targetTables": ["prices.token_price_history"],
+      "suggestedDimensions": ["model_name", "effective_from", "effective_to", "market_input_usd_per_million", "source_name"]
+    },
+    {
+      "id": "pricing-consumption-cost",
+      "title": "Total Consumption Cost from Governed Prices",
+      "category": "Model Pricing",
+      "prompt": "Compute total token consumption cost for the last 30 days by joining usage to the price that was effective at each usage date. Break down market cost, negotiated cost, and the resulting savings by provider and model, and confirm which price source was used.",
+      "description": "Recomputes cost from prices.token_price_history (source of truth) joined to usage at the effective price per event date.",
+      "targetTables": ["prices.token_price_history", "ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["source_code", "model_name", "usage_date"]
+    },
+    {
+      "id": "ontology-overview",
+      "title": "What Business Concepts Does the Platform Model?",
+      "category": "Business Ontology",
+      "prompt": "Using the business ontology, list the core business concepts (classes) grouped by category (pricing, fact, dimension, governance, ML output, action) and, for each, which governed Lakehouse table backs it and its purpose. Which class is the source of truth for pricing?",
+      "description": "Reads ontology.ontology_class to explain the semantic model and how business concepts map to prices.* and ml.* tables.",
+      "targetTables": ["ontology.ontology_class"],
+      "suggestedDimensions": ["category", "class_id", "source_table"]
+    },
+    {
+      "id": "ontology-pricing-usage",
+      "title": "How Is a Token Usage Event Priced?",
+      "category": "Business Ontology",
+      "prompt": "Using the ontology relationships, explain how a Token Usage Event is connected to pricing and cost. Which relationship links usage to the effective price, how is a usage event attributed to a project and cost center, and what does 'pricedBy' mean?",
+      "description": "Reads ontology.ontology_relationship to explain the pricedBy, consumes, attributedTo, and chargedTo relationships between usage and pricing/org classes.",
+      "targetTables": ["ontology.ontology_relationship", "ontology.ontology_class"],
+      "suggestedDimensions": ["from_class", "to_class", "relationship", "join_via"]
+    },
+    {
+      "id": "ontology-feedback-loop",
+      "title": "How Do ML Insights Become Actions?",
+      "category": "Business Ontology",
+      "prompt": "Using the ontology, describe the closed FinOps feedback loop: how an ML Insight is derived from usage and prices and how it recommends an Action. Which relationships connect Model Optimization to a Model switch, Budget Overrun Risk to a Budget, and Quota Recommendation to a Quota policy?",
+      "description": "Reads ontology.ontology_relationship to trace the derivation and action relationships (derivedFrom, usesPricesFrom, recommends, proposesSwitchTo, threatens, adjusts).",
+      "targetTables": ["ontology.ontology_relationship"],
+      "suggestedDimensions": ["from_class", "to_class", "relationship", "relationship_type"]
+    },
+    {
+      "id": "ontology-properties",
+      "title": "What Attributes Describe Pricing & Insights?",
+      "category": "Business Ontology",
+      "prompt": "Using the ontology, list the key properties defined for the Price Point and ML Insight classes and explain what each property means for FinOps analysis (for example effective_from, is_current, market vs negotiated rates, risk_score, estimated_savings_usd).",
+      "description": "Reads ontology.ontology_property to describe the attributes of the pricing and ML-insight business classes.",
+      "targetTables": ["ontology.ontology_property", "ontology.ontology_class"],
+      "suggestedDimensions": ["class_id", "property_name"]
     }
   ]
 }

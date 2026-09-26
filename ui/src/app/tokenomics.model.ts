@@ -178,7 +178,7 @@ export interface ActionRecommendationsResponse {
 export interface SavedPrompt {
   id: string;
   title: string;
-  category: 'Executive & FinOps' | 'Cost Anomalies & Spikes' | 'Model Optimization' | 'Quota & Capacity' | 'Prompt Quality';
+  category: 'Executive & FinOps' | 'Cost Anomalies & Spikes' | 'Model Optimization' | 'Quota & Capacity' | 'Prompt Quality' | 'Model Pricing' | 'Business Ontology';
   prompt: string;
   description: string;
   targetTables: string[];
