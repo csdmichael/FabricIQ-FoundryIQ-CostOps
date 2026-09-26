@@ -1,0 +1,97 @@
+name: Deploy — infra & ontology
+
+# Manually triggered deployment. Uses OIDC federation to Azure (no stored secrets).
+# Configure these repo/environment secrets:
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+# The federated identity must have rights to deploy to the target resource group and,
+# for the ontology step, Contributor on the Fabric workspace.
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Which component to deploy
+        type: choice
+        default: pricing-function
+        options:
+          - pricing-function
+          - ontology
+          - all
+      engine:
+        description: IaC engine for Azure resources
+        type: choice
+        default: bicep
+        options:
+          - bicep
+          - terraform
+      environment:
+        description: Target environment (for approvals/secrets)
+        type: string
+        default: production
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.component }} (${{ inputs.engine }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve resource group
+        id: cfg
+        run: |
+          RG=$(python -c "import json;print(json.load(open('config/deployment.json'))['azure']['resourceGroup'])")
+          echo "resource_group=$RG" >> "$GITHUB_OUTPUT"
+
+      # ---------- Pricing Function (Bicep) ----------
+      - name: Deploy pricing-function (Bicep)
+        if: (inputs.component == 'pricing-function' || inputs.component == 'all') && inputs.engine == 'bicep'
+        run: |
+          az deployment group create \
+            --resource-group "${{ steps.cfg.outputs.resource_group }}" \
+            --template-file bicep/pricing-function/main.bicep \
+            --name "pricing-function-${{ github.run_number }}"
+
+      # ---------- Pricing Function (Terraform) ----------
+      - name: Set up Terraform
+        if: (inputs.component == 'pricing-function' || inputs.component == 'all') && inputs.engine == 'terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Deploy pricing-function (Terraform)
+        if: (inputs.component == 'pricing-function' || inputs.component == 'all') && inputs.engine == 'terraform'
+        env:
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          terraform -chdir=terraform/pricing-function init -input=false
+          terraform -chdir=terraform/pricing-function apply -auto-approve -input=false
+
+      # ---------- Fabric IQ Ontology ----------
+      - name: Set up Python
+        if: inputs.component == 'ontology' || inputs.component == 'all'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Deploy Fabric IQ ontology
+        if: inputs.component == 'ontology' || inputs.component == 'all'
+        env:
+          FABRIC_WORKSPACE_ID: ${{ vars.FABRIC_WORKSPACE_ID }}
+        run: |
+          pip install azure-identity
+          python scripts/deploy-fabric-ontology.py

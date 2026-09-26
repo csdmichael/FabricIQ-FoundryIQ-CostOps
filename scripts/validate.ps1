@@ -190,7 +190,8 @@ try {
         'bicep/apim/service.bicep',
         'bicep/apim/main.bicep',
         'bicep/ui/main.bicep',
-        'bicep/tokenomics-data/main.bicep'
+        'bicep/tokenomics-data/main.bicep',
+        'bicep/pricing-function/main.bicep'
     )
     foreach ($file in $bicepFiles) {
         $compiled = az bicep build --file $file --stdout
