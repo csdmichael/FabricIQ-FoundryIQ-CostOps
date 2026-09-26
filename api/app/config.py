@@ -125,6 +125,10 @@ class Settings:
     apim_rate_limit_renewal_seconds: int = 60
     apim_model_token_limit_per_minute: int = 50000
 
+    # Pricing source of truth (Fabric ``prices`` schema)
+    prices_schema: str = "prices"
+    prices_table: str = "token_price_history"
+
     def provider_name(self, code: str) -> str:
         for provider in self.providers:
             if provider.code == code:
@@ -255,4 +259,6 @@ def get_settings() -> Settings:
         apim_rate_limit_calls=int(apim_cfg.get("rateLimitCalls", 60)),
         apim_rate_limit_renewal_seconds=int(apim_cfg.get("rateLimitRenewalSeconds", 60)),
         apim_model_token_limit_per_minute=int(apim_cfg.get("modelTokenLimitPerMinute", 50000)),
+        prices_schema=str(api_cfg.get("pricesSchema", "prices")),
+        prices_table=str(api_cfg.get("pricesTable", "token_price_history")),
     )

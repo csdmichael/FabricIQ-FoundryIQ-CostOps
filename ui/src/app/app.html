@@ -156,8 +156,13 @@
             } @else if (actionsError()) {
               <div class="state-block error">
                 <ion-icon name="warning-outline"></ion-icon>
-                <h3>Recommendations unavailable</h3>
-                <p>{{ actionsError() }}</p>
+                <h3>{{ actionsError() }}</h3>
+                @if (actionsErrorInfo()?.remediation) {
+                  <p class="remediation"><strong>What to do:</strong> {{ actionsErrorInfo()?.remediation }}</p>
+                }
+                @if (actionsErrorInfo()?.detail) {
+                  <details class="error-detail"><summary>Technical detail</summary><code>{{ actionsErrorInfo()?.detail }}</code></details>
+                }
                 <button type="button" class="primary-btn" (click)="loadActions()">Retry</button>
               </div>
             } @else if (actions(); as data) {
@@ -319,7 +324,14 @@
         <section class="state-panel"><ion-spinner name="crescent"></ion-spinner><p>Loading governed usage telemetry</p></section>
       } @else if (error()) {
         <section class="state-panel error-state">
-          <ion-icon name="warning-outline"></ion-icon><h2>Telemetry unavailable</h2><p>{{ error() }}</p>
+          <ion-icon name="warning-outline"></ion-icon>
+          <h2>{{ error() }}</h2>
+          @if (errorInfo()?.remediation) {
+            <p class="remediation"><strong>What to do:</strong> {{ errorInfo()?.remediation }}</p>
+          }
+          @if (errorInfo()?.detail) {
+            <details class="error-detail"><summary>Technical detail</summary><code>{{ errorInfo()?.detail }}</code></details>
+          }
           <ion-button color="dark" (click)="refresh()">Retry</ion-button>
         </section>
       } @else if (dashboard(); as data) {

@@ -15,7 +15,7 @@ import logging
 from datetime import datetime, timezone
 
 from .config import Settings
-from .fabric_client import FabricSqlClient
+from .fabric_client import FabricError, FabricSqlClient
 from .models import (
     ActionCategorySummary,
     ActionChangePreview,
@@ -247,6 +247,11 @@ class RecommendationsService:
         )
         try:
             available = self._available_tables()
+        except FabricError as exc:  # pragma: no cover - connectivity dependent
+            logger.warning("Recommendations unavailable: %s", exc.reason)
+            base.status = "unavailable"
+            base.detail = f"{exc.reason} {exc.remediation}".strip()
+            return base
         except Exception as exc:  # pragma: no cover - connectivity dependent
             logger.warning("Recommendations unavailable: %s", exc)
             base.status = "unavailable"

@@ -162,32 +162,126 @@ class TokenomicsTools:
         rows = self._client.query(f"SELECT TOP {limit} * FROM [{self._s.schema}].[{table}]")
         return {"insight": insight, "table": f"{self._s.schema}.{table}", "rowCount": len(rows), "rows": rows}
 
-    def get_model_pricing(self, limit: int = 25) -> dict:
+    def get_model_pricing(self, limit: int = 25, provider: str | None = None) -> dict:
         limit = max(1, min(int(limit), 60))
-        price_table = f"[{self._s.schema}].[{self._s.price_history_table}]"
+        price_table = f"[{self._s.prices_schema}].[{self._s.prices_table}]"
+        where = "WHERE is_current = 1"
+        params: tuple = ()
+        if provider:
+            where += " AND source_code = ?"
+            params = (str(provider).lower(),)
         rows = self._client.query(
             f"""
-            SELECT TOP {limit} source_code, model_family, model_name,
+            SELECT TOP {limit} source_code, model_family, model_name, model_version,
                    market_input_usd_per_million, market_output_usd_per_million,
-                   negotiated_input_usd_per_million, negotiated_output_usd_per_million
-            FROM {price_table} WHERE is_current = 1
+                   negotiated_input_usd_per_million, negotiated_output_usd_per_million,
+                   effective_from, source_name
+            FROM {price_table} {where}
             ORDER BY market_input_usd_per_million ASC
-            """
+            """,
+            params,
         )
-        provider = self._s.provider_name
+        provider_name = self._s.provider_name
         return {
+            "source": f"{self._s.prices_schema}.{self._s.prices_table}",
             "rateCards": [
                 {
-                    "provider": provider(r["source_code"]),
+                    "provider": provider_name(r["source_code"]),
                     "model": r["model_name"],
                     "family": r["model_family"],
+                    "version": r["model_version"],
                     "marketInputPerM": float(r["market_input_usd_per_million"] or 0),
                     "marketOutputPerM": float(r["market_output_usd_per_million"] or 0),
                     "negotiatedInputPerM": float(r["negotiated_input_usd_per_million"] or 0),
                     "negotiatedOutputPerM": float(r["negotiated_output_usd_per_million"] or 0),
+                    "effectiveFrom": str(r["effective_from"]),
+                    "sourceName": r.get("source_name"),
                 }
                 for r in rows
-            ]
+            ],
+        }
+
+    def get_price_changes(self, model: str | None = None, provider: str | None = None, limit: int = 25) -> dict:
+        """Effective-dated price-change history from the governed prices schema."""
+        limit = max(1, min(int(limit), 100))
+        price_table = f"[{self._s.prices_schema}].[{self._s.prices_table}]"
+        clauses: list[str] = []
+        params: list = []
+        if model:
+            clauses.append("model_name = ?")
+            params.append(str(model))
+        if provider:
+            clauses.append("source_code = ?")
+            params.append(str(provider).lower())
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = self._client.query(
+            f"""
+            SELECT TOP {limit} source_code, model_family, model_name, model_version,
+                   effective_from, effective_to, is_current,
+                   market_input_usd_per_million, market_output_usd_per_million,
+                   negotiated_input_usd_per_million, negotiated_output_usd_per_million,
+                   source_name
+            FROM {price_table} {where}
+            ORDER BY model_name ASC, effective_from DESC
+            """,
+            tuple(params),
+        )
+        provider_name = self._s.provider_name
+        return {
+            "source": f"{self._s.prices_schema}.{self._s.prices_table}",
+            "priceChanges": [
+                {
+                    "provider": provider_name(r["source_code"]),
+                    "model": r["model_name"],
+                    "version": r["model_version"],
+                    "effectiveFrom": str(r["effective_from"]),
+                    "effectiveTo": str(r["effective_to"]) if r["effective_to"] else None,
+                    "isCurrent": bool(r["is_current"]),
+                    "marketInputPerM": float(r["market_input_usd_per_million"] or 0),
+                    "marketOutputPerM": float(r["market_output_usd_per_million"] or 0),
+                    "negotiatedInputPerM": float(r["negotiated_input_usd_per_million"] or 0),
+                    "negotiatedOutputPerM": float(r["negotiated_output_usd_per_million"] or 0),
+                    "sourceName": r.get("source_name"),
+                }
+                for r in rows
+            ],
+        }
+
+    def get_consumption_cost(self, days: int = 30) -> dict:
+        """Total token consumption cost, computed by joining usage to the governed
+        prices price history effective at each usage date."""
+        start = self._window_start(days)
+        price_table = f"[{self._s.prices_schema}].[{self._s.prices_table}]"
+        rows = self._client.query(
+            f"""
+            SELECT
+                SUM((f.input_tokens  / 1000000.0) * p.market_input_usd_per_million
+                  + (f.output_tokens / 1000000.0) * p.market_output_usd_per_million)     AS market_cost,
+                SUM((f.input_tokens  / 1000000.0) * p.negotiated_input_usd_per_million
+                  + (f.output_tokens / 1000000.0) * p.negotiated_output_usd_per_million) AS negotiated_cost,
+                SUM(f.total_tokens) AS priced_tokens
+            FROM {self._fact} f
+            JOIN {price_table} p
+              ON p.source_code   = f.source_code
+             AND p.model_name    = f.model_name
+             AND p.model_version = f.model_version
+             AND f.usage_date   >= p.effective_from
+             AND (p.effective_to IS NULL OR f.usage_date < p.effective_to)
+            WHERE f.usage_date >= ?
+            """,
+            (start,),
+        )
+        row = rows[0] if rows else {}
+        market = float(row.get("market_cost") or 0)
+        negotiated = float(row.get("negotiated_cost") or 0)
+        return {
+            "windowDays": days,
+            "currency": self._s.currency,
+            "priceSource": f"{self._s.prices_schema}.{self._s.prices_table}",
+            "marketCostUsd": round(market, 2),
+            "negotiatedCostUsd": round(negotiated, 2),
+            "savingsUsd": round(market - negotiated, 2),
+            "pricedTokens": int(row.get("priced_tokens") or 0),
         }
 
     # -- dispatch --------------------------------------------------------
@@ -198,6 +292,8 @@ class TokenomicsTools:
             "get_cost_by_dimension": self.get_cost_by_dimension,
             "get_ml_insight": self.get_ml_insight,
             "get_model_pricing": self.get_model_pricing,
+            "get_price_changes": self.get_price_changes,
+            "get_consumption_cost": self.get_consumption_cost,
         }.get(name)
         if handler is None:
             return json.dumps({"error": f"unknown tool '{name}'"})
@@ -270,8 +366,40 @@ def tool_definitions() -> list[dict]:
             "type": "function",
             "function": {
                 "name": "get_model_pricing",
-                "description": "Current multi-cloud model rate cards (market and negotiated input/output prices per million tokens).",
-                "parameters": {"type": "object", "properties": {"limit": {"type": "integer"}}},
+                "description": "Current multi-cloud model rate cards from the governed prices schema (market and negotiated input/output prices per million tokens). Optionally filter by provider code (aws, gcp, msft, oai, cld).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer"},
+                        "provider": {"type": "string", "description": "Provider code: aws, gcp, msft, oai, or cld"},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_price_changes",
+                "description": "Effective-dated price-change history (when a model's token price changed, with old vs new rates) from the governed prices.token_price_history table. Filter by model and/or provider.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "model": {"type": "string", "description": "Model name, e.g. gpt-4.1-mini"},
+                        "provider": {"type": "string", "description": "Provider code: aws, gcp, msft, oai, or cld"},
+                        "limit": {"type": "integer"},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_consumption_cost",
+                "description": "Total token consumption cost for a window, computed live by joining usage to the governed price history effective at each usage date (market vs negotiated, and savings).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"days": {"type": "integer", "enum": [1, 7, 30, 90]}},
+                },
             },
         },
     ]

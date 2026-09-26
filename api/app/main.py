@@ -19,15 +19,17 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .agent_service import AgentChatService, AgentUnavailableError
 from .config import get_settings
 from .dashboard_service import DashboardService
-from .fabric_client import FabricSqlClient
+from .fabric_client import FabricError, FabricSqlClient
 from .models import (
     ActionRecommendationsResponse,
     ChatRequest,
     ChatResponse,
+    ConsumptionCost,
     PowerBiEmbedArtifact,
     PowerBiEmbedConfig,
     SamplePrompt,
@@ -59,6 +61,12 @@ _agent = AgentChatService(settings, _client)
 _recommendations = RecommendationsService(settings, _client)
 
 
+@app.exception_handler(FabricError)
+async def _fabric_error_handler(_request, exc: FabricError) -> JSONResponse:
+    """Return the *real* classified reason + remediation (not a raw stack trace)."""
+    return JSONResponse(status_code=exc.http_status, content={"detail": exc.to_dict()})
+
+
 def _load_prompts() -> dict:
     from .config import _find_file
 
@@ -71,19 +79,16 @@ def _load_prompts() -> dict:
 
 @app.get("/health")
 def health() -> dict:
-    fabric_ok = False
-    detail = "ok"
-    try:
-        fabric_ok = _client.ping()
-    except Exception as exc:  # pragma: no cover - connectivity dependent
-        detail = f"fabric_unavailable: {exc}"
-        logger.warning("Health probe failed: %s", exc)
+    """Liveness + classified Fabric connectivity (surfaces capacity-paused, auth, etc.)."""
+    probe = _client.diagnose()
     return {
-        "status": "ok" if fabric_ok else "degraded",
-        "fabric": fabric_ok,
+        "status": "ok" if probe.get("ok") else "degraded",
+        "fabric": bool(probe.get("ok")),
         "sqlEndpoint": settings.sql_endpoint_host,
         "lakehouse": settings.lakehouse_name,
-        "detail": detail,
+        "reason": probe.get("reason", ""),
+        "remediation": probe.get("remediation", ""),
+        "category": probe.get("category", "unknown"),
     }
 
 
@@ -92,6 +97,8 @@ def summary(days: int = Query(default=None, description="Observation window in d
     window = settings.resolve_window(days)
     try:
         return _service.build(window)
+    except FabricError:
+        raise  # classified reason + remediation handled centrally
     except Exception as exc:  # pragma: no cover - connectivity dependent
         logger.exception("Failed to build tokenomics summary")
         raise HTTPException(status_code=502, detail=f"fabric_query_failed: {exc}") from exc
@@ -99,11 +106,27 @@ def summary(days: int = Query(default=None, description="Observation window in d
 
 @app.get("/pricing")
 def pricing() -> list[dict]:
-    """Current multi-cloud model rate cards from the Fabric price-history table."""
+    """Current multi-cloud model rate cards from the governed prices schema."""
     try:
         return _service.pricing()
+    except FabricError:
+        raise
     except Exception as exc:  # pragma: no cover - connectivity dependent
         logger.exception("Failed to load pricing")
+        raise HTTPException(status_code=502, detail=f"fabric_query_failed: {exc}") from exc
+
+
+@app.get("/pricing/consumption", response_model=ConsumptionCost)
+def pricing_consumption(days: int = Query(default=None, description="Observation window in days")) -> ConsumptionCost:
+    """Total token consumption cost computed live by joining usage to the
+    governed ``prices`` price history effective at each usage date."""
+    window = settings.resolve_window(days)
+    try:
+        return ConsumptionCost(**_service.consumption_cost(window))
+    except FabricError:
+        raise
+    except Exception as exc:  # pragma: no cover - connectivity dependent
+        logger.exception("Failed to compute consumption cost")
         raise HTTPException(status_code=502, detail=f"fabric_query_failed: {exc}") from exc
 
 

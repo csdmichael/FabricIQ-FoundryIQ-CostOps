@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { AuthService } from './auth.service';
+import { configApiError, networkApiError, toApiError } from './api-error';
 import { formatAgentReply } from './chat-format';
 import { ML_USE_CASES } from './mock-data';
 import { RuntimeConfigService } from './runtime-config.service';
@@ -45,19 +46,49 @@ export class TokenomicsService {
     return (this.config?.apiBaseUrl ?? '').replace(/\/$/, '');
   }
 
-  private async authorizedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  private async authorizedFetch(path: string, init: RequestInit = {}, opts: { retries?: number; timeoutMs?: number } = {}): Promise<Response> {
+    if (!this.apiBase()) throw configApiError();
     const token = await this.auth.accessToken();
     const headers = new Headers(init.headers ?? {});
     headers.set('Accept', 'application/json');
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    return fetch(`${this.apiBase()}${path}`, { ...init, headers, cache: 'no-store' });
+    const retries = opts.retries ?? 1;
+    const timeoutMs = opts.timeoutMs ?? 12000;
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(`${this.apiBase()}${path}`, { ...init, headers, cache: 'no-store', signal: controller.signal });
+        clearTimeout(timer);
+        // Ride out a Fabric cold start: one quick retry on transient 5xx.
+        if (response.status >= 500 && response.status <= 599 && attempt < retries) {
+          await this.delay(500);
+          continue;
+        }
+        return response;
+      } catch (error) {
+        clearTimeout(timer);
+        lastError = error;
+        if (attempt < retries) {
+          await this.delay(500);
+          continue;
+        }
+        throw networkApiError(error);
+      }
+    }
+    throw networkApiError(lastError);
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   async dashboard(days: WindowDays): Promise<TokenomicsDashboard> {
     if (!this.config) await this.initialize();
     const response = await this.authorizedFetch(`/summary?days=${days}`);
     if (!response.ok) {
-      throw new Error(`Live tokenomics telemetry is unavailable (HTTP ${response.status}). Sign in and confirm the analytics API is reachable.`);
+      throw await toApiError(response);
     }
     const data = await response.json() as TokenomicsDashboard;
     this.isLiveMode.set(true);
@@ -69,7 +100,7 @@ export class TokenomicsService {
     if (!this.config) await this.initialize();
     const response = await this.authorizedFetch(`/actions?days=${days}`);
     if (!response.ok) {
-      throw new Error(`Action recommendations are unavailable (HTTP ${response.status}). Sign in and confirm the analytics API is reachable.`);
+      throw await toApiError(response);
     }
     this.isLiveMode.set(true);
     return await response.json() as ActionRecommendationsResponse;

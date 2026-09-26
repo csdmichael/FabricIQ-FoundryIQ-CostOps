@@ -202,3 +202,13 @@ class ActionRecommendationsResponse(BaseModel):
     totalEstimatedMonthlySavingsUsd: float = 0.0
     categories: list[ActionCategorySummary] = []
     plans: list[ActionPlan] = []
+
+
+class ConsumptionCost(BaseModel):
+    windowDays: int
+    currency: str
+    priceSource: str
+    marketCost: Optional[float] = None
+    negotiatedCost: Optional[float] = None
+    savings: Optional[float] = None
+    pricedTokens: int = 0

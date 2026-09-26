@@ -23,6 +23,7 @@ embed configuration for the dashboards built on the same OneLake tables.
 | GET    | `/health`        | Liveness + Fabric connectivity probe                    |
 | GET    | `/summary`       | `TokenomicsDashboard` for `?days=1\|7\|30\|90`           |
 | GET    | `/pricing`       | Current multi-cloud model rate cards                    |
+| GET    | `/pricing/consumption` | Total consumption cost joined to the `prices` history for `?days=1\|7\|30\|90` |
 | GET    | `/actions`       | Data-driven FinOps action plans for `?days=1\|7\|30\|90` |
 | GET    | `/powerbi/embed` | Power BI report + dashboard embed configuration         |
 

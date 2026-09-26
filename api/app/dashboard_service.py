@@ -314,9 +314,9 @@ class DashboardService:
 
     # -- public ------------------------------------------------------------
     def pricing(self) -> list[dict]:
-        """Current model rate cards from ml.model_price_history (is_current=1)."""
+        """Current model rate cards from the governed ``prices`` schema (is_current=1)."""
         s = self._settings
-        price_table = f"[{s.schema}].[{s.price_history_table}]"
+        price_table = f"[{s.prices_schema}].[{s.prices_table}]"
         rows = self._client.query(
             f"""
             SELECT
@@ -359,6 +359,50 @@ class DashboardService:
                 }
             )
         return catalog
+
+    def consumption_cost(self, days: int) -> dict:
+        """Total consumption cost computed by joining token usage to the governed
+        ``prices`` price history effective at each usage date.
+
+        This is the authoritative recomputation from the ``prices`` schema (the
+        single source of truth), independent of any precomputed cost columns.
+        """
+        s = self._settings
+        start = self._window_start(days)
+        fact = self._fact
+        price_table = f"[{s.prices_schema}].[{s.prices_table}]"
+        rows = self._client.query(
+            f"""
+            SELECT
+                SUM((f.input_tokens  / 1000000.0) * p.market_input_usd_per_million
+                  + (f.output_tokens / 1000000.0) * p.market_output_usd_per_million)      AS market_cost,
+                SUM((f.input_tokens  / 1000000.0) * p.negotiated_input_usd_per_million
+                  + (f.output_tokens / 1000000.0) * p.negotiated_output_usd_per_million)  AS negotiated_cost,
+                SUM(f.total_tokens)                                                        AS priced_tokens
+            FROM {fact} f
+            JOIN {price_table} p
+              ON p.source_code   = f.source_code
+             AND p.model_name    = f.model_name
+             AND p.model_version = f.model_version
+             AND f.usage_date   >= p.effective_from
+             AND (p.effective_to IS NULL OR f.usage_date < p.effective_to)
+            WHERE f.usage_date >= ?
+            """,
+            (start,),
+        )
+        row = rows[0] if rows else {}
+        market = _round(row.get("market_cost"))
+        negotiated = _round(row.get("negotiated_cost"))
+        savings = _round((market or 0) - (negotiated or 0)) if market is not None and negotiated is not None else None
+        return {
+            "windowDays": days,
+            "currency": s.currency,
+            "priceSource": f"{s.prices_schema}.{s.prices_table}",
+            "marketCost": market,
+            "negotiatedCost": negotiated,
+            "savings": savings,
+            "pricedTokens": int(row.get("priced_tokens") or 0),
+        }
 
     def build(self, days: int) -> TokenomicsDashboard:
         start = self._window_start(days)

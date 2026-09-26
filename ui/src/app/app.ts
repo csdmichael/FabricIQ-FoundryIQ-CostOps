@@ -59,6 +59,7 @@ import {
   warningOutline,
 } from 'ionicons/icons';
 import { AuthService } from './auth.service';
+import { asApiError, type ApiErrorInfo } from './api-error';
 import { ChatExportService } from './chat-export';
 import { ChatHistoryService } from './chat-history.service';
 import { PowerBiEmbed } from './powerbi-embed';
@@ -112,6 +113,7 @@ export class App implements OnInit {
   readonly dashboard = signal<Awaited<ReturnType<TokenomicsService['dashboard']>> | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
+  readonly errorInfo = signal<ApiErrorInfo | null>(null);
   readonly windowDays = signal<WindowDays>(30);
   readonly activeView = signal<DashboardView>('overview');
 
@@ -136,6 +138,7 @@ export class App implements OnInit {
   readonly actions = signal<ActionRecommendationsResponse | null>(null);
   readonly actionsLoading = signal(false);
   readonly actionsError = signal('');
+  readonly actionsErrorInfo = signal<ApiErrorInfo | null>(null);
   readonly actionCategoryFilter = signal<ActionCategory | 'all'>('all');
 
   readonly filteredActionPlans = computed<ActionPlan[]>(() => {
@@ -489,10 +492,13 @@ export class App implements OnInit {
   async refresh(): Promise<void> {
     this.loading.set(true);
     this.error.set('');
+    this.errorInfo.set(null);
     try {
       this.dashboard.set(await this.tokenomics.dashboard(this.windowDays()));
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'The dashboard is temporarily unavailable.');
+      const info = asApiError(error).info;
+      this.error.set(info.title);
+      this.errorInfo.set(info);
     } finally {
       this.loading.set(false);
     }
@@ -510,11 +516,14 @@ export class App implements OnInit {
   async loadActions(): Promise<void> {
     this.actionsLoading.set(true);
     this.actionsError.set('');
+    this.actionsErrorInfo.set(null);
     try {
       this.actions.set(await this.tokenomics.getActionRecommendations(this.windowDays()));
     } catch (error) {
       this.actions.set(null);
-      this.actionsError.set(error instanceof Error ? error.message : 'Action recommendations are temporarily unavailable.');
+      const info = asApiError(error).info;
+      this.actionsError.set(info.title);
+      this.actionsErrorInfo.set(info);
     } finally {
       this.actionsLoading.set(false);
     }

@@ -178,3 +178,52 @@ def test_recommendations_service_reports_unavailable_on_error():
     result = service.build(30)
     assert result.status == "unavailable"
     assert result.plans == []
+
+
+def test_fabric_client_classifies_capacity_paused_and_opens_breaker(monkeypatch):
+    """The real reason (capacity paused) is surfaced, and after repeated failures
+    the breaker fails fast without hitting the database again."""
+    import pytest
+    from app.fabric_client import FabricError, FabricSqlClient
+
+    client = FabricSqlClient(get_settings())
+    calls = {"n": 0}
+
+    def boom(sql, params):
+        calls["n"] += 1
+        raise Exception("Database 'lh_tokenomics' on server is not currently available; resume the capacity")
+
+    monkeypatch.setattr(client, "_run", boom)
+
+    with pytest.raises(FabricError) as first:
+        client.query("SELECT 1")
+    assert first.value.category == "capacity_paused"
+    assert first.value.http_status == 503
+    assert "Resume the Fabric capacity" in first.value.remediation
+
+    with pytest.raises(FabricError):
+        client.query("SELECT 1")  # second failure opens the breaker
+
+    calls_before = calls["n"]
+    with pytest.raises(FabricError) as third:
+        client.query("SELECT 1")
+    assert third.value.category == "circuit_open"
+    assert calls["n"] == calls_before  # fast-fail: _run not invoked while open
+
+
+def test_fabric_client_retries_transient_then_succeeds(monkeypatch):
+    from app.fabric_client import FabricSqlClient
+
+    client = FabricSqlClient(get_settings())
+    attempts = {"n": 0}
+
+    def flaky(sql, params):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise Exception("TCP Provider: connection timeout expired")
+        return [{"ok": 1}]
+
+    monkeypatch.setattr(client, "_run", flaky)
+    rows = client.query("SELECT 1")
+    assert rows == [{"ok": 1}]
+    assert attempts["n"] == 2  # one quick retry recovered

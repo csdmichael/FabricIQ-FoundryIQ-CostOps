@@ -63,4 +63,13 @@ for rf in ref_files:
     write_deltalake(ref_local_path, ref_tbl, mode='overwrite')
     print(f'Wrote Delta table: ml.{name} ({len(rows)} rows)')
 
+    # The governed pricing source of truth lives in its own `prices` schema.
+    # Seed prices.token_price_history from the model price history so the API's
+    # pricing endpoints work day 1 (the pricing Azure Function keeps it fresh).
+    if name == 'model_price_history':
+        prices_path = os.path.join(staging_root, 'prices', 'token_price_history')
+        os.makedirs(prices_path, exist_ok=True)
+        write_deltalake(prices_path, to_arrow_table(rows), mode='overwrite')
+        print(f'Wrote Delta table: prices.token_price_history ({len(rows)} rows)')
+
 print('All Delta tables written successfully to staging.')
