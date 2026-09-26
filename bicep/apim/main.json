@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "6401866475572521570"
+      "templateHash": "5540773135905626526"
     }
   },
   "definitions": {
@@ -93,11 +93,21 @@
         "mlDashboardName": "Tokenomics ML Operations Dashboard"
       },
       "powerBi": {
+        "workspaceId": "1e14d1a0-d6cd-4810-a23e-094a58dae55e",
+        "semanticModelId": "55a11a72-867f-4dc5-86fd-77500b0fcc2d",
         "semanticModelName": "Tokenomics FinOps Model",
+        "consumptionReportId": "c6ced143-01f0-4200-bb43-6ab1d11c8f2d",
         "consumptionReportName": "Tokenomics Consumption and Cost Analytics",
+        "consumptionReportEmbedUrl": "https://app.powerbi.com/reportEmbed?reportId=c6ced143-01f0-4200-bb43-6ab1d11c8f2d&groupId=1e14d1a0-d6cd-4810-a23e-094a58dae55e",
+        "mlReportId": "9587b6fe-3b8e-4404-b24c-b1aab035f67b",
         "mlReportName": "Tokenomics ML Insights",
+        "mlReportEmbedUrl": "https://app.powerbi.com/reportEmbed?reportId=9587b6fe-3b8e-4404-b24c-b1aab035f67b&groupId=1e14d1a0-d6cd-4810-a23e-094a58dae55e",
+        "executiveDashboardId": "1ba0a93e-c712-4ca7-8b8a-901fc6867595",
         "executiveDashboardName": "Tokenomics FinOps Executive Dashboard",
-        "mlDashboardName": "Tokenomics ML Operations Dashboard"
+        "executiveDashboardEmbedUrl": "https://app.powerbi.com/dashboardEmbed?dashboardId=1ba0a93e-c712-4ca7-8b8a-901fc6867595&groupId=1e14d1a0-d6cd-4810-a23e-094a58dae55e",
+        "mlDashboardId": "f2162e45-d2ad-447f-bab2-4cac747c18b4",
+        "mlDashboardName": "Tokenomics ML Operations Dashboard",
+        "mlDashboardEmbedUrl": "https://app.powerbi.com/dashboardEmbed?dashboardId=f2162e45-d2ad-447f-bab2-4cac747c18b4&groupId=1e14d1a0-d6cd-4810-a23e-094a58dae55e"
       },
       "apim": {
         "tenantId": "12a4b86b-e64c-43f9-af05-d9130a72dfd2",
@@ -130,6 +140,23 @@
         "delegatedScope": "Fabric.Access",
         "fabricApiScope": "https://api.fabric.microsoft.com/.default",
         "powerBiApiScope": "https://analysis.windows.net/powerbi/api/.default",
+        "dashboardPowerBiApi": {
+          "resourceAppId": "00000009-0000-0000-c000-000000000000",
+          "delegatedScopes": [
+            {
+              "name": "Report.Read.All",
+              "id": "4ae1bf56-f562-4747-b7bc-2fa0874ed46f"
+            },
+            {
+              "name": "Dashboard.Read.All",
+              "id": "2448370f-f988-42cd-909c-6528efd67c1a"
+            },
+            {
+              "name": "Workspace.Read.All",
+              "id": "b2f1b2fa-f35c-407c-979c-a858a808ba85"
+            }
+          ]
+        },
         "downstreamDelegatedPermissions": [
           "DataAgent.Execute.All",
           "Lakehouse.Read.All",
@@ -168,6 +195,16 @@
               "category": "ui",
               "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Web/serverfarms/caldova-showcase-plan",
               "shared": true
+            },
+            {
+              "category": "storage",
+              "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Storage/storageAccounts/genieobodkm7l6ym6ryju",
+              "shared": true
+            },
+            {
+              "category": "cosmos",
+              "resourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.DocumentDB/databaseAccounts/caldova-showcase-dkm7l6ym6ryju",
+              "shared": true
             }
           ]
         }
@@ -185,8 +222,8 @@
           "partitionKeyPath": "/source_code"
         },
         "syntheticData": {
-          "recordCount": 12000,
-          "userCount": 500,
+          "recordCount": 15000,
+          "userCount": 2400,
           "requestsPerRecord": 1000,
           "lookbackDays": 180,
           "endDate": "2026-09-18",
@@ -197,7 +234,114 @@
             "oai",
             "cld",
             "msft"
-          ]
+          ],
+          "enterprise": {
+            "name": "Micron-scale Semiconductor Enterprise",
+            "personas": [
+              "casual_user",
+              "heavy_researcher",
+              "agent_builder",
+              "developer",
+              "executive_user"
+            ],
+            "taskTypes": [
+              "summarization",
+              "research",
+              "code_generation",
+              "agent_orchestration",
+              "document_analysis",
+              "customer_support"
+            ],
+            "environments": [
+              "dev",
+              "test",
+              "prod"
+            ],
+            "businessUnits": [
+              "Compute & Networking BU",
+              "Mobile BU",
+              "Embedded BU",
+              "Storage BU",
+              "Corporate & Shared Services"
+            ],
+            "departments": [
+              "Fab Operations",
+              "Yield Engineering",
+              "Process R&D",
+              "Design Engineering",
+              "Supply Chain & Planning",
+              "Quality & Reliability",
+              "Data & AI Platform",
+              "IT & Cybersecurity",
+              "Finance & FinOps",
+              "Sales & Marketing"
+            ],
+            "teams": [
+              "fab-automation",
+              "yield-analytics",
+              "defect-classification",
+              "process-control",
+              "eda-design",
+              "supply-forecast",
+              "reliability-eng",
+              "ai-platform-core",
+              "mlops",
+              "data-engineering",
+              "security-ops",
+              "finops-governance",
+              "customer-quality",
+              "field-apps",
+              "corporate-it"
+            ],
+            "projects": [
+              "yield-copilot",
+              "predictive-maintenance",
+              "defect-vision-ai",
+              "demand-forecasting",
+              "wafer-map-analytics",
+              "eda-assistant",
+              "supply-chain-optimizer",
+              "quality-rma-triage",
+              "fab-knowledge-agent",
+              "energy-optimization",
+              "procurement-copilot",
+              "hr-service-agent",
+              "finance-close-copilot",
+              "security-soc-analyst",
+              "exec-briefing-agent"
+            ],
+            "applications": [
+              "yield-copilot-web",
+              "fab-mes-assistant",
+              "defect-vision-api",
+              "demand-forecast-svc",
+              "wafermap-analyzer",
+              "eda-design-assistant",
+              "supply-optimizer-api",
+              "rma-triage-bot",
+              "fab-knowledge-rag",
+              "energy-optimizer",
+              "procurement-copilot",
+              "hr-servicedesk-agent",
+              "finance-close-copilot",
+              "soc-analyst-agent",
+              "exec-briefing-agent",
+              "sales-insights-app"
+            ],
+            "costCenters": [
+              "CC-FAB-101",
+              "CC-YLD-204",
+              "CC-PRD-309",
+              "CC-EDA-415",
+              "CC-SCM-520",
+              "CC-QAR-631",
+              "CC-AIP-742",
+              "CC-SEC-853",
+              "CC-FIN-964",
+              "CC-SLS-175"
+            ],
+            "flagshipProject": "yield-copilot"
+          }
         },
         "fabric": {
           "workspaceName": "Fabric AI Tokenomics",
@@ -409,12 +553,11 @@
         "appName": "caldova-fabric-costops-ui",
         "existingPlanName": "caldova-showcase-plan",
         "productionUrl": "https://caldova-fabric-costops-ui.azurewebsites.net",
-        "allowedOrigin": "http://localhost:4200",
+        "allowedOrigin": "https://caldova-fabric-costops-ui.azurewebsites.net",
         "redirectUris": [
-          "http://localhost:4200",
           "https://caldova-fabric-costops-ui.azurewebsites.net"
         ],
-        "environment": "Caldova Private"
+        "environment": "Enterprise"
       },
       "deployment": {
         "environmentName": "fabric-tokenomics",
@@ -430,6 +573,69 @@
       "tags": {
         "application": "fabric-ai-tokenomics",
         "environment": "production"
+      },
+      "dashboardApi": {
+        "host": "0.0.0.0",
+        "port": 8080,
+        "publicUrl": "https://caldova-fabric-tokenomics-api.azurewebsites.net",
+        "schema": "ml",
+        "usageFactTable": "tokenomics_usage_fact",
+        "priceHistoryTable": "model_price_history",
+        "currency": "USD",
+        "defaultWindowDays": 30,
+        "allowedWindowDays": [
+          1,
+          7,
+          30,
+          90
+        ],
+        "sqlConnectTimeoutSeconds": 30,
+        "sqlQueryTimeoutSeconds": 120,
+        "odbcDriver": "ODBC Driver 18 for SQL Server",
+        "providers": [
+          {
+            "code": "aws",
+            "name": "AWS Bedrock"
+          },
+          {
+            "code": "gcp",
+            "name": "GCP Vertex AI"
+          },
+          {
+            "code": "msft",
+            "name": "Azure OpenAI"
+          },
+          {
+            "code": "oai",
+            "name": "OpenAI Direct"
+          },
+          {
+            "code": "cld",
+            "name": "Anthropic Claude"
+          }
+        ],
+        "cors": {
+          "allowedOrigins": [
+            "https://caldova-fabric-costops-ui.azurewebsites.net"
+          ]
+        }
+      },
+      "foundry": {
+        "accountName": "foundry-myaacoub",
+        "projectName": "Tokenomics",
+        "projectEndpoint": "https://foundry-myaacoub.services.ai.azure.com/api/projects/Tokenomics",
+        "location": "westus",
+        "modelDeployment": "gpt-5.2",
+        "apiVersion": "2025-05-15-preview",
+        "armApiVersion": "2025-06-01",
+        "agentName": "tokenomics-analyst",
+        "agentDisplayName": "Tokenomics FinOps Analyst",
+        "tracing": {
+          "enabled": true,
+          "applicationInsightsConnectionStringEnv": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+          "contentRecordingEnabled": true
+        },
+        "instructions": "You are the Tokenomics FinOps Analyst, an expert assistant for multi-cloud AI cost governance on Microsoft Fabric. Answer questions about token consumption, model pricing, cost attribution and chargeback, budget overruns, anomalies, quota and capacity, prompt quality, and agent ROI across AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude. ALWAYS ground every quantitative answer by calling the provided tools, which query the governed Fabric lh_tokenomics Lakehouse Gold and ML tables (ml.tokenomics_usage_fact, ml.model_price_history, and the 12 ml.* insight outputs) — the same governed data the Fabric Data Agent uses. Never fabricate numbers. When the answer is tabular, ALWAYS return a GitHub-flavored Markdown table (header row, separator row, then data rows) so the UI can render it and derive a chart. When the user asks for a pie chart or a distribution/share breakdown, return a Mermaid pie code block: a fenced ```mermaid block whose first line is 'pie showData', an optional 'title <text>' line, then one 'LABEL : VALUE' line per slice with numeric values. Be concise, lead with the headline finding, cite the tables you used, and end with one actionable FinOps recommendation."
       }
     },
     "config": "[variables('$fxv#0')]",
@@ -509,7 +715,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.47.16.16243",
-              "templateHash": "15836273953007184294"
+              "templateHash": "13550306534193093748"
             }
           },
           "parameters": {
@@ -566,12 +772,12 @@
             }
           },
           "variables": {
-            "$fxv#0": "{\r\n  \"openapi\": \"3.0.1\",\r\n  \"info\": {\r\n    \"title\": \"Fabric Tokenomics API\",\r\n    \"version\": \"2.0.0\",\r\n    \"description\": \"Returns privacy-preserving APIM usage, token telemetry, rate-card estimates, and Azure Cost Management ActualCost reconciliation.\"\r\n  },\r\n  \"paths\": {\r\n    \"/summary\": {\r\n      \"get\": {\r\n        \"operationId\": \"summary\",\r\n        \"summary\": \"Get the tokenomics dashboard summary\",\r\n        \"parameters\": [\r\n          {\r\n            \"name\": \"days\",\r\n            \"in\": \"query\",\r\n            \"required\": false,\r\n            \"schema\": {\r\n              \"type\": \"integer\",\r\n              \"enum\": [1, 7, 30, 90],\r\n              \"default\": 30\r\n            }\r\n          }\r\n        ],\r\n        \"responses\": {\r\n          \"200\": {\r\n            \"description\": \"Tokenomics dashboard data with distinct estimated and billed cost fields.\",\r\n            \"content\": {\r\n              \"application/json\": {\r\n                \"schema\": {\r\n                  \"$ref\": \"#/components/schemas/TokenomicsDashboard\"\r\n                }\r\n              }\r\n            }\r\n          }\r\n        },\r\n        \"security\": [\r\n          {\r\n            \"bearerAuth\": []\r\n          }\r\n        ]\r\n      }\r\n    }\r\n  },\r\n  \"components\": {\r\n    \"schemas\": {\r\n      \"TokenomicsRow\": {\r\n        \"type\": \"object\",\r\n        \"additionalProperties\": true,\r\n        \"properties\": {\r\n          \"TimeBucket\": { \"type\": \"string\" },\r\n          \"ApplicationId\": { \"type\": \"string\" },\r\n          \"Model\": { \"type\": \"string\" },\r\n          \"Requests\": { \"type\": \"integer\" },\r\n          \"TotalTokens\": { \"type\": \"integer\" },\r\n          \"MarketCost\": { \"type\": \"number\", \"nullable\": true, \"description\": \"Market rate-card estimate.\" },\r\n          \"NegotiatedCost\": { \"type\": \"number\", \"nullable\": true, \"description\": \"Negotiated rate-card estimate.\" },\r\n          \"ActualCost\": { \"type\": \"number\", \"nullable\": true, \"description\": \"Azure-billed dedicated model cost allocated by observed token share.\" }\r\n        }\r\n      },\r\n      \"ActualCostSnapshot\": {\r\n        \"type\": \"object\",\r\n        \"required\": [\"source\", \"queryType\", \"status\", \"scope\", \"currency\", \"generatedAt\", \"expectedBillingLagHours\", \"allocationMethod\"],\r\n        \"properties\": {\r\n          \"source\": { \"type\": \"string\", \"enum\": [\"AzureCostManagement\"] },\r\n          \"queryType\": { \"type\": \"string\", \"enum\": [\"ActualCost\"] },\r\n          \"status\": { \"type\": \"string\", \"enum\": [\"available\", \"empty\", \"unavailable\", \"disabled\"] },\r\n          \"scope\": { \"type\": \"string\" },\r\n          \"currency\": { \"type\": \"string\" },\r\n          \"generatedAt\": { \"type\": \"string\", \"format\": \"date-time\" },\r\n          \"billedThrough\": { \"type\": \"string\", \"format\": \"date\", \"nullable\": true },\r\n          \"expectedBillingLagHours\": { \"type\": \"integer\" },\r\n          \"scopeCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"trackedCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"dedicatedModelCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"sharedPlatformCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"untrackedCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"allocatedModelCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"allocationMethod\": { \"type\": \"string\", \"enum\": [\"observed-token-share\", \"none\"] },\r\n          \"byService\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"additionalProperties\": true } },\r\n          \"byResource\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"additionalProperties\": true } },\r\n          \"trend\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"additionalProperties\": true } }\r\n        }\r\n      },\r\n      \"TokenomicsDashboard\": {\r\n        \"type\": \"object\",\r\n        \"required\": [\"generatedAt\", \"windowDays\", \"currency\", \"queryStatus\", \"actualCost\", \"summary\", \"trend\", \"allocations\", \"models\", \"operations\", \"recentRequests\", \"dataQuality\"],\r\n        \"properties\": {\r\n          \"generatedAt\": { \"type\": \"string\", \"format\": \"date-time\" },\r\n          \"windowDays\": { \"type\": \"integer\", \"enum\": [1, 7, 30, 90] },\r\n          \"currency\": { \"type\": \"string\" },\r\n          \"queryStatus\": { \"type\": \"string\", \"enum\": [\"complete\", \"partial\"] },\r\n          \"actualCost\": { \"$ref\": \"#/components/schemas/ActualCostSnapshot\" },\r\n          \"summary\": { \"type\": \"object\", \"additionalProperties\": true },\r\n          \"trend\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"allocations\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"models\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"operations\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"recentRequests\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"dataQuality\": { \"type\": \"object\", \"additionalProperties\": true }\r\n        }\r\n      }\r\n    },\r\n    \"securitySchemes\": {\r\n      \"bearerAuth\": {\r\n        \"type\": \"http\",\r\n        \"scheme\": \"bearer\",\r\n        \"bearerFormat\": \"JWT\"\r\n      }\r\n    }\r\n  }\r\n}",
+            "$fxv#0": "{\r\n  \"openapi\": \"3.0.1\",\r\n  \"info\": {\r\n    \"title\": \"Fabric Tokenomics API\",\r\n    \"version\": \"2.0.0\",\r\n    \"description\": \"Returns privacy-preserving APIM usage, token telemetry, rate-card estimates, and Azure Cost Management ActualCost reconciliation.\"\r\n  },\r\n  \"paths\": {\r\n    \"/summary\": {\r\n      \"get\": {\r\n        \"operationId\": \"summary\",\r\n        \"summary\": \"Get the tokenomics dashboard summary\",\r\n        \"parameters\": [\r\n          {\r\n            \"name\": \"days\",\r\n            \"in\": \"query\",\r\n            \"required\": false,\r\n            \"schema\": {\r\n              \"type\": \"integer\",\r\n              \"enum\": [1, 7, 30, 90],\r\n              \"default\": 30\r\n            }\r\n          }\r\n        ],\r\n        \"responses\": {\r\n          \"200\": {\r\n            \"description\": \"Tokenomics dashboard data with distinct estimated and billed cost fields.\",\r\n            \"content\": {\r\n              \"application/json\": {\r\n                \"schema\": {\r\n                  \"$ref\": \"#/components/schemas/TokenomicsDashboard\"\r\n                }\r\n              }\r\n            }\r\n          }\r\n        },\r\n        \"security\": [\r\n          {\r\n            \"bearerAuth\": []\r\n          }\r\n        ]\r\n      }\r\n    },\r\n    \"/actions\": {\r\n      \"get\": {\r\n        \"operationId\": \"actions\",\r\n        \"summary\": \"Get data-driven FinOps action recommendations\",\r\n        \"description\": \"Closes the analytics feedback loop: turns the ml.*_output tables into concrete, reviewable actions (model switching, APIM rate/token-limit changes, quota reallocation, throttle guardrails, prompt trimming, chargeback).\",\r\n        \"parameters\": [\r\n          {\r\n            \"name\": \"days\",\r\n            \"in\": \"query\",\r\n            \"required\": false,\r\n            \"schema\": {\r\n              \"type\": \"integer\",\r\n              \"enum\": [1, 7, 30, 90],\r\n              \"default\": 30\r\n            }\r\n          }\r\n        ],\r\n        \"responses\": {\r\n          \"200\": {\r\n            \"description\": \"Recommended action plans derived from the ML output tables.\",\r\n            \"content\": {\r\n              \"application/json\": {\r\n                \"schema\": {\r\n                  \"$ref\": \"#/components/schemas/ActionRecommendations\"\r\n                }\r\n              }\r\n            }\r\n          }\r\n        },\r\n        \"security\": [\r\n          {\r\n            \"bearerAuth\": []\r\n          }\r\n        ]\r\n      }\r\n    }\r\n  },\r\n  \"components\": {\r\n    \"schemas\": {\r\n      \"TokenomicsRow\": {\r\n        \"type\": \"object\",\r\n        \"additionalProperties\": true,\r\n        \"properties\": {\r\n          \"TimeBucket\": { \"type\": \"string\" },\r\n          \"ApplicationId\": { \"type\": \"string\" },\r\n          \"Model\": { \"type\": \"string\" },\r\n          \"Requests\": { \"type\": \"integer\" },\r\n          \"TotalTokens\": { \"type\": \"integer\" },\r\n          \"MarketCost\": { \"type\": \"number\", \"nullable\": true, \"description\": \"Market rate-card estimate.\" },\r\n          \"NegotiatedCost\": { \"type\": \"number\", \"nullable\": true, \"description\": \"Negotiated rate-card estimate.\" },\r\n          \"ActualCost\": { \"type\": \"number\", \"nullable\": true, \"description\": \"Azure-billed dedicated model cost allocated by observed token share.\" }\r\n        }\r\n      },\r\n      \"ActualCostSnapshot\": {\r\n        \"type\": \"object\",\r\n        \"required\": [\"source\", \"queryType\", \"status\", \"scope\", \"currency\", \"generatedAt\", \"expectedBillingLagHours\", \"allocationMethod\"],\r\n        \"properties\": {\r\n          \"source\": { \"type\": \"string\", \"enum\": [\"AzureCostManagement\"] },\r\n          \"queryType\": { \"type\": \"string\", \"enum\": [\"ActualCost\"] },\r\n          \"status\": { \"type\": \"string\", \"enum\": [\"available\", \"empty\", \"unavailable\", \"disabled\"] },\r\n          \"scope\": { \"type\": \"string\" },\r\n          \"currency\": { \"type\": \"string\" },\r\n          \"generatedAt\": { \"type\": \"string\", \"format\": \"date-time\" },\r\n          \"billedThrough\": { \"type\": \"string\", \"format\": \"date\", \"nullable\": true },\r\n          \"expectedBillingLagHours\": { \"type\": \"integer\" },\r\n          \"scopeCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"trackedCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"dedicatedModelCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"sharedPlatformCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"untrackedCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"allocatedModelCost\": { \"type\": \"number\", \"nullable\": true },\r\n          \"allocationMethod\": { \"type\": \"string\", \"enum\": [\"observed-token-share\", \"none\"] },\r\n          \"byService\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"additionalProperties\": true } },\r\n          \"byResource\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"additionalProperties\": true } },\r\n          \"trend\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"additionalProperties\": true } }\r\n        }\r\n      },\r\n      \"TokenomicsDashboard\": {\r\n        \"type\": \"object\",\r\n        \"required\": [\"generatedAt\", \"windowDays\", \"currency\", \"queryStatus\", \"actualCost\", \"summary\", \"trend\", \"allocations\", \"models\", \"operations\", \"recentRequests\", \"dataQuality\"],\r\n        \"properties\": {\r\n          \"generatedAt\": { \"type\": \"string\", \"format\": \"date-time\" },\r\n          \"windowDays\": { \"type\": \"integer\", \"enum\": [1, 7, 30, 90] },\r\n          \"currency\": { \"type\": \"string\" },\r\n          \"queryStatus\": { \"type\": \"string\", \"enum\": [\"complete\", \"partial\"] },\r\n          \"actualCost\": { \"$ref\": \"#/components/schemas/ActualCostSnapshot\" },\r\n          \"summary\": { \"type\": \"object\", \"additionalProperties\": true },\r\n          \"trend\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"allocations\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"models\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"operations\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"recentRequests\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/components/schemas/TokenomicsRow\" } },\r\n          \"dataQuality\": { \"type\": \"object\", \"additionalProperties\": true }\r\n        }\r\n      },\r\n      \"ActionRecommendations\": {\r\n        \"type\": \"object\",\r\n        \"required\": [\"generatedAt\", \"windowDays\", \"currency\", \"status\", \"plans\", \"categories\"],\r\n        \"properties\": {\r\n          \"generatedAt\": { \"type\": \"string\", \"format\": \"date-time\" },\r\n          \"windowDays\": { \"type\": \"integer\", \"enum\": [1, 7, 30, 90] },\r\n          \"currency\": { \"type\": \"string\" },\r\n          \"status\": { \"type\": \"string\", \"enum\": [\"available\", \"empty\", \"unavailable\"] },\r\n          \"detail\": { \"type\": \"string\" },\r\n          \"totalEstimatedAnnualSavingsUsd\": { \"type\": \"number\" },\r\n          \"totalEstimatedMonthlySavingsUsd\": { \"type\": \"number\" },\r\n          \"categories\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"additionalProperties\": true } },\r\n          \"plans\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"additionalProperties\": true } }\r\n        }\r\n      }\r\n    },\r\n    \"securitySchemes\": {\r\n      \"bearerAuth\": {\r\n        \"type\": \"http\",\r\n        \"scheme\": \"bearer\",\r\n        \"bearerFormat\": \"JWT\"\r\n      }\r\n    }\r\n  }\r\n}",
             "$fxv#1": "<policies>\r\n  <inbound>\r\n    <base />\r\n    <rewrite-uri template=\"/api/tokenomics/summary\" copy-unmatched-params=\"true\" />\r\n  </inbound>\r\n  <backend>\r\n    <base />\r\n  </backend>\r\n  <outbound>\r\n    <base />\r\n  </outbound>\r\n  <on-error>\r\n    <base />\r\n  </on-error>\r\n</policies>",
             "diagnosticsEnabled": "[not(empty(parameters('applicationInsightsName')))]",
             "tokenomicsDiagnosticsEnabled": "[not(empty(parameters('logAnalyticsWorkspaceId')))]",
             "loggerName": "tokenomics-insights",
-            "commonApiPolicy": "<policies>\r\n  <inbound>\r\n    <base />\r\n    <cors allow-credentials=\"true\">\r\n      <allowed-origins>\r\n        <origin>http://localhost:4200</origin>\r\n        <origin>{{tokenomics-ui-origin}}</origin>\r\n      </allowed-origins>\r\n      <allowed-methods>\r\n        <method>GET</method>\r\n        <method>POST</method>\r\n        <method>OPTIONS</method>\r\n      </allowed-methods>\r\n      <allowed-headers>\r\n        <header>*</header>\r\n      </allowed-headers>\r\n    </cors>\r\n    <validate-jwt header-name=\"Authorization\" failed-validation-httpcode=\"401\" failed-validation-error-message=\"Unauthorized\" require-expiration-time=\"true\" require-scheme=\"Bearer\" require-signed-tokens=\"true\">\r\n      <openid-config url=\"https://login.microsoftonline.com/{{tokenomics-resource-tenant-id}}/v2.0/.well-known/openid-configuration\" />\r\n      <audiences>\r\n        <audience>{{tokenomics-resource-api-client-id}}</audience>\r\n      </audiences>\r\n      <issuers>\r\n        <issuer>https://login.microsoftonline.com/{{tokenomics-resource-tenant-id}}/v2.0</issuer>\r\n      </issuers>\r\n      <required-claims>\r\n        <claim name=\"scp\" match=\"any\">\r\n          <value>{{tokenomics-delegated-scope}}</value>\r\n        </claim>\r\n      </required-claims>\r\n    </validate-jwt>\r\n    <rate-limit-by-key calls=\"60\" renewal-period=\"60\" counter-key=\"@(context.Request.Headers.GetValueOrDefault(&quot;Authorization&quot;,&quot;&quot;))\" />\r\n  </inbound>\r\n  <backend>\r\n    <base />\r\n  </backend>\r\n  <outbound>\r\n    <base />\r\n    <set-header name=\"Cache-Control\" exists-action=\"override\">\r\n      <value>no-store</value>\r\n    </set-header>\r\n  </outbound>\r\n  <on-error>\r\n    <base />\r\n  </on-error>\r\n</policies>",
+            "commonApiPolicy": "<policies>\r\n  <inbound>\r\n    <base />\r\n    <cors allow-credentials=\"true\">\r\n      <allowed-origins>\r\n        <origin>{{tokenomics-ui-origin}}</origin>\r\n      </allowed-origins>\r\n      <allowed-methods>\r\n        <method>GET</method>\r\n        <method>POST</method>\r\n        <method>OPTIONS</method>\r\n      </allowed-methods>\r\n      <allowed-headers>\r\n        <header>*</header>\r\n      </allowed-headers>\r\n    </cors>\r\n    <validate-jwt header-name=\"Authorization\" failed-validation-httpcode=\"401\" failed-validation-error-message=\"Unauthorized\" require-expiration-time=\"true\" require-scheme=\"Bearer\" require-signed-tokens=\"true\">\r\n      <openid-config url=\"https://login.microsoftonline.com/{{tokenomics-resource-tenant-id}}/v2.0/.well-known/openid-configuration\" />\r\n      <audiences>\r\n        <audience>{{tokenomics-resource-api-client-id}}</audience>\r\n      </audiences>\r\n      <issuers>\r\n        <issuer>https://login.microsoftonline.com/{{tokenomics-resource-tenant-id}}/v2.0</issuer>\r\n      </issuers>\r\n      <required-claims>\r\n        <claim name=\"scp\" match=\"any\">\r\n          <value>{{tokenomics-delegated-scope}}</value>\r\n        </claim>\r\n      </required-claims>\r\n    </validate-jwt>\r\n    <rate-limit-by-key calls=\"60\" renewal-period=\"60\" counter-key=\"@(context.Request.Headers.GetValueOrDefault(&quot;Authorization&quot;,&quot;&quot;))\" />\r\n  </inbound>\r\n  <backend>\r\n    <base />\r\n  </backend>\r\n  <outbound>\r\n    <base />\r\n    <set-header name=\"Cache-Control\" exists-action=\"override\">\r\n      <value>no-store</value>\r\n    </set-header>\r\n  </outbound>\r\n  <on-error>\r\n    <base />\r\n  </on-error>\r\n</policies>",
             "namedValueSettings": [
               {
                 "name": "tokenomics-resource-tenant-id",

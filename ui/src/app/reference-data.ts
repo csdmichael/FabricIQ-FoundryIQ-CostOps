@@ -26,7 +26,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { dimension: 'Research / doc-parser-agent', value: '28.4M tokens/hr', benchmark: '1.8M normal', status: 'Alert - Loop detected' },
       { dimension: 'CustomerOps / support-copilot', value: '8.2M tokens/hr', benchmark: '2.5M normal', status: 'Warning - Context bloat' },
       { dimension: 'Engineering / test-gen-worker', value: '14.1M tokens/hr', benchmark: '4.0M normal', status: 'Warning - High retries' }
-    ]
+    ],
+    plainSummary: 'Continuously watches every provider\u2019s token stream and flags abnormal spikes, runaway agent loops, and sudden context-window blow-ups before they turn into a surprise invoice.',
+    algorithm: 'Isolation Forest + Seasonal-Trend Decomposition (STL) on hourly token and cost series.',
+    topFeatures: [
+      { name: 'Prompt tokens / hour vs. seasonal baseline', impact: 'Highest' },
+      { name: 'Request retry count', impact: 'High' },
+      { name: 'Context-window size growth', impact: 'Medium' },
+      { name: 'Request rate (RPM) deviation', impact: 'Medium' }
+    ],
+    outputDescription: 'One row per flagged entity/window with risk_score, probability, and the offending metric measured against its STL baseline.',
+    howToUse: 'Route the top anomalies into an APIM throttle guardrail (rate-limit-by-key) for the offending team/subscription during the spike window, and open a review ticket for the workload owner.',
+    actionCategory: 'throttle-guardrail'
   },
   {
     key: 'cost-forecasting',
@@ -44,7 +55,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Forecast Accuracy (MAPE)', value: '3.8%' },
       { label: '30-Day Projected Spend', value: '$58,400' },
       { label: 'Growth Velocity', value: '+14.2% MoM' }
-    ]
+    ],
+    plainSummary: 'Projects multi-cloud AI spend 30 and 90 days out with confidence bands so Finance sees overruns against the annual commitment before they happen.',
+    algorithm: 'Prophet + AutoARIMA time-series forecasting with weekly/monthly seasonality and onboarding-velocity regressors.',
+    topFeatures: [
+      { name: 'Daily negotiated-cost trend', impact: 'Highest' },
+      { name: 'Team onboarding velocity', impact: 'High' },
+      { name: 'Weekly / monthly seasonality', impact: 'Medium' },
+      { name: 'Model-mix shift (frontier vs. efficient)', impact: 'Medium' }
+    ],
+    outputDescription: 'Forecasted daily and period cost with lower/upper 95% confidence bounds and MAPE accuracy per scope.',
+    howToUse: 'Compare the projected run-rate to the committed ceiling; when the upper band breaches budget, trigger a capacity or reallocation plan proactively rather than reactively.',
+    actionCategory: 'capacity'
   },
   {
     key: 'cost-attribution-chargeback',
@@ -62,7 +84,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Active Cost Centers', value: '18' },
       { label: 'Top Consuming Dept', value: 'Engineering ($28.4k)' },
       { label: 'Unassigned Margin', value: '< 0.6%' }
-    ]
+    ],
+    plainSummary: 'Attributes every token invoice down to Department, Project, Cost Center, and Environment so no spend is left unallocated and chargeback is defensible.',
+    algorithm: 'Deterministic attribution join over hashed sessions and gateway client headers with a hierarchical business-entity rollup.',
+    topFeatures: [
+      { name: 'Gateway client / subscription id', impact: 'Highest' },
+      { name: 'Hashed user \u2192 department mapping', impact: 'High' },
+      { name: 'Project / cost-center tags', impact: 'High' },
+      { name: 'Environment (Dev/Test/Prod)', impact: 'Medium' }
+    ],
+    outputDescription: 'Fully attributed cost per entity with an attributed-share percentage and any residual unallocated margin.',
+    howToUse: 'Publish monthly chargeback statements per cost center and reallocate shared-platform cost using the observed token-share weights.',
+    actionCategory: 'chargeback'
   },
   {
     key: 'user-segmentation',
@@ -80,7 +113,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Developers (Top Group)', value: '184 users (48% tokens)' },
       { label: 'Agent Builders', value: '62 users (26% tokens)' },
       { label: 'Casual / Periodic', value: '194 users (6% tokens)' }
-    ]
+    ],
+    plainSummary: 'Groups users into behavioural personas by token intensity, tool usage, and prompt depth so model routing and enablement can be tailored per cohort.',
+    algorithm: 'K-Means (with silhouette-tuned k) and DBSCAN for outlier personas on standardized behavioural features.',
+    topFeatures: [
+      { name: 'Tokens per active day', impact: 'Highest' },
+      { name: 'Tool-call / agent usage ratio', impact: 'High' },
+      { name: 'Average prompt depth', impact: 'Medium' },
+      { name: 'Frontier-model share', impact: 'Medium' }
+    ],
+    outputDescription: 'Each user assigned to a persona cluster with intensity and tool-usage centroids and cohort token share.',
+    howToUse: 'Apply persona-based model routing \u2014 e.g. move heavy researchers to large-context efficient models and reserve frontier models for agent builders.',
+    actionCategory: 'model-switch'
   },
   {
     key: 'token-efficiency-scoring',
@@ -98,7 +142,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Cache Hit Ratio', value: '41.2%' },
       { label: 'Avg Tokens / Task', value: '2,840' },
       { label: 'Top Efficient App', value: 'CodePilot (96.4)' }
-    ]
+    ],
+    plainSummary: 'Scores how much useful business outcome each application gets per token, exposing waste from low cache reuse and bloated tool calls.',
+    algorithm: 'Weighted multi-factor composite score (cost-per-task, tokens-per-outcome, cache-hit ratio, tool-call efficiency) with percentile ranking.',
+    topFeatures: [
+      { name: 'Cache-read hit ratio', impact: 'Highest' },
+      { name: 'Tokens per completed task', impact: 'High' },
+      { name: 'Tool-call success efficiency', impact: 'Medium' },
+      { name: 'Output/input token ratio', impact: 'Medium' }
+    ],
+    outputDescription: 'Per-application efficiency score (0\u2013100) with the contributing sub-factors and ranking against the enterprise median.',
+    howToUse: 'Target the lowest-scoring apps first: enable prompt caching and trim context to lift the score and cut input-token spend.',
+    actionCategory: 'prompt-efficiency'
   },
   {
     key: 'budget-overrun-prediction',
@@ -116,7 +171,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Project Falcon Risk', value: '84% (+$12.4k over)' },
       { label: 'Project Phoenix Risk', value: '81% (+$8.1k over)' },
       { label: 'Safe Projects', value: '16 / 18' }
-    ]
+    ],
+    plainSummary: 'Predicts which projects will blow past their quarterly token allocation, and by how much, while there is still time to act.',
+    algorithm: 'Gradient Boosted Trees (XGBoost) classifier/regressor on burn-rate and team-growth features.',
+    topFeatures: [
+      { name: 'Current burn rate vs. allocation', impact: 'Highest' },
+      { name: 'Team expansion velocity', impact: 'High' },
+      { name: 'Agent adoption curve', impact: 'Medium' },
+      { name: 'Workload seasonality', impact: 'Medium' }
+    ],
+    outputDescription: 'Per-project overrun probability, projected overage in USD, and the day it is expected to breach.',
+    howToUse: 'For high-risk projects, reallocate unused quota from safe projects or drop non-critical workloads to a cheaper model tier before the breach date.',
+    actionCategory: 'reallocation'
   },
   {
     key: 'model-optimization-recommendation',
@@ -135,7 +201,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Workloads Eligible', value: '14 pipelines' },
       { label: 'Average Cost Reduction', value: '54.2%' },
       { label: 'Benchmark Quality Parity', value: '99.1%' }
-    ]
+    ],
+    plainSummary: 'Finds workloads running on expensive frontier models that a cheaper model can serve at equal quality, and quantifies the savings of switching.',
+    algorithm: 'Task classifier over prompt embeddings mapped against a model performance/price benchmark matrix.',
+    topFeatures: [
+      { name: 'Task type / prompt embedding class', impact: 'Highest' },
+      { name: 'Benchmark quality parity score', impact: 'High' },
+      { name: 'Current model price per million', impact: 'High' },
+      { name: 'Monthly token volume of workload', impact: 'Medium' }
+    ],
+    outputDescription: 'Per-workload current model, recommended target model, quality-parity score, and estimated annualized savings.',
+    howToUse: 'Apply the recommended model map to the routing layer for zero-quality-loss workloads (e.g. summarization \u2192 mini/Nova tier) and bank the savings.',
+    actionCategory: 'model-switch'
   },
   {
     key: 'agent-roi-analytics',
@@ -153,7 +230,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Hours Saved (Monthly)', value: '1,420 hrs' },
       { label: 'Support Tickets Automated', value: '3,840' },
       { label: 'Net Monthly Value', value: '$72,400' }
-    ]
+    ],
+    plainSummary: 'Ties token cost to real business outcomes (PRs merged, tickets resolved, hours saved) so you fund the agents that pay for themselves and cut the ones that do not.',
+    algorithm: 'Cost-to-outcome correlation and ROI ratio modeling per agent / business unit.',
+    topFeatures: [
+      { name: 'Outcome events per 1K tokens', impact: 'Highest' },
+      { name: 'Hours automated per agent', impact: 'High' },
+      { name: 'Token cost per outcome', impact: 'High' },
+      { name: 'Business-unit value weighting', impact: 'Medium' }
+    ],
+    outputDescription: 'Per-agent ROI ratio, net monthly value, and the outcome metrics that drove it.',
+    howToUse: 'Reallocate budget toward the highest-ROI agents and put low-ROI agents on a cheaper tier or a review list.',
+    actionCategory: 'reallocation'
   },
   {
     key: 'intelligent-quota-management',
@@ -171,7 +259,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Throttling Events Avoided', value: '128' },
       { label: 'Underutilized Quota Reclaimed', value: '45k TPM' },
       { label: 'Capacity Buffer Health', value: '98.2%' }
-    ]
+    ],
+    plainSummary: 'Predicts token-per-minute and request-per-minute exhaustion before the gateway starts returning 429s, and rebalances quota across teams.',
+    algorithm: 'Short-horizon TPM/RPM demand forecasting with a capacity-pool constraint solver.',
+    topFeatures: [
+      { name: 'Peak TPM vs. assigned quota', impact: 'Highest' },
+      { name: 'Upcoming release / onboarding calendar', impact: 'High' },
+      { name: 'Historical 429 near-miss rate', impact: 'Medium' },
+      { name: 'Underutilized quota headroom', impact: 'Medium' }
+    ],
+    outputDescription: 'Per-team recommended TPM/RPM adjustments, reclaimable headroom, and predicted throttling events avoided.',
+    howToUse: 'Apply the recommended rate-limit-by-key / TPM changes in APIM ahead of peak, reclaiming idle quota from over-provisioned teams.',
+    actionCategory: 'rate-limit'
   },
   {
     key: 'prompt-quality-analytics',
@@ -189,7 +288,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Average Prompt Tokens', value: '6,420' },
       { label: 'High-Retry Prompts (>3)', value: '4.2%' },
       { label: 'Cacheable Repetitions', value: '68%' }
-    ]
+    ],
+    plainSummary: 'Scores prompt hygiene \u2014 bloated system instructions, repeated context, and high retry loops \u2014 and quantifies the tokens you can safely cut.',
+    algorithm: 'Prompt feature extraction with repetition/entropy scoring and retry-pattern detection.',
+    topFeatures: [
+      { name: 'Repeated system-instruction tokens', impact: 'Highest' },
+      { name: 'Context window utilization', impact: 'High' },
+      { name: 'Retry count per prompt', impact: 'Medium' },
+      { name: 'Cacheable repetition ratio', impact: 'Medium' }
+    ],
+    outputDescription: 'Per-prompt/app bloat percentage, reducible token count, and estimated annual savings from trimming.',
+    howToUse: 'Trim and cache the worst-offending pipelines (e.g. RAG system prompts) to reduce input-token spend without changing model or output.',
+    actionCategory: 'prompt-efficiency'
   },
   {
     key: 'capacity-planning',
@@ -207,7 +317,18 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Peak API Gateway RPS', value: '420 rps' },
       { label: 'Regional Load Balance', value: 'West US (62%), East US (38%)' },
       { label: 'MACC Spend Attainment', value: '$240k / $230k committed' }
-    ]
+    ],
+    plainSummary: 'Forecasts infrastructure needs \u2014 gateway throughput, regional model capacity, vector indices \u2014 across a 12-month horizon so provisioning stays ahead of growth.',
+    algorithm: 'Long-horizon capacity forecasting with regional load distribution and commitment-attainment modeling.',
+    topFeatures: [
+      { name: 'Projected peak gateway RPS', impact: 'Highest' },
+      { name: 'Regional traffic distribution', impact: 'High' },
+      { name: 'Multi-region growth multiplier', impact: 'Medium' },
+      { name: 'MACC commitment burn', impact: 'Medium' }
+    ],
+    outputDescription: 'Forecasted capacity requirements per region with recommended provisioning dates and commitment-attainment track.',
+    howToUse: 'Schedule gateway/model capacity provisioning ahead of the forecasted breach date and steer traffic to keep MACC attainment on track.',
+    actionCategory: 'capacity'
   },
   {
     key: 'executive-ai-adoption-scorecard',
@@ -225,6 +346,17 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
       { label: 'Monthly Active AI Users', value: '462 / 500 (92.4%)' },
       { label: 'Cost / Active User', value: '$48.20 / mo' },
       { label: 'Total Enterprise Savings', value: '$84,200 (YTD)' }
-    ]
+    ],
+    plainSummary: 'Rolls the whole program up into an executive scorecard \u2014 adoption, cost per active employee, negotiated savings, and team rankings \u2014 for board-level FinOps reporting.',
+    algorithm: 'Weighted KPI aggregation and index scoring across adoption, efficiency, and savings dimensions.',
+    topFeatures: [
+      { name: 'Active-user ratio', impact: 'Highest' },
+      { name: 'Cost per active employee', impact: 'High' },
+      { name: 'Negotiated vs. market savings rate', impact: 'Medium' },
+      { name: 'Team adoption ranking', impact: 'Medium' }
+    ],
+    outputDescription: 'Enterprise adoption index with per-department rankings, cost-per-user, and cumulative savings.',
+    howToUse: 'Target enablement where adoption lags and use the scorecard to govern the program and justify continued investment.',
+    actionCategory: 'governance'
   }
 ];

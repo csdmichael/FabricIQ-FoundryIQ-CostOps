@@ -27,8 +27,14 @@
         <button type="button" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')">
           <ion-icon name="sparkles-outline"></ion-icon><span>12 ML Insights</span>
         </button>
+        <button type="button" [class.active]="activeView() === 'actions'" (click)="setView('actions')">
+          <ion-icon name="bulb-outline"></ion-icon><span>Action Center</span>
+        </button>
         <button type="button" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')">
           <ion-icon name="chatbubbles-outline"></ion-icon><span>Data Agent Chat</span>
+        </button>
+        <button type="button" [class.active]="activeView() === 'ml-guide'" (click)="setView('ml-guide')">
+          <ion-icon name="help-circle-outline"></ion-icon><span>ML Guide</span>
         </button>
       </nav>
       <div class="nav-foot">
@@ -49,7 +55,9 @@
       <button type="button" title="Model Pricing" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')"><ion-icon name="pricetag-outline"></ion-icon></button>
       <button type="button" title="Power BI Reports" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon></button>
       <button type="button" title="12 ML Insights" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon></button>
+      <button type="button" title="Action Center" [class.active]="activeView() === 'actions'" (click)="setView('actions')"><ion-icon name="bulb-outline"></ion-icon></button>
       <button type="button" title="Data Agent Chat" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon></button>
+      <button type="button" title="ML Guide" [class.active]="activeView() === 'ml-guide'" (click)="setView('ml-guide')"><ion-icon name="help-circle-outline"></ion-icon></button>
     </aside>
 
     <!-- Mobile Phone Bottom Tabs -->
@@ -58,6 +66,7 @@
       <button type="button" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')"><ion-icon name="pricetag-outline"></ion-icon><span>Pricing</span></button>
       <button type="button" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon><span>Power BI</span></button>
       <button type="button" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon><span>ML</span></button>
+      <button type="button" [class.active]="activeView() === 'actions'" (click)="setView('actions')"><ion-icon name="bulb-outline"></ion-icon><span>Actions</span></button>
       <button type="button" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon><span>Agent</span></button>
     </nav>
 
@@ -77,6 +86,8 @@
               @case ('pricing') { Multi-Cloud Model Pricing & Rate Cards }
               @case ('powerbi') { Interactive Dashboards & Reports }
               @case ('ml-insights') { 12 PySpark Machine Learning Insights }
+              @case ('actions') { FinOps Action Center }
+              @case ('ml-guide') { ML Algorithm Guide }
               @case ('data-agent') { Data Agent & Prompt Library }
               @case ('showcase') { Business Value Showcase }
             }
@@ -129,7 +140,182 @@
         <div class="updated-at"><span>Updated</span><strong>{{ lastUpdated() || 'Live' }}</strong></div>
       </section>
 
-      @if (loading()) {
+      @if (activeView() === 'actions') {
+        <div class="dashboard-content">
+          <section class="actions-view">
+            <div class="section-intro">
+              <div>
+                <span class="eyebrow">Closed-Loop FinOps</span>
+                <h2>Recommended Actions from ML &amp; Analytics</h2>
+              </div>
+              <p>Every plan is derived live from the governed <code>ml.*_output</code> tables — model switching, APIM token &amp; rate limits, quota reallocation, throttle guardrails, prompt trimming, and chargeback.</p>
+            </div>
+
+            @if (actionsLoading()) {
+              <div class="state-block"><ion-spinner name="dots"></ion-spinner><p>Computing recommended actions from ML outputs…</p></div>
+            } @else if (actionsError()) {
+              <div class="state-block error">
+                <ion-icon name="warning-outline"></ion-icon>
+                <h3>Recommendations unavailable</h3>
+                <p>{{ actionsError() }}</p>
+                <button type="button" class="primary-btn" (click)="loadActions()">Retry</button>
+              </div>
+            } @else if (actions(); as data) {
+              @if (data.status !== 'available') {
+                <div class="state-block">
+                  <ion-icon name="information-circle-outline"></ion-icon>
+                  <h3>No action signals yet</h3>
+                  <p>{{ data.detail }}</p>
+                  <p class="muted-note">Recommendations populate automatically once the 12 PySpark inference notebooks have written to the <code>ml.*_output</code> tables for this window.</p>
+                  <button type="button" class="primary-btn" (click)="loadActions()">Refresh</button>
+                </div>
+              } @else {
+                <!-- Impact summary band -->
+                <div class="actions-summary">
+                  <div class="as-kpi highlight">
+                    <span>Projected annual impact</span>
+                    <strong>{{ data.totalEstimatedAnnualSavingsUsd | currency:data.currency:'symbol':'1.0-0' }}</strong>
+                    <small>savings &amp; cost-avoidance</small>
+                  </div>
+                  <div class="as-kpi">
+                    <span>Monthly impact</span>
+                    <strong>{{ data.totalEstimatedMonthlySavingsUsd | currency:data.currency:'symbol':'1.0-0' }}</strong>
+                    <small>per month at current burn</small>
+                  </div>
+                  <div class="as-kpi">
+                    <span>Recommended actions</span>
+                    <strong>{{ data.plans.length }}</strong>
+                    <small>across {{ data.categories.length }} categories</small>
+                  </div>
+                  <button type="button" class="export-btn" (click)="exportActionPlan()">
+                    <ion-icon name="download-outline"></ion-icon> Export plan
+                  </button>
+                </div>
+
+                <!-- Category filter chips -->
+                <div class="action-filter" role="group" aria-label="Filter by action category">
+                  <button type="button" [class.active]="actionCategoryFilter() === 'all'" (click)="setActionCategoryFilter('all')">
+                    All <span>{{ data.plans.length }}</span>
+                  </button>
+                  @for (cat of data.categories; track cat.category) {
+                    <button type="button" [class.active]="actionCategoryFilter() === cat.category" (click)="setActionCategoryFilter(cat.category)">
+                      <ion-icon [name]="categoryIcon(cat.category)"></ion-icon>
+                      {{ cat.title }} <span>{{ cat.planCount }}</span>
+                    </button>
+                  }
+                </div>
+
+                <!-- Plan cards -->
+                <div class="action-grid">
+                  @for (plan of filteredActionPlans(); track plan.id) {
+                    <article class="action-card" [ngClass]="plan.severity">
+                      <div class="ac-head">
+                        <span class="ac-cat"><ion-icon [name]="categoryIcon(plan.category)"></ion-icon>{{ categoryLabel(plan.category) }}</span>
+                        <span class="status-pill" [ngClass]="plan.severity">{{ plan.severity }}</span>
+                      </div>
+                      <h3>{{ plan.title }}</h3>
+                      <p class="ac-rationale">{{ plan.rationale }}</p>
+
+                      <div class="ac-impact">
+                        @if (plan.estimatedAnnualImpactUsd) {
+                          <div>
+                            <strong>{{ plan.estimatedAnnualImpactUsd | currency:data.currency:'symbol':'1.0-0' }}</strong>
+                            <small>{{ plan.impactKind === 'savings' ? 'annual savings' : plan.impactKind === 'cost-avoidance' ? 'annual cost avoided' : plan.impactKind }}</small>
+                          </div>
+                        }
+                        @if (plan.confidence) {
+                          <div><strong>{{ (plan.confidence * 100) | number:'1.0-0' }}%</strong><small>confidence</small></div>
+                        }
+                      </div>
+
+                      @if (plan.metrics.length) {
+                        <div class="ac-metrics">
+                          @for (m of plan.metrics; track m.label) {
+                            <span><em>{{ m.label }}</em>{{ m.value }}</span>
+                          }
+                        </div>
+                      }
+
+                      <!-- The concrete change to apply -->
+                      @for (change of plan.changes; track change.label) {
+                        <div class="ac-change">
+                          <span class="ac-change-label"><ion-icon name="git-branch-outline"></ion-icon>{{ change.label }}</span>
+                          <div class="ac-diff">
+                            <div class="from"><span>Now</span><code>{{ change.current }}</code></div>
+                            <ion-icon name="arrow-forward" class="ac-arrow"></ion-icon>
+                            <div class="to"><span>Proposed</span><code>{{ change.proposed }}</code></div>
+                          </div>
+                        </div>
+                      }
+
+                      <div class="ac-foot">
+                        <ion-icon name="sparkles-outline"></ion-icon>
+                        <span>From <strong>{{ plan.sourceUseCaseTitle }}</strong> · <code>{{ plan.sourceTable }}</code></span>
+                      </div>
+                    </article>
+                  }
+                </div>
+              }
+            }
+          </section>
+        </div>
+      } @else if (activeView() === 'ml-guide') {
+        <div class="dashboard-content">
+          <section class="ml-guide-view">
+            <div class="section-intro">
+              <div>
+                <span class="eyebrow">Help &amp; Reference</span>
+                <h2>The 12 FinOps ML Algorithms Explained</h2>
+              </div>
+              <p>What each algorithm does, the technique it uses, the features with the highest impact, the output it produces, and how to turn that output into action.</p>
+            </div>
+
+            <div class="guide-list">
+              @for (uc of mlUseCases(); track uc.key) {
+                <article class="guide-card" [class.expanded]="expandedGuideKey() === uc.key">
+                  <button type="button" class="guide-head" (click)="toggleGuide(uc.key)" [attr.aria-expanded]="expandedGuideKey() === uc.key">
+                    <span class="guide-badge">{{ uc.number }}</span>
+                    <span class="guide-title">
+                      <strong>{{ uc.title }}</strong>
+                      <small>{{ uc.plainSummary }}</small>
+                    </span>
+                    <ion-icon [name]="expandedGuideKey() === uc.key ? 'arrow-down-outline' : 'arrow-forward'"></ion-icon>
+                  </button>
+
+                  @if (expandedGuideKey() === uc.key) {
+                    <div class="guide-body">
+                      <div class="guide-row">
+                        <span class="guide-label"><ion-icon name="construct-outline"></ion-icon> Algorithm</span>
+                        <p>{{ uc.algorithm }}</p>
+                      </div>
+                      <div class="guide-row">
+                        <span class="guide-label"><ion-icon name="bulb-outline"></ion-icon> Highest-impact features</span>
+                        <ul class="guide-features">
+                          @for (f of uc.topFeatures; track f.name) {
+                            <li><span class="feat-impact" [ngClass]="f.impact.toLowerCase()">{{ f.impact }}</span>{{ f.name }}</li>
+                          }
+                        </ul>
+                      </div>
+                      <div class="guide-row">
+                        <span class="guide-label"><ion-icon name="server-outline"></ion-icon> Output</span>
+                        <p>{{ uc.outputDescription }} <code>{{ uc.outputTable }}</code></p>
+                      </div>
+                      <div class="guide-row highlight">
+                        <span class="guide-label"><ion-icon name="git-branch-outline"></ion-icon> How to use it (close the loop)</span>
+                        <p>{{ uc.howToUse }}</p>
+                        <button type="button" class="guide-cta" (click)="setView('actions')">
+                          <ion-icon [name]="categoryIcon(uc.actionCategory)"></ion-icon>
+                          See {{ categoryLabel(uc.actionCategory) }} actions
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </article>
+              }
+            </div>
+          </section>
+        </div>
+      } @else if (loading()) {
         <section class="state-panel"><ion-spinner name="crescent"></ion-spinner><p>Loading governed usage telemetry</p></section>
       } @else if (error()) {
         <section class="state-panel error-state">
@@ -602,7 +788,7 @@
             </section>
           }
 
-          <!-- 6. DATA AGENT CHAT & PROMPT LIBRARY VIEW -->
+          <!-- 8. DATA AGENT CHAT & PROMPT LIBRARY VIEW -->
           @if (activeView() === 'data-agent') {
             <section class="data-agent-view">
               <div class="section-intro">

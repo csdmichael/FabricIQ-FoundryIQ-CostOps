@@ -7,6 +7,10 @@ import { addIcons } from 'ionicons';
 import {
   addOutline,
   arrowForward,
+  bulbOutline,
+  swapHorizontalOutline,
+  helpCircleOutline,
+  gitBranchOutline,
   constructOutline,
   mailOutline,
   optionsOutline,
@@ -65,6 +69,9 @@ import { ShowcasePage } from './showcase.page';
 import { TokenomicsChart } from './tokenomics-chart';
 import { TokenomicsService } from './tokenomics.service';
 import type {
+  ActionCategory,
+  ActionPlan,
+  ActionRecommendationsResponse,
   ChatMessage,
   DashboardView,
   MlUseCaseInfo,
@@ -101,7 +108,7 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
 })
 export class App implements OnInit {
   private readonly location = inject(Location);
-  private readonly validViews: DashboardView[] = ['overview', 'allocation', 'pricing', 'powerbi', 'ml-insights', 'data-agent', 'showcase'];
+  private readonly validViews: DashboardView[] = ['overview', 'allocation', 'pricing', 'powerbi', 'ml-insights', 'actions', 'ml-guide', 'data-agent', 'showcase'];
   readonly dashboard = signal<Awaited<ReturnType<TokenomicsService['dashboard']>> | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
@@ -124,6 +131,22 @@ export class App implements OnInit {
   readonly mlUseCases = signal<MlUseCaseInfo[]>([]);
   readonly selectedMlUseCase = signal<MlUseCaseInfo | null>(null);
   readonly mlFilterProvider = signal<string>('all');
+
+  // Action Center State (closed feedback loop)
+  readonly actions = signal<ActionRecommendationsResponse | null>(null);
+  readonly actionsLoading = signal(false);
+  readonly actionsError = signal('');
+  readonly actionCategoryFilter = signal<ActionCategory | 'all'>('all');
+
+  readonly filteredActionPlans = computed<ActionPlan[]>(() => {
+    const data = this.actions();
+    if (!data) return [];
+    const filter = this.actionCategoryFilter();
+    return filter === 'all' ? data.plans : data.plans.filter(p => p.category === filter);
+  });
+
+  // ML Guide state (expandable algorithm documentation)
+  readonly expandedGuideKey = signal<string | null>(null);
 
   // Power BI Embedded Viewer State
   readonly selectedPowerBiTab = signal<'consumption' | 'ml-insights' | 'dashboard'>('consumption');
@@ -368,6 +391,10 @@ export class App implements OnInit {
     addIcons({
       addOutline,
       arrowForward,
+      bulbOutline,
+      swapHorizontalOutline,
+      helpCircleOutline,
+      gitBranchOutline,
       constructOutline,
       mailOutline,
       optionsOutline,
@@ -445,6 +472,7 @@ export class App implements OnInit {
     this.pricingCatalog.set(pricing);
     this.chatMessages.set(this.tokenomics.getInitialChatMessages());
     await this.refresh();
+    await this.loadActions();
     await this.loadPowerBi();
   }
 
@@ -475,6 +503,74 @@ export class App implements OnInit {
     if (![1, 7, 30, 90].includes(days)) return;
     this.windowDays.set(days);
     await this.refresh();
+    await this.loadActions();
+  }
+
+  /** Load data-driven FinOps action recommendations for the current window. */
+  async loadActions(): Promise<void> {
+    this.actionsLoading.set(true);
+    this.actionsError.set('');
+    try {
+      this.actions.set(await this.tokenomics.getActionRecommendations(this.windowDays()));
+    } catch (error) {
+      this.actions.set(null);
+      this.actionsError.set(error instanceof Error ? error.message : 'Action recommendations are temporarily unavailable.');
+    } finally {
+      this.actionsLoading.set(false);
+    }
+  }
+
+  setActionCategoryFilter(category: ActionCategory | 'all'): void {
+    this.actionCategoryFilter.set(category);
+  }
+
+  private readonly actionCategoryLabels: Record<string, string> = {
+    'model-switch': 'Model Switching',
+    'rate-limit': 'Token & Rate Limits',
+    'reallocation': 'Quota Reallocation',
+    'throttle-guardrail': 'Throttle Guardrails',
+    'prompt-efficiency': 'Prompt Efficiency',
+    'chargeback': 'Chargeback',
+    'capacity': 'Capacity',
+    'quota-increase': 'Quota Increase',
+    'governance': 'Governance',
+  };
+
+  private readonly actionCategoryIcons: Record<string, string> = {
+    'model-switch': 'swap-horizontal-outline',
+    'rate-limit': 'speedometer-outline',
+    'reallocation': 'git-branch-outline',
+    'throttle-guardrail': 'shield-checkmark-outline',
+    'prompt-efficiency': 'flash-outline',
+    'chargeback': 'wallet-outline',
+    'capacity': 'server-outline',
+    'quota-increase': 'trending-up-outline',
+    'governance': 'shield-checkmark-outline',
+  };
+
+  categoryLabel(category: string): string {
+    return this.actionCategoryLabels[category] ?? category;
+  }
+
+  categoryIcon(category: string): string {
+    return this.actionCategoryIcons[category] ?? 'bulb-outline';
+  }
+
+  toggleGuide(key: string): void {
+    this.expandedGuideKey.set(this.expandedGuideKey() === key ? null : key);
+  }
+
+  /** Export the current recommendation set as a downloadable JSON action plan. */
+  exportActionPlan(): void {
+    const data = this.actions();
+    if (!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `finops-action-plan-${this.windowDays()}d.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   private applyViewFromUrl(): void {

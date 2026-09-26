@@ -29,6 +29,7 @@ function sendJson(response, status, body) {
 const ALLOWED_ROUTES = [
   { method: 'GET', pattern: /^\/summary\/?$/ },
   { method: 'GET', pattern: /^\/pricing\/?$/ },
+  { method: 'GET', pattern: /^\/actions\/?$/ },
   { method: 'GET', pattern: /^\/prompts\/?$/ },
   { method: 'GET', pattern: /^\/powerbi\/embed\/?$/ },
   { method: 'GET', pattern: /^\/health\/?$/ },

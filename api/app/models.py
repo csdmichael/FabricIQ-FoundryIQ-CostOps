@@ -145,3 +145,60 @@ class SamplePrompt(BaseModel):
     description: str
     targetTables: list[str] = []
     suggestedDimensions: list[str] = []
+
+
+class ActionChangePreview(BaseModel):
+    kind: Literal[
+        "apim-policy", "rate-limit", "model-map", "budget-guardrail", "reallocation", "note"
+    ]
+    label: str
+    current: str
+    proposed: str
+
+
+class ActionPlan(BaseModel):
+    id: str
+    category: Literal[
+        "model-switch",
+        "rate-limit",
+        "reallocation",
+        "throttle-guardrail",
+        "prompt-efficiency",
+        "chargeback",
+        "capacity",
+        "quota-increase",
+        "governance",
+    ]
+    title: str
+    sourceUseCaseKey: str
+    sourceUseCaseTitle: str
+    sourceTable: str
+    severity: Literal["optimal", "warning", "alert", "info"]
+    entityType: str
+    entityId: str
+    rationale: str
+    estimatedMonthlyImpactUsd: Optional[float] = None
+    estimatedAnnualImpactUsd: Optional[float] = None
+    impactKind: Literal["savings", "cost-avoidance", "reliability", "governance"]
+    confidence: Optional[float] = None
+    changes: list[ActionChangePreview] = []
+    metrics: list[dict] = []
+
+
+class ActionCategorySummary(BaseModel):
+    category: str
+    title: str
+    planCount: int
+    estimatedAnnualImpactUsd: float
+
+
+class ActionRecommendationsResponse(BaseModel):
+    generatedAt: str
+    windowDays: int
+    currency: str
+    status: Literal["available", "empty", "unavailable"]
+    detail: str = "ok"
+    totalEstimatedAnnualSavingsUsd: float = 0.0
+    totalEstimatedMonthlySavingsUsd: float = 0.0
+    categories: list[ActionCategorySummary] = []
+    plans: list[ActionPlan] = []

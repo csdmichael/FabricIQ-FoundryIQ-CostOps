@@ -1,4 +1,4 @@
-export type DashboardView = 'overview' | 'allocation' | 'pricing' | 'powerbi' | 'ml-insights' | 'data-agent' | 'showcase';
+export type DashboardView = 'overview' | 'allocation' | 'pricing' | 'powerbi' | 'ml-insights' | 'actions' | 'ml-guide' | 'data-agent' | 'showcase';
 export type WindowDays = 1 | 7 | 30 | 90;
 
 export interface RuntimeConfig {
@@ -90,6 +90,11 @@ export interface ModelPriceItem {
   discountPercent: number;
 }
 
+export interface MlFeatureImpact {
+  name: string;
+  impact: string;
+}
+
 export interface MlUseCaseInfo {
   key: string;
   number: string;
@@ -105,6 +110,69 @@ export interface MlUseCaseInfo {
   estimatedAnnualSavings?: number;
   kpis: { label: string; value: string; trend?: string }[];
   metricsTable?: { dimension: string; value: string; benchmark: string; status: string }[];
+  // Descriptive guide metadata (documentation, not telemetry).
+  plainSummary: string;
+  algorithm: string;
+  topFeatures: MlFeatureImpact[];
+  outputDescription: string;
+  howToUse: string;
+  actionCategory: ActionCategory;
+}
+
+export type ActionCategory =
+  | 'model-switch'
+  | 'rate-limit'
+  | 'reallocation'
+  | 'throttle-guardrail'
+  | 'prompt-efficiency'
+  | 'chargeback'
+  | 'capacity'
+  | 'quota-increase'
+  | 'governance';
+
+export interface ActionChangePreview {
+  kind: 'apim-policy' | 'rate-limit' | 'model-map' | 'budget-guardrail' | 'reallocation' | 'note';
+  label: string;
+  current: string;
+  proposed: string;
+}
+
+export interface ActionPlan {
+  id: string;
+  category: ActionCategory;
+  title: string;
+  sourceUseCaseKey: string;
+  sourceUseCaseTitle: string;
+  sourceTable: string;
+  severity: 'optimal' | 'warning' | 'alert' | 'info';
+  entityType: string;
+  entityId: string;
+  rationale: string;
+  estimatedMonthlyImpactUsd: number | null;
+  estimatedAnnualImpactUsd: number | null;
+  impactKind: 'savings' | 'cost-avoidance' | 'reliability' | 'governance';
+  confidence: number | null;
+  changes: ActionChangePreview[];
+  metrics: { label: string; value: string }[];
+}
+
+export interface ActionCategorySummary {
+  category: ActionCategory;
+  title: string;
+  planCount: number;
+  estimatedAnnualImpactUsd: number;
+}
+
+export interface ActionRecommendationsResponse {
+  generatedAt: string;
+  windowDays: WindowDays;
+  currency: string;
+  status: 'available' | 'empty' | 'unavailable';
+  detail: string;
+  totalEstimatedAnnualSavingsUsd: number;
+  totalEstimatedMonthlySavingsUsd: number;
+  categories: ActionCategorySummary[];
+  plans: ActionPlan[];
 }
 
 export interface SavedPrompt {

@@ -4,6 +4,7 @@ import { formatAgentReply } from './chat-format';
 import { ML_USE_CASES } from './mock-data';
 import { RuntimeConfigService } from './runtime-config.service';
 import type {
+  ActionRecommendationsResponse,
   ChatApiResponse,
   ChatMessage,
   MlUseCaseInfo,
@@ -63,8 +64,18 @@ export class TokenomicsService {
     return data;
   }
 
-  async getModelPricingCatalog(): Promise<ModelPriceItem[]> {
+  /** Data-driven FinOps action recommendations (the closed feedback loop). */
+  async getActionRecommendations(days: WindowDays): Promise<ActionRecommendationsResponse> {
     if (!this.config) await this.initialize();
+    const response = await this.authorizedFetch(`/actions?days=${days}`);
+    if (!response.ok) {
+      throw new Error(`Action recommendations are unavailable (HTTP ${response.status}). Sign in and confirm the analytics API is reachable.`);
+    }
+    this.isLiveMode.set(true);
+    return await response.json() as ActionRecommendationsResponse;
+  }
+
+  async getModelPricingCatalog(): Promise<ModelPriceItem[]> {    if (!this.config) await this.initialize();
     try {
       const response = await this.authorizedFetch('/pricing');
       if (response.ok) {

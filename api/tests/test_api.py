@@ -111,3 +111,70 @@ def test_summary_endpoint_uses_service(monkeypatch):
     response = client.get("/summary?days=30")
     assert response.status_code == 200
     assert response.json()["summary"]["requests"] == 10
+
+
+def test_actions_endpoint_uses_service(monkeypatch):
+    import app.main as main
+    from app.models import ActionRecommendationsResponse
+
+    sample = ActionRecommendationsResponse(
+        generatedAt="2026-09-22T00:00:00Z",
+        windowDays=30,
+        currency="USD",
+        status="empty",
+        detail="no signals",
+    )
+    monkeypatch.setattr(main._recommendations, "build", lambda days: sample)
+    client = TestClient(main.app)
+    response = client.get("/actions?days=30")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "empty"
+    assert body["plans"] == []
+
+
+def test_recommendations_service_builds_model_switch_plan():
+    """The action engine turns an ml.*_output row into a concrete plan."""
+    from app.recommendations_service import RecommendationsService
+
+    settings = get_settings()
+
+    class FakeClient:
+        def query(self, sql, params=()):
+            if "INFORMATION_SCHEMA" in sql:
+                return [{"TABLE_NAME": "model_optimization_output"}]
+            return [{
+                "entity_type": "team", "entity_id": "research",
+                "team_id": "research", "project_id": "falcon",
+                "department_id": None, "cost_center_id": None,
+                "model_family": "GPT-5", "model_name": "gpt-5",
+                "source_code": "oai", "probability": 0.9, "risk_score": 12.0,
+                "estimated_savings_usd": 300.0, "predicted_cost_usd": 100.0,
+                "recommendation": "Switch summarization to a mini tier.",
+            }]
+
+    service = RecommendationsService(settings, FakeClient())
+    result = service.build(30)
+    assert result.status == "available"
+    assert result.plans, "expected at least one action plan"
+    plan = result.plans[0]
+    assert plan.category == "model-switch"
+    assert plan.sourceTable.endswith("model_optimization_output")
+    assert plan.changes and plan.changes[0].kind == "model-map"
+    assert plan.estimatedAnnualImpactUsd and plan.estimatedAnnualImpactUsd > 0
+    assert result.totalEstimatedAnnualSavingsUsd > 0
+
+
+def test_recommendations_service_reports_unavailable_on_error():
+    from app.recommendations_service import RecommendationsService
+
+    settings = get_settings()
+
+    class BrokenClient:
+        def query(self, sql, params=()):
+            raise RuntimeError("no connection")
+
+    service = RecommendationsService(settings, BrokenClient())
+    result = service.build(30)
+    assert result.status == "unavailable"
+    assert result.plans == []

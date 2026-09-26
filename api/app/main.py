@@ -3,6 +3,8 @@
 Endpoints:
     GET /health          - liveness + Fabric connectivity probe
     GET /summary         - TokenomicsDashboard for a window (?days=1|7|30|90)
+    GET /pricing         - current multi-cloud model rate cards
+    GET /actions         - data-driven FinOps action plans (closed feedback loop)
     GET /powerbi/embed   - Power BI report/dashboard embed configuration
 
 Configuration is fully file-driven (see ``config/deployment.json`` ->
@@ -23,6 +25,7 @@ from .config import get_settings
 from .dashboard_service import DashboardService
 from .fabric_client import FabricSqlClient
 from .models import (
+    ActionRecommendationsResponse,
     ChatRequest,
     ChatResponse,
     PowerBiEmbedArtifact,
@@ -30,6 +33,7 @@ from .models import (
     SamplePrompt,
     TokenomicsDashboard,
 )
+from .recommendations_service import RecommendationsService
 
 logger = logging.getLogger("tokenomics.api")
 
@@ -52,6 +56,7 @@ if settings.cors_allowed_origins:
 _client = FabricSqlClient(settings)
 _service = DashboardService(settings, _client)
 _agent = AgentChatService(settings, _client)
+_recommendations = RecommendationsService(settings, _client)
 
 
 def _load_prompts() -> dict:
@@ -99,6 +104,24 @@ def pricing() -> list[dict]:
         return _service.pricing()
     except Exception as exc:  # pragma: no cover - connectivity dependent
         logger.exception("Failed to load pricing")
+        raise HTTPException(status_code=502, detail=f"fabric_query_failed: {exc}") from exc
+
+
+@app.get("/actions", response_model=ActionRecommendationsResponse)
+def actions(days: int = Query(default=None, description="Observation window in days")) -> ActionRecommendationsResponse:
+    """Data-driven FinOps action plans derived from the ml.*_output tables.
+
+    Closes the analytics feedback loop: each ML signal becomes a concrete,
+    reviewable action (model switch, APIM rate/token-limit change, quota
+    reallocation, throttle guardrail, prompt trimming, chargeback). Returns an
+    explicit empty/unavailable status when the ML tables are not yet populated
+    rather than fabricating recommendations.
+    """
+    window = settings.resolve_window(days)
+    try:
+        return _recommendations.build(window)
+    except Exception as exc:  # pragma: no cover - connectivity dependent
+        logger.exception("Failed to build action recommendations")
         raise HTTPException(status_code=502, detail=f"fabric_query_failed: {exc}") from exc
 
 

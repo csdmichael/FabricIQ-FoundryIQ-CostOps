@@ -40,6 +40,42 @@
           }
         ]
       }
+    },
+    "/actions": {
+      "get": {
+        "operationId": "actions",
+        "summary": "Get data-driven FinOps action recommendations",
+        "description": "Closes the analytics feedback loop: turns the ml.*_output tables into concrete, reviewable actions (model switching, APIM rate/token-limit changes, quota reallocation, throttle guardrails, prompt trimming, chargeback).",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [1, 7, 30, 90],
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommended action plans derived from the ML output tables.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionRecommendations"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -98,6 +134,21 @@
           "operations": { "type": "array", "items": { "$ref": "#/components/schemas/TokenomicsRow" } },
           "recentRequests": { "type": "array", "items": { "$ref": "#/components/schemas/TokenomicsRow" } },
           "dataQuality": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "ActionRecommendations": {
+        "type": "object",
+        "required": ["generatedAt", "windowDays", "currency", "status", "plans", "categories"],
+        "properties": {
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "windowDays": { "type": "integer", "enum": [1, 7, 30, 90] },
+          "currency": { "type": "string" },
+          "status": { "type": "string", "enum": ["available", "empty", "unavailable"] },
+          "detail": { "type": "string" },
+          "totalEstimatedAnnualSavingsUsd": { "type": "number" },
+          "totalEstimatedMonthlySavingsUsd": { "type": "number" },
+          "categories": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "plans": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
         }
       }
     },

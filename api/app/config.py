@@ -118,6 +118,13 @@ class Settings:
     # Foundry agent chat (optional)
     foundry: Optional["FoundrySettings"] = None
 
+    # ML action engine (recommendations) inputs
+    insight_fact_table: str = "ml_insight_fact"
+    ml_use_cases: list = field(default_factory=list)
+    apim_rate_limit_calls: int = 60
+    apim_rate_limit_renewal_seconds: int = 60
+    apim_model_token_limit_per_minute: int = 50000
+
     def provider_name(self, code: str) -> str:
         for provider in self.providers:
             if provider.code == code:
@@ -243,4 +250,9 @@ def get_settings() -> Settings:
         powerbi_reports=reports,
         powerbi_dashboards=dashboards,
         foundry=foundry,
+        insight_fact_table=str(reporting_tables.get("insightFact", "ml_insight_fact")),
+        ml_use_cases=list(platform_fabric.get("mlUseCases", [])),
+        apim_rate_limit_calls=int(apim_cfg.get("rateLimitCalls", 60)),
+        apim_rate_limit_renewal_seconds=int(apim_cfg.get("rateLimitRenewalSeconds", 60)),
+        apim_model_token_limit_per_minute=int(apim_cfg.get("modelTokenLimitPerMinute", 50000)),
     )
