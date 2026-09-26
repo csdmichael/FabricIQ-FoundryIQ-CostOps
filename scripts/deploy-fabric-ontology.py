@@ -171,15 +171,23 @@ def build_parts(ont: dict, columns: dict, lakehouse_id: str, ws: str, bind: bool
             vt = "Double" if p in _DOUBLE_PROPS else "String"
             ptype[p] = vt
             m = pmeta.get(p, {})
-            props.append({
-                "id": pid, "name": p, "description": m.get("description", ""),
-                "synonyms": m.get("synonyms", []), "redefines": None,
+            prop_obj = {
+                "id": pid, "name": p, "redefines": None,
                 "baseTypeNamespaceType": None, "valueType": vt,
-            })
+            }
+            enrich = {}
+            if m.get("description"):
+                enrich["description"] = m["description"]
+            if m.get("synonyms"):
+                enrich["synonyms"] = m["synonyms"]
+            if enrich:
+                prop_obj["semanticEnrichment"] = enrich
+            props.append(prop_obj)
         if not props:
             pid = ids.next(); prop_ids["id"] = pid; ptype["id"] = "String"
-            props.append({"id": pid, "name": "id", "description": "Identifier.", "synonyms": [],
-                          "redefines": None, "baseTypeNamespaceType": None, "valueType": "String"})
+            props.append({"id": pid, "name": "id", "redefines": None,
+                          "baseTypeNamespaceType": None, "valueType": "String",
+                          "semanticEnrichment": {"description": "Identifier."}})
         key = next((k for k in c.get("key", []) if prop_ids.get(k) and ptype[k] == "String"), None)
         if key is None:
             key = next((n for n in prop_ids if ptype[n] == "String"), props[0]["name"])
@@ -187,13 +195,25 @@ def build_parts(ont: dict, columns: dict, lakehouse_id: str, ws: str, bind: bool
         for pr in props:
             if pr["id"] == key_id:
                 pr["valueType"] = "String"
-        parts.append({"path": f"EntityTypes/{eid}/definition.json", "payload": _b64({
+        entity_obj = {
             "id": eid, "namespace": "usertypes", "baseEntityTypeId": None, "name": c["id"],
-            "description": c.get("description", ""), "synonyms": c.get("synonyms", []),
             "entityIdParts": [key_id], "displayNamePropertyId": key_id,
             "namespaceType": "Custom", "visibility": "Visible",
             "properties": props, "timeseriesProperties": [],
-        }), "payloadType": "InlineBase64"})
+        }
+        ent_enrich = {}
+        if c.get("description"):
+            ent_enrich["description"] = c["description"]
+        if c.get("synonyms"):
+            ent_enrich["synonyms"] = c["synonyms"]
+        # Additional governed metadata for humans + AI agents.
+        ent_enrich["customAttributes"] = {
+            "category": c.get("category", ""),
+            "backingTable": str(c.get("source", "")),
+        }
+        entity_obj["semanticEnrichment"] = ent_enrich
+        parts.append({"path": f"EntityTypes/{eid}/definition.json",
+                      "payload": _b64(entity_obj), "payloadType": "InlineBase64"})
 
         source = str(c.get("source", ""))
         if bind and lakehouse_id and "." in source and not source.startswith("derived:"):
@@ -221,14 +241,19 @@ def build_parts(ont: dict, columns: dict, lakehouse_id: str, ws: str, bind: bool
                 }), "payloadType": "InlineBase64"})
                 bound += 1
 
+    rel_by_pair = {}
     for r in ont["relationships"]:
         if r["from"] in entity_ids and r["to"] in entity_ids:
             rid = ids.next()
-            parts.append({"path": f"RelationshipTypes/{rid}/definition.json", "payload": _b64({
+            rel_obj = {
                 "namespace": "usertypes", "id": rid, "name": r["label"], "namespaceType": "Custom",
                 "source": {"entityTypeId": entity_ids[r["from"]]},
                 "target": {"entityTypeId": entity_ids[r["to"]]},
-            }), "payloadType": "InlineBase64"})
+            }
+            desc = f"{r['from']} {r['label']} {r['to']}" + (f" (via {r['via']})" if r.get("via") else "")
+            rel_obj["semanticEnrichment"] = {"description": desc, "synonyms": [r["label"]]}
+            parts.append({"path": f"RelationshipTypes/{rid}/definition.json",
+                          "payload": _b64(rel_obj), "payloadType": "InlineBase64"})
 
     rel_count = sum(1 for p in parts if p["path"].startswith("RelationshipTypes/"))
     print(f"Ontology: {len(entity_ids)} entity types, {rel_count} relationships, {bound} data bindings")
