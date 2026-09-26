@@ -230,8 +230,8 @@ function semanticModelDefinition(config, metadata) {
     }),
     modelTable({
       name: 'Price History',
-      schema: outputSchema,
-      sourceTable: fabric.reportingTables.priceHistory,
+      schema: fabric.pricesSchema ?? outputSchema,
+      sourceTable: fabric.pricesTable ?? fabric.reportingTables.priceHistory,
       columns: priceColumns,
       measures: [
         measure('Market Input Rate', "AVERAGE('Price History'[market_input_usd_per_million])", CURRENCY_FORMAT),
@@ -675,7 +675,7 @@ export function generatePowerBiArtifacts(config, metadata, semanticModelId = PLA
   const tableContracts = [
     { qualifiedName: `${fabric.outputSchema}.${fabric.reportingTables.usageFact}`, semanticTable: 'Usage', columns: usageColumns.map(([name]) => name) },
     { qualifiedName: `${fabric.outputSchema}.${fabric.reportingTables.insightFact}`, semanticTable: 'ML Insights', columns: insightColumns.map(([name]) => name) },
-    { qualifiedName: `${fabric.outputSchema}.${fabric.reportingTables.priceHistory}`, semanticTable: 'Price History', columns: priceColumns.map(([name]) => name) },
+    { qualifiedName: `${fabric.pricesSchema ?? fabric.outputSchema}.${fabric.pricesTable ?? fabric.reportingTables.priceHistory}`, semanticTable: 'Price History', columns: priceColumns.map(([name]) => name) },
     { qualifiedName: `${fabric.outputSchema}.${fabric.reportingTables.runLedger}`, semanticTable: 'Model Runs', columns: runColumns.map(([name]) => name) },
     ...fabric.mlUseCases.map((useCase, index) => ({
       qualifiedName: `${fabric.outputSchema}.${useCase.outputTableName}`,

@@ -360,7 +360,9 @@
         "cld",
         "msft"
       ],
-      "outputSchema": "ml"
+      "outputSchema": "ml",
+      "pricesSchema": "prices",
+      "pricesTable": "token_price_history"
     },
     "pricing": {
       "requestTimeoutSeconds": 120,
