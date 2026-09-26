@@ -4,22 +4,28 @@
 
 /* Hero */
 .sc-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr);
+  align-items: center;
+  gap: 48px;
   background: linear-gradient(135deg, #102644 0%, #1d3a5e 60%, #16a3a5 140%);
   color: #fff;
   border-radius: 12px;
-  padding: 40px 44px;
+  padding: 44px 48px;
   margin: 24px 0 20px;
   overflow: hidden;
 }
+.sc-hero-content { min-width: 0; }
 .sc-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #9fe6e0; }
 .sc-eyebrow span { width: 8px; height: 8px; border-radius: 50%; background: #00e5a3; box-shadow: 0 0 0 4px rgba(0,229,163,.25); }
 .sc-hero h1 { margin: 0; font-family: 'Segoe UI Variable Display', Aptos, sans-serif; font-size: 40px; line-height: 1.05; font-weight: 720; }
 .sc-hero h1 strong { color: #6fe3d6; }
-.sc-summary { max-width: 760px; margin: 14px 0 24px; font-size: 15px; line-height: 1.55; color: #d6e3f0; }
-.sc-hero-stats { display: flex; flex-wrap: wrap; gap: 36px; margin: 0; }
-.sc-hero-stats div { display: flex; flex-direction: column; }
-.sc-hero-stats dt { font-family: 'Segoe UI Variable Display', Aptos, sans-serif; font-size: 30px; font-weight: 760; }
-.sc-hero-stats dd { margin: 2px 0 0; font-size: 12px; color: #9fb0c4; text-transform: uppercase; font-weight: 700; }
+.sc-summary { max-width: 760px; margin: 14px 0 0; font-size: 15px; line-height: 1.55; color: #d6e3f0; }
+.sc-hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0; }
+.sc-hero-stats div { display: flex; flex-direction: column; padding: 18px 20px; border-radius: 12px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(6px); transition: transform .15s ease, background .15s ease, border-color .15s ease; }
+.sc-hero-stats div:hover { transform: translateY(-2px); background: rgba(255,255,255,.12); border-color: rgba(111,227,214,.5); }
+.sc-hero-stats dt { font-family: 'Segoe UI Variable Display', Aptos, sans-serif; font-size: 32px; font-weight: 760; line-height: 1; color: #6fe3d6; }
+.sc-hero-stats dd { margin: 8px 0 0; font-size: 12px; color: #cfe0f0; text-transform: uppercase; font-weight: 700; letter-spacing: .03em; }
 
 /* Value proposition gadget */
 .sc-valueprop { display: grid; grid-template-columns: 1.4fr 1.3fr auto; align-items: center; gap: 24px; margin: 0 0 20px; padding: 20px 24px; background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--teal); border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.05); }
@@ -145,6 +151,8 @@
 .sc-footer a:hover { text-decoration: underline; }
 
 @media (max-width: 1024px) {
+  .sc-hero { grid-template-columns: 1fr; gap: 28px; }
+  .sc-summary { max-width: none; }
   .sc-valueprop { grid-template-columns: 1fr; gap: 16px; }
   .value-kpis { grid-template-columns: repeat(2, 1fr); }
   .value-levers { grid-template-columns: repeat(2, 1fr); }
@@ -154,5 +162,6 @@
 @media (max-width: 640px) {
   .sc-hero { padding: 28px 22px; }
   .sc-hero h1 { font-size: 30px; }
+  .sc-hero-stats { grid-template-columns: 1fr 1fr; }
   .value-kpis, .value-levers, .feature-grid, .try-grid, .value-assumptions { grid-template-columns: 1fr; }
 }
