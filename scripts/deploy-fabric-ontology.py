@@ -288,7 +288,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ont = json.loads(ONTOLOGY_FILE.read_text(encoding="utf-8"))
-    ws = _workspace_id()
+    ws = "" if args.what_if else _workspace_id()
     lakehouse_id = _lakehouse_id()
     do_bind = not args.no_bindings and not args.what_if
     columns = _table_columns() if do_bind else {}
