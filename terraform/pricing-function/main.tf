@@ -20,9 +20,18 @@ data "azurerm_resource_group" "fn" {
   name = local.resource_group
 }
 
-data "azurerm_service_plan" "fn" {
+resource "azurerm_service_plan" "fn" {
   name                = local.fn.existingPlanName
   resource_group_name = local.resource_group
+  location            = local.location
+  os_type             = "Linux"
+  sku_name            = "B1"
+  tags                = local.tags
+}
+
+import {
+  to = azurerm_service_plan.fn
+  id = "/subscriptions/${local.subscription_id}/resourceGroups/${local.resource_group}/providers/Microsoft.Web/serverFarms/${local.fn.existingPlanName}"
 }
 
 data "azurerm_storage_account" "fn" {
@@ -30,16 +39,17 @@ data "azurerm_storage_account" "fn" {
   resource_group_name = try(local.fn.storageAccountResourceGroup, local.resource_group)
 }
 
-# Pricing sync Azure Function — Python on the existing Linux plan, identity-based host
+# Pricing sync Azure Function — Python on the existing Linux B1 plan, identity-based host
 # storage (no keys), writing to prices.token_price_history in Fabric OneLake via MI.
 resource "azurerm_linux_function_app" "pricing" {
   name                                           = local.fn.appName
   resource_group_name                            = local.resource_group
   location                                       = local.location
-  service_plan_id                                = data.azurerm_service_plan.fn.id
+  service_plan_id                                = azurerm_service_plan.fn.id
   storage_account_name                           = data.azurerm_storage_account.fn.name
   storage_uses_managed_identity                  = true
   https_only                                     = true
+  virtual_network_subnet_id                      = local.fn.integrationSubnetResourceId
   ftp_publish_basic_authentication_enabled       = false
   webdeploy_publish_basic_authentication_enabled = false
   tags                                           = local.tags
@@ -56,24 +66,20 @@ resource "azurerm_linux_function_app" "pricing" {
     TOKENOMICS_PRICES_SCHEMA       = local.prices_schema
     TOKENOMICS_PRICES_TABLE        = local.prices_table
     PRICING_SYNC_SCHEDULE          = local.schedule
+    TOKENOMICS_CONFIG_PATH         = "/home/site/wwwroot/config/deployment.json"
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
+    WEBSITE_VNET_ROUTE_ALL         = "1"
   }
 
   site_config {
-    always_on           = true
-    ftps_state          = "Disabled"
-    http2_enabled       = true
-    minimum_tls_version = "1.2"
+    always_on              = true
+    ftps_state             = "Disabled"
+    http2_enabled          = true
+    minimum_tls_version    = "1.2"
+    vnet_route_all_enabled = true
 
     application_stack {
       python_version = "3.11"
-    }
-  }
-
-  lifecycle {
-    precondition {
-      condition     = data.azurerm_service_plan.fn.os_type == "Linux"
-      error_message = "pricingFunction.existingPlanName must identify an existing Linux App Service plan."
     }
   }
 }

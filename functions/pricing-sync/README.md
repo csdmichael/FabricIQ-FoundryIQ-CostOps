@@ -32,11 +32,12 @@ OneLake and **read** on the Lakehouse SQL endpoint.
 
 `TOKENOMICS_SQL_ENDPOINT_HOST`, `TOKENOMICS_LAKEHOUSE_NAME`, `FABRIC_WORKSPACE_ID`,
 `FABRIC_LAKEHOUSE_ID`, `TOKENOMICS_PRICES_SCHEMA`, `TOKENOMICS_PRICES_TABLE`,
-`PRICING_SYNC_SCHEDULE`.
+`PRICING_SYNC_SCHEDULE`, `TOKENOMICS_CONFIG_PATH`.
 
 ## Deploy
 
-Infrastructure (Function App on the existing Linux plan) is provisioned by
+Infrastructure (Function App on the existing Linux B1 plan) is provisioned by
 [`bicep/pricing-function/main.bicep`](../../bicep/pricing-function/main.bicep) or
 [`terraform/pricing-function`](../../terraform/pricing-function). Code is published with
 `func azure functionapp publish <appName>` or the `Deploy — infra & ontology` GitHub workflow.
+The app uses the existing delegated integration subnet to reach private host storage.

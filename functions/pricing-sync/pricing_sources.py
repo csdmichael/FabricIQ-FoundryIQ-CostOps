@@ -31,6 +31,7 @@ _CONFIG_PATH = os.environ.get(
     "TOKENOMICS_CONFIG_PATH",
     str(Path(__file__).resolve().parents[2] / "config" / "deployment.json"),
 )
+_SNAPSHOT_DIR = Path(_CONFIG_PATH).resolve().parent / "pricing-snapshots"
 
 
 def _load_pricing_config() -> dict:
@@ -79,12 +80,12 @@ def _normalize(source: dict, discount: float, models: list[dict], payload: bytes
     return out
 
 
-def _fetch_published_snapshot(source: dict) -> list[dict]:
+def _fetch_published_snapshot(source: dict) -> tuple[list[dict], bytes]:
     """Curated published-price snapshots (OpenAI Direct, Anthropic Claude).
 
     Snapshots are versioned alongside the repo under ``config/pricing-snapshots``.
     """
-    snap = Path(__file__).resolve().parents[2] / "config" / "pricing-snapshots" / f"{source['sourceCode']}.json"
+    snap = _SNAPSHOT_DIR / f"{source['sourceCode']}.json"
     if not snap.exists():
         logging.warning("No published snapshot for %s at %s", source["sourceCode"], snap)
         return []

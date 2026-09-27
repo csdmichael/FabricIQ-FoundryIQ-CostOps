@@ -2,7 +2,7 @@ targetScope = 'resourceGroup'
 
 // Pricing sync Azure Function — calls the multi-cloud pricing sources on a schedule
 // and appends changed rows to the governed prices.token_price_history Delta table in
-// Fabric OneLake via managed identity. Hosted on the SAME App Service plan as the API.
+// Fabric OneLake via managed identity. Hosted on the same Linux App Service plan as the API.
 // Fully config-driven from config/deployment.json (pricingFunction block).
 
 var config = loadJsonContent('../../config/deployment.json')
@@ -13,8 +13,18 @@ var tags = config.?tags ?? {}
 @description('Location for the Function App (defaults to the resource group location).')
 param location string = resourceGroup().location
 
-resource hostingPlan 'Microsoft.Web/serverfarms@2023-12-01' existing = {
+resource hostingPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: fn.existingPlanName
+  location: location
+  tags: tags
+  kind: 'linux'
+  sku: {
+    name: 'B1'
+    tier: 'Basic'
+  }
+  properties: {
+    reserved: true
+  }
 }
 
 resource storage 'Microsoft.Storage/storageAccounts@2025-06-01' existing = {
@@ -33,12 +43,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: hostingPlan.id
     httpsOnly: true
     reserved: true
+    virtualNetworkSubnetId: fn.integrationSubnetResourceId
     siteConfig: {
       linuxFxVersion: 'Python|3.11'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true
       alwaysOn: true
+      vnetRouteAllEnabled: true
       appSettings: [
         {
           name: 'FUNCTIONS_EXTENSION_VERSION'
@@ -60,6 +72,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
           value: 'true'
+        }
+        {
+          name: 'WEBSITE_VNET_ROUTE_ALL'
+          value: '1'
         }
         // Pricing-sync inputs (consumed by the function).
         {
@@ -89,6 +105,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'PRICING_SYNC_SCHEDULE'
           value: fn.?schedule ?? '0 0 6 * * *'
+        }
+        {
+          name: 'TOKENOMICS_CONFIG_PATH'
+          value: '/home/site/wwwroot/config/deployment.json'
         }
       ]
     }

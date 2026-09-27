@@ -12,10 +12,15 @@ test('generates deterministic provider-balanced token consumption without PII', 
   const first = generateDataset(config);
   const second = generateDataset(config);
   const settings = config.tokenomicsPlatform.syntheticData;
+  const expectedSourceCounts = Object.fromEntries(settings.sourceCodes.map((sourceCode, index) => [
+    sourceCode,
+    Math.floor((settings.recordCount + settings.sourceCodes.length - 1 - index) / settings.sourceCodes.length),
+  ]));
 
   assert.equal(first.events.length, settings.recordCount);
-  assert.equal(new Set(first.events.map(event => event.user_id_hash)).size, settings.userCount);
-  assert.deepEqual(first.manifest.source_counts, { aws: 3000, gcp: 3000, oai: 3000, cld: 3000 });
+  assert.equal(first.references.entity_assignment_history.length, settings.userCount);
+  assert.equal(new Set(first.references.entity_assignment_history.map(row => row.user_id_hash)).size, settings.userCount);
+  assert.deepEqual(first.manifest.source_counts, expectedSourceCounts);
   assert.deepEqual(first.events[0], second.events[0]);
   assert.deepEqual(first.events.at(-1), second.events.at(-1));
   assert.equal(new Set(first.events.map(event => event.id)).size, settings.recordCount);
@@ -24,10 +29,10 @@ test('generates deterministic provider-balanced token consumption without PII', 
   assert.ok(first.events.every(event => event.request_count >= Math.floor(settings.requestsPerRecord * 0.5)));
   assert.ok(first.events.reduce((total, event) => total + event.request_count, 0) > 10_000_000);
   assert.ok(first.events.reduce((total, event) => total + event.total_tokens, 0) > 50_000_000_000);
-    assert.equal(first.manifest.request_count, first.events.reduce((total, event) => total + event.request_count, 0));
-    assert.equal(first.manifest.total_tokens, first.events.reduce((total, event) => total + event.total_tokens, 0));
-    assert.match(first.manifest.event_set_sha256, /^[0-9a-f]{64}$/);
-    assert.equal(first.manifest.event_set_sha256, second.manifest.event_set_sha256);
+  assert.equal(first.manifest.request_count, first.events.reduce((total, event) => total + event.request_count, 0));
+  assert.equal(first.manifest.total_tokens, first.events.reduce((total, event) => total + event.total_tokens, 0));
+  assert.match(first.manifest.event_set_sha256, /^[0-9a-f]{64}$/);
+  assert.equal(first.manifest.event_set_sha256, second.manifest.event_set_sha256);
   assert.ok(first.events.every(event => !('market_cost_usd' in event) && !('negotiated_cost_usd' in event)));
   assert.ok(first.events.every(event => /^[a-f0-9]{32}$/.test(event.user_id_hash)));
   assert.ok(first.events.every(event => !('user_name' in event) && !('prompt_text' in event)));
@@ -37,9 +42,10 @@ test('generates deterministic provider-balanced token consumption without PII', 
 test('generates governed dimensions needed by every ML use case', () => {
   const dataset = generateDataset(config);
   const required = ['entity_assignment_history', 'budget_plan', 'model_benchmark', 'business_outcome', 'release_calendar', 'quota_policy', 'capacity_metric', 'model_price_snapshot', 'model_price_history'];
+  const flagshipProject = config.tokenomicsPlatform.syntheticData.enterprise?.flagshipProject ?? 'project-falcon';
   assert.deepEqual(Object.keys(dataset.references), required);
   assert.equal(dataset.references.entity_assignment_history.length, config.tokenomicsPlatform.syntheticData.userCount);
-  assert.ok(dataset.references.budget_plan.some(row => row.project_id === 'project-falcon'));
+  assert.ok(dataset.references.budget_plan.some(row => row.project_id === flagshipProject));
   assert.ok(dataset.references.model_benchmark.every(row => row.quality_score > 0 && row.input_cost_per_million >= 0));
   assert.ok(dataset.references.capacity_metric.every(row => row.metric_value <= row.capacity_limit));
   assert.ok(dataset.references.model_price_history.every(row => row.negotiated_input_usd_per_million < row.market_input_usd_per_million));
