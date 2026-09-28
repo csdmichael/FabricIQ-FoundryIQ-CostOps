@@ -188,7 +188,7 @@
   <div class="sc-panel" [hidden]="activeTab() !== 'architecture'">
     <figure class="arch-figure">
       <img src="assets/architecture.png" alt="AI Tokenomics end-to-end architecture" loading="lazy" />
-      <figcaption>AI Tokenomics — end-to-end architecture: multi-cloud token consumption and Microsoft Foundry through Blob/ETL/Cosmos ingestion, the Microsoft Fabric Tokenomics workspace (OneLake lakehouse, Fabric Data Agent, and 12 PySpark ML outputs), and the user-experience &amp; business-insights layer (Angular/Ionic portal, reports, Power BI, and the Foundry Agent UI).</figcaption>
+      <figcaption>AI Tokenomics — end-to-end architecture: multi-cloud token consumption (Microsoft via APIM + Foundry + Log Analytics, other providers via Blob/S3/Cloud Storage) and real-time pricing (Azure Function) unified by Fabric Dataflow Gen2 into a governed Bronze/Silver/Gold Lakehouse (Medallion Architecture) with an optional Fabric Data Agent and Fabric Ontology, serving the user-experience &amp; business-insights layer — the Microsoft Foundry AI assistant, the Angular/Ionic/TypeScript Web UI chat assistant, and Power BI dashboards.</figcaption>
     </figure>
     <div class="arch-flow">
       @for (layer of architectureLayers; track layer.title; let last = $last) {

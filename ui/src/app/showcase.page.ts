@@ -170,10 +170,10 @@ export class ShowcasePage {
   ];
 
   readonly architectureLayers: ArchitectureLayer[] = [
-    { title: 'Ingestion', description: 'Multi-cloud token telemetry and published pricing.', items: ['AWS Bedrock', 'GCP Vertex AI', 'Azure OpenAI', 'OpenAI Direct', 'Anthropic Claude'] },
-    { title: 'Fabric Tokenomics Workspace', description: 'Governed token consumption and ML output tables in the Lakehouse.', items: ['Token consumption tables (source_*)', 'ML output tables (ml_*)', 'Fabric Data Agent (natural-language Q&A)', 'SQL analytics endpoint'] },
-    { title: 'Serving & Intelligence', description: 'APIs, agent, and BI on one source of truth.', items: ['Python analytics API', 'Foundry Agent (function tools)', 'Fabric Data Agent', 'DirectQuery reports'] },
-    { title: 'Experience & Governance', description: 'Secure, responsive control plane.', items: ['Angular / Ionic CostOps UI', 'Secure API gateway + identity', 'Private networking', 'Enterprise sign-in'] },
+    { title: 'Token & Pricing Ingestion', description: 'Multi-cloud token telemetry, Microsoft usage logs, and real-time pricing.', items: ['Azure API Management + Foundry (Microsoft)', 'AWS Bedrock, GCP Vertex AI, Anthropic Claude, OpenAI, Meta Llama', 'Azure / AWS / Google pricing APIs via Azure Function'] },
+    { title: 'Fabric Ingestion', description: 'Dataflow Gen2 unifies every source into one ingestion layer.', items: ['Microsoft token consumption (Log Analytics)', 'Other-provider token consumption (Blob / S3 / Cloud Storage)', 'Normalized multi-cloud pricing data'] },
+    { title: 'Governed Lakehouse (Medallion Architecture)', description: 'Bronze / Silver / Gold tiers on OneLake with an optional data agent.', items: ['Bronze — raw token consumption + pricing', 'Silver — merged, enriched, ML outputs added', 'Gold — semantic model & Power BI-ready tables', 'Fabric Data Agent (optionally with Fabric Ontology)'] },
+    { title: 'Experience & Governance', description: 'Secure, responsive control plane and AI assistants.', items: ['Microsoft Foundry AI assistant', 'Angular / Ionic CostOps chat UI', 'Power BI dashboards & reports', 'Secure API gateway + identity'] },
   ];
 
   setTab(tab: ShowcaseTab): void { this.activeTab.set(tab); }
