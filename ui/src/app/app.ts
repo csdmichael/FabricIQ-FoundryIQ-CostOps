@@ -480,12 +480,10 @@ export class App implements OnInit {
       this.selectedMlUseCase.set(useCases[0]);
     }
     // Load sample prompts, pricing, and chat welcome from the live API.
-    const [prompts, pricing] = await Promise.all([
-      this.tokenomics.getSamplePrompts(),
-      this.tokenomics.getModelPricingCatalog(),
+    await Promise.all([
+      this.loadPrompts(),
+      this.loadPricing(),
     ]);
-    this.promptLibrary.setServerPrompts(prompts);
-    this.pricingCatalog.set(pricing);
     this.chatMessages.set(this.tokenomics.getInitialChatMessages());
     await this.refresh();
     await this.loadActions();
@@ -503,6 +501,14 @@ export class App implements OnInit {
     ]);
     this.powerBiEmbed.set(config);
     this.powerBiToken.set(token);
+  }
+
+  async loadPricing(): Promise<void> {
+    this.pricingCatalog.set(await this.tokenomics.getModelPricingCatalog());
+  }
+
+  async loadPrompts(): Promise<void> {
+    this.promptLibrary.setServerPrompts(await this.tokenomics.getSamplePrompts());
   }
 
   async refresh(): Promise<void> {
@@ -638,6 +644,15 @@ export class App implements OnInit {
     }
     if (view === 'showcase-visits') {
       void this.loadShowcaseVisits();
+    }
+    if (view === 'powerbi') {
+      void this.loadPowerBi();
+    }
+    if (view === 'pricing') {
+      void this.loadPricing();
+    }
+    if (view === 'data-agent') {
+      void this.loadPrompts();
     }
   }
 

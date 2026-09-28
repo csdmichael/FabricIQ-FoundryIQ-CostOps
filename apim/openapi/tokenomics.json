@@ -113,6 +113,48 @@
           { "bearerAuth": [] }
         ]
       }
+    },
+    "/powerbi/embed": {
+      "get": {
+        "operationId": "get-powerbi-embed",
+        "summary": "Get the Power BI embed configuration",
+        "responses": {
+          "200": {
+            "description": "Configured Power BI reports and dashboards."
+          }
+        },
+        "security": [
+          { "bearerAuth": [] }
+        ]
+      }
+    },
+    "/pricing": {
+      "get": {
+        "operationId": "get-model-pricing",
+        "summary": "Get the current multi-cloud model pricing catalog",
+        "responses": {
+          "200": {
+            "description": "Current governed model rate cards."
+          }
+        },
+        "security": [
+          { "bearerAuth": [] }
+        ]
+      }
+    },
+    "/prompts": {
+      "get": {
+        "operationId": "get-saved-prompts",
+        "summary": "Get the pre-saved Data Agent prompt catalog",
+        "responses": {
+          "200": {
+            "description": "Configured prompt catalog, including business ontology prompts."
+          }
+        },
+        "security": [
+          { "bearerAuth": [] }
+        ]
+      }
     }
   },
   "components": {

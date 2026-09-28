@@ -14,7 +14,9 @@ export class PromptLibraryService {
     'Cost Anomalies & Spikes',
     'Model Optimization',
     'Quota & Capacity',
-    'Prompt Quality'
+    'Prompt Quality',
+    'Model Pricing',
+    'Business Ontology'
   ];
 
   constructor() {
