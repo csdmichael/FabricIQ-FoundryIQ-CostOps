@@ -36,6 +36,9 @@
         <button type="button" [class.active]="activeView() === 'ml-guide'" (click)="setView('ml-guide')">
           <ion-icon name="help-circle-outline"></ion-icon><span>ML Guide</span>
         </button>
+        <button type="button" [class.active]="activeView() === 'showcase-visits'" (click)="setView('showcase-visits')">
+          <ion-icon name="analytics-outline"></ion-icon><span>Showcase Visits</span>
+        </button>
       </nav>
       <div class="nav-foot">
         <div class="environment-dot" [class.live]="tokenomics.isLiveMode()"></div>
@@ -58,6 +61,7 @@
       <button type="button" title="Action Center" [class.active]="activeView() === 'actions'" (click)="setView('actions')"><ion-icon name="bulb-outline"></ion-icon></button>
       <button type="button" title="Data Agent Chat" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon></button>
       <button type="button" title="ML Guide" [class.active]="activeView() === 'ml-guide'" (click)="setView('ml-guide')"><ion-icon name="help-circle-outline"></ion-icon></button>
+      <button type="button" title="Showcase Visits" [class.active]="activeView() === 'showcase-visits'" (click)="setView('showcase-visits')"><ion-icon name="analytics-outline"></ion-icon></button>
     </aside>
 
     <!-- Mobile Phone Bottom Tabs -->
@@ -90,6 +94,7 @@
               @case ('ml-guide') { ML Algorithm Guide }
               @case ('data-agent') { Data Agent & Prompt Library }
               @case ('showcase') { Business Value Showcase }
+              @case ('showcase-visits') { Showcase Visits }
             }
           </h1>
         </div>
@@ -318,6 +323,50 @@
                 </article>
               }
             </div>
+          </section>
+        </div>
+      } @else if (activeView() === 'showcase-visits') {
+        <div class="dashboard-content">
+          <section class="showcase-visits-view">
+            <div class="section-intro">
+              <div>
+                <span class="eyebrow">Showcase Interest</span>
+                <h2>Showcase Visits</h2>
+              </div>
+              <p>Unique visitors are estimated from distinct IP addresses. Location is the Azure Maps country/region, with browser time zone as a fallback.</p>
+            </div>
+            @if (showcaseVisitsLoading()) {
+              <div class="state-block"><ion-spinner name="dots"></ion-spinner><p>Loading showcase visits from Cosmos DB…</p></div>
+            } @else if (showcaseVisitsError()) {
+              <div class="state-block error">
+                <ion-icon name="warning-outline"></ion-icon>
+                <h3>{{ showcaseVisitsError() }}</h3>
+                <button type="button" class="primary-btn" (click)="loadShowcaseVisits()">Retry</button>
+              </div>
+            } @else if (showcaseVisits(); as report) {
+              <div class="visit-summary">
+                <article><span>Unique visitors</span><strong>{{ report.uniqueVisitors | number }}</strong><small>distinct IP addresses</small></article>
+                <article><span>Total visits</span><strong>{{ report.totalVisits | number }}</strong><small>last {{ report.days }} days</small></article>
+                <article><span>Locations</span><strong>{{ showcaseVisitLocations() | number }}</strong><small>distinct country or time-zone values</small></article>
+              </div>
+              <div class="showcase-visits-table-wrap">
+                <table class="showcase-visits-table">
+                  <thead><tr><th>Date / time (UTC)</th><th>IP address</th><th>Location</th><th>Browser time zone</th></tr></thead>
+                  <tbody>
+                    @for (visit of report.visits; track visit.id) {
+                      <tr>
+                        <td>{{ visit.visitedAt | date:'medium':'UTC' }}</td>
+                        <td><code>{{ visit.ipAddress }}</code></td>
+                        <td>{{ visit.countryCode || visit.location }}</td>
+                        <td>{{ visit.timezone || 'Unknown' }}</td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="4" class="visit-empty">No showcase visits recorded in this period.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
           </section>
         </div>
       } @else if (loading()) {
@@ -1074,7 +1123,7 @@
         <span aria-hidden="true">|</span>
         <span>Sr Solution Engineer</span>
         <span aria-hidden="true">|</span>
-        <a href="https://github.com/csdmichael/FabricIQ-FoundryIQ-CostOps" target="_blank" rel="noopener noreferrer">Github</a>
+        <a href="https://github.com/csdmichael/FabricIQ-FoundryIQ-CostOps-Docs" target="_blank" rel="noopener noreferrer">Github</a>
         <span aria-hidden="true">|</span>
         <a href="https://www.linkedin.com/in/michael-yaacoub-7a46436/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
       </footer>

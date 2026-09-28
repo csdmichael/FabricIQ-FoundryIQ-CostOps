@@ -1,4 +1,4 @@
-export type DashboardView = 'overview' | 'allocation' | 'pricing' | 'powerbi' | 'ml-insights' | 'actions' | 'ml-guide' | 'data-agent' | 'showcase';
+export type DashboardView = 'overview' | 'allocation' | 'pricing' | 'powerbi' | 'ml-insights' | 'actions' | 'ml-guide' | 'data-agent' | 'showcase' | 'showcase-visits';
 export type WindowDays = 1 | 7 | 30 | 90;
 
 export interface RuntimeConfig {
@@ -37,6 +37,25 @@ export interface PromptsApiResponse {
   welcomeMessage: string;
   agent: string;
   prompts: SavedPrompt[];
+}
+
+export interface ShowcaseVisit {
+  id: string;
+  visitDate: string;
+  visitedAt: string;
+  ipAddress: string;
+  location: string;
+  countryCode: string | null;
+  timezone: string | null;
+  userAgent: string;
+}
+
+export interface ShowcaseVisitsReport {
+  generatedAt: string;
+  days: number;
+  totalVisits: number;
+  uniqueVisitors: number;
+  visits: ShowcaseVisit[];
 }
 
 export interface TokenomicsRow {

@@ -694,6 +694,7 @@ if (Test-Step 'apim') {
 }
 
 if (Test-Step 'ui') {
+    $identity = Get-IdentityMetadata
     $null = Assert-FabricAzureContext -SubscriptionId ([string]$config.azure.subscriptionId) -TenantId ([string]$config.azure.tenantId)
     $uiParameterPath = Join-Path $parameterDirectory 'ui.parameters.json'
     Write-ArmParameters -Path $uiParameterPath -Values @{
@@ -702,6 +703,10 @@ if (Test-Step 'ui') {
         integrationSubnetResourceId = [string]$config.ui.integrationSubnetResourceId
         apimGatewayHost = ([uri][string]$config.apim.gatewayUrl).Host
         tokenomicsApiPath = [string]$config.apim.tokenomicsApiPath
+        runtimeTenantId = [string]$config.identity.resourceTenantId
+        runtimeClientId = [string]$identity.dashboardClient.clientId
+        runtimeScope = "api://$($identity.resourceApi.clientId)/$($config.identity.delegatedScope)"
+        runtimeEnvironment = [string]$config.ui.environment
         logAnalyticsWorkspaceId = "/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.OperationalInsights/workspaces/log-$($config.broker.appName)"
         tags = $config.tags
     }
@@ -761,7 +766,17 @@ if (Test-Step 'foundry-agents') {
 
 if (Test-Step 'tokenomics-data') {
     $null = Assert-FabricAzureContext -SubscriptionId ([string]$config.azure.subscriptionId) -TenantId ([string]$config.azure.tenantId)
-    Invoke-GroupDeployment -Name $tokenomicsDataDeploymentName -SubscriptionId $config.azure.subscriptionId -ResourceGroup $config.azure.resourceGroup -TemplateFile (Join-Path $fabricRoot 'bicep/tokenomics-data/main.bicep') -ParametersFile '' | Out-Null
+    $tokenomicsDataOutputs = Invoke-GroupDeployment -Name $tokenomicsDataDeploymentName -SubscriptionId $config.azure.subscriptionId -ResourceGroup $config.azure.resourceGroup -TemplateFile (Join-Path $fabricRoot 'bicep/tokenomics-data/main.bicep') -ParametersFile ''
+    if (-not $WhatIf) {
+        $mapsClientId = Get-OutputValue -Outputs $tokenomicsDataOutputs -Name 'mapsClientId'
+        az webapp config appsettings set --subscription $config.azure.subscriptionId --resource-group $config.azure.resourceGroup --name $config.dashboardApi.appName --settings `
+            "SHOWCASE_COSMOS_ENDPOINT=https://$($config.tokenomicsPlatform.cosmos.accountName).documents.azure.com:443/" `
+            "SHOWCASE_COSMOS_DATABASE=$($config.tokenomicsPlatform.cosmos.databaseName)" `
+            "SHOWCASE_COSMOS_CONTAINER=$($config.tokenomicsPlatform.cosmos.showcaseVisits.containerName)" `
+            "SHOWCASE_VISIT_RETENTION_DAYS=$($config.tokenomicsPlatform.cosmos.showcaseVisits.retentionDays)" `
+            "AZURE_MAPS_CLIENT_ID=$mapsClientId" --only-show-errors -o none
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to configure showcase visit analytics on the API App Service.' }
+    }
 }
 
 if (Test-Step 'tokenomics-seed') {

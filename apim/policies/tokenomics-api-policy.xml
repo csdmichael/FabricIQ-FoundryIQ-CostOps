@@ -14,21 +14,25 @@
         <header>*</header>
       </allowed-headers>
     </cors>
-    <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
-      <openid-config url="https://login.microsoftonline.com/{{tokenomics-resource-tenant-id}}/v2.0/.well-known/openid-configuration" />
-      <audiences>
-        <audience>{{tokenomics-resource-api-client-id}}</audience>
-      </audiences>
-      <issuers>
-        <issuer>https://login.microsoftonline.com/{{tokenomics-resource-tenant-id}}/v2.0</issuer>
-      </issuers>
-      <required-claims>
-        <claim name="scp" match="any">
-          <value>{{tokenomics-delegated-scope}}</value>
-        </claim>
-      </required-claims>
-    </validate-jwt>
-    <rate-limit-by-key calls="60" renewal-period="60" counter-key="@(context.Request.Headers.GetValueOrDefault(&quot;Authorization&quot;,&quot;&quot;))" />
+    <choose>
+      <when condition="@(context.Operation.Id != &quot;record-showcase-visit&quot;)">
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
+          <openid-config url="https://login.microsoftonline.com/{{tokenomics-resource-tenant-id}}/v2.0/.well-known/openid-configuration" />
+          <audiences>
+            <audience>{{tokenomics-resource-api-client-id}}</audience>
+          </audiences>
+          <issuers>
+            <issuer>https://login.microsoftonline.com/{{tokenomics-resource-tenant-id}}/v2.0</issuer>
+          </issuers>
+          <required-claims>
+            <claim name="scp" match="any">
+              <value>{{tokenomics-delegated-scope}}</value>
+            </claim>
+          </required-claims>
+        </validate-jwt>
+      </when>
+    </choose>
+    <rate-limit-by-key calls="60" renewal-period="60" counter-key="@(context.Operation.Id == &quot;record-showcase-visit&quot; ? context.Request.Headers.GetValueOrDefault(&quot;X-Showcase-Client-IP&quot;, context.Request.IpAddress) : context.Request.Headers.GetValueOrDefault(&quot;Authorization&quot;,&quot;&quot;))" />
   </inbound>
   <backend>
     <base />

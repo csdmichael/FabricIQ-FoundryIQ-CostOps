@@ -133,6 +133,75 @@ def test_actions_endpoint_uses_service(monkeypatch):
     assert body["plans"] == []
 
 
+def test_record_showcase_visit_uses_forwarded_ip(monkeypatch):
+    import app.main as main
+
+    recorded = {}
+
+    def record(**kwargs):
+        recorded.update(kwargs)
+
+    monkeypatch.setattr(main._showcase_visits, "record", record)
+    client = TestClient(main.app)
+    response = client.post(
+        "/showcase/visits",
+        json={"timezone": "America/Los_Angeles"},
+        headers={"x-showcase-client-ip": "203.0.113.10", "user-agent": "test-agent"},
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {"recorded": True}
+    assert recorded == {
+        "ip_address": "203.0.113.10",
+        "timezone_name": "America/Los_Angeles",
+        "user_agent": "test-agent",
+    }
+
+
+def test_showcase_visits_report_endpoint(monkeypatch):
+    import app.main as main
+    from app.models import ShowcaseVisit, ShowcaseVisitsReport
+
+    report = ShowcaseVisitsReport(
+        generatedAt="2026-09-27T20:00:00Z",
+        days=30,
+        totalVisits=2,
+        uniqueVisitors=1,
+        visits=[
+            ShowcaseVisit(
+                id="visit-1",
+                visitDate="2026-09-27",
+                visitedAt="2026-09-27T20:00:00Z",
+                ipAddress="203.0.113.10",
+                location="US",
+                countryCode="US",
+                timezone="America/Los_Angeles",
+            )
+        ],
+    )
+    monkeypatch.setattr(main._showcase_visits, "report", lambda days: report)
+    monkeypatch.setattr(main._token_validator, "validate", lambda authorization: {"oid": "test"})
+    client = TestClient(main.app)
+    response = client.get(
+        "/showcase/visits?days=30",
+        headers={"authorization": "Bearer test-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["uniqueVisitors"] == 1
+    assert response.json()["visits"][0]["location"] == "US"
+
+
+def test_showcase_visits_report_requires_authorization():
+    import app.main as main
+
+    client = TestClient(main.app)
+    response = client.get("/showcase/visits?days=30")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "authorization_required"
+
+
 def test_recommendations_service_builds_model_switch_plan():
     """The action engine turns an ml.*_output row into a concrete plan."""
     from app.recommendations_service import RecommendationsService

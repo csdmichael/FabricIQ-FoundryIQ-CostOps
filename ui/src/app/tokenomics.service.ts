@@ -14,6 +14,7 @@ import type {
   PromptsApiResponse,
   RuntimeConfig,
   SavedPrompt,
+  ShowcaseVisitsReport,
   TokenomicsDashboard,
   WindowDays
 } from './tokenomics.model';
@@ -93,6 +94,42 @@ export class TokenomicsService {
     const data = await response.json() as TokenomicsDashboard;
     this.isLiveMode.set(true);
     return data;
+  }
+
+  async recordShowcaseVisit(): Promise<void> {
+    if (!this.config) {
+      this.config = await this.runtimeConfig.load();
+    }
+    const apiBase = this.apiBase();
+    if (!apiBase) {
+      console.warn('Showcase visit tracking is unavailable: API base URL is not configured.');
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBase}/showcase/visits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+        }),
+        cache: 'no-store',
+        keepalive: true,
+      });
+      if (!response.ok) {
+        console.warn(`Showcase visit tracking failed (HTTP ${response.status}).`);
+      }
+    } catch (error) {
+      console.warn('Showcase visit tracking failed:', error);
+    }
+  }
+
+  async getShowcaseVisits(days: WindowDays): Promise<ShowcaseVisitsReport> {
+    if (!this.config) await this.initialize();
+    const response = await this.authorizedFetch(`/showcase/visits?days=${days}`);
+    if (!response.ok) {
+      throw await toApiError(response);
+    }
+    return await response.json() as ShowcaseVisitsReport;
   }
 
   /** Data-driven FinOps action recommendations (the closed feedback loop). */

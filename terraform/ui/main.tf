@@ -33,6 +33,10 @@ resource "azurerm_windows_web_app" "ui" {
   app_settings = {
     APIM_GATEWAY_HOST              = local.apim_host
     APIM_TOKENOMICS_API_PATH       = local.config.apim.tokenomicsApiPath
+    RUNTIME_CONFIG_TENANT_ID       = local.config.identity.resourceTenantId
+    RUNTIME_CONFIG_CLIENT_ID       = var.runtime_client_id
+    RUNTIME_CONFIG_SCOPE           = var.runtime_scope
+    RUNTIME_CONFIG_ENVIRONMENT     = local.config.ui.environment
     NODE_ENV                       = "production"
     SCM_DO_BUILD_DURING_DEPLOYMENT = "false"
     WEBSITE_NODE_DEFAULT_VERSION   = "~22"

@@ -129,6 +129,17 @@ class Settings:
     prices_schema: str = "prices"
     prices_table: str = "token_price_history"
 
+    # Public showcase visit analytics
+    showcase_cosmos_endpoint: str = ""
+    showcase_cosmos_database: str = ""
+    showcase_cosmos_container: str = ""
+    showcase_visit_retention_days: int = 90
+    azure_maps_client_id: str = ""
+    resource_tenant_id: str = ""
+    resource_api_client_id: str = ""
+    delegated_scope: str = ""
+    allowed_user_object_ids: list[str] = field(default_factory=list)
+
     def provider_name(self, code: str) -> str:
         for provider in self.providers:
             if provider.code == code:
@@ -150,6 +161,8 @@ def get_settings() -> Settings:
     api_cfg = config.get("dashboardApi", {})
     fabric_cfg = config.get("fabric", {})
     platform_fabric = config.get("tokenomicsPlatform", {}).get("fabric", {})
+    platform_cosmos = config.get("tokenomicsPlatform", {}).get("cosmos", {})
+    showcase_visits = platform_cosmos.get("showcaseVisits", {})
     reporting_tables = platform_fabric.get("reportingTables", {})
     power_bi = config.get("powerBi", {})
     actual_cost = config.get("tokenomics", {}).get("actualCost", {})
@@ -261,4 +274,32 @@ def get_settings() -> Settings:
         apim_model_token_limit_per_minute=int(apim_cfg.get("modelTokenLimitPerMinute", 50000)),
         prices_schema=str(api_cfg.get("pricesSchema", "prices")),
         prices_table=str(api_cfg.get("pricesTable", "token_price_history")),
+        showcase_cosmos_endpoint=os.environ.get(
+            "SHOWCASE_COSMOS_ENDPOINT",
+            f"https://{platform_cosmos.get('accountName', '')}.documents.azure.com:443/"
+            if platform_cosmos.get("accountName")
+            else "",
+        ),
+        showcase_cosmos_database=os.environ.get(
+            "SHOWCASE_COSMOS_DATABASE",
+            str(platform_cosmos.get("databaseName", "")),
+        ),
+        showcase_cosmos_container=os.environ.get(
+            "SHOWCASE_COSMOS_CONTAINER",
+            str(showcase_visits.get("containerName", "")),
+        ),
+        showcase_visit_retention_days=int(
+            os.environ.get(
+                "SHOWCASE_VISIT_RETENTION_DAYS",
+                showcase_visits.get("retentionDays", 90),
+            )
+        ),
+        azure_maps_client_id=os.environ.get("AZURE_MAPS_CLIENT_ID", ""),
+        resource_tenant_id=str(config.get("identity", {}).get("resourceTenantId", "")),
+        resource_api_client_id=os.environ.get(
+            "TOKENOMICS_RESOURCE_API_CLIENT_ID",
+            str(api_cfg.get("resourceApiClientId", "")),
+        ),
+        delegated_scope=str(config.get("identity", {}).get("delegatedScope", "")),
+        allowed_user_object_ids=list(config.get("identity", {}).get("allowedUserObjectIds", [])),
     )

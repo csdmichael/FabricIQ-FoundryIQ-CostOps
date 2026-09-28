@@ -8,6 +8,14 @@ const port = process.env.PORT || 8080;
 const apimHost = process.env.APIM_GATEWAY_HOST;
 const tokenomicsApiPath = (process.env.APIM_TOKENOMICS_API_PATH || '').trim().replace(/^\/+|\/+$/g, '');
 const proxyPrefix = tokenomicsApiPath ? `/api/${tokenomicsApiPath}` : '';
+const runtimeConfig = {
+  apiBaseUrl: proxyPrefix,
+  tenantId: process.env.RUNTIME_CONFIG_TENANT_ID || '',
+  clientId: process.env.RUNTIME_CONFIG_CLIENT_ID || '',
+  scope: process.env.RUNTIME_CONFIG_SCOPE || '',
+  environment: process.env.RUNTIME_CONFIG_ENVIRONMENT || 'Enterprise',
+  powerBiScope: 'https://analysis.windows.net/powerbi/api/.default',
+};
 const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.html', 'text/html; charset=utf-8'],
@@ -35,16 +43,23 @@ const ALLOWED_ROUTES = [
   { method: 'GET', pattern: /^\/powerbi\/embed\/?$/ },
   { method: 'GET', pattern: /^\/health\/?$/ },
   { method: 'POST', pattern: /^\/chat\/?$/ },
+  { method: 'POST', pattern: /^\/showcase\/visits\/?$/, public: true },
+  { method: 'GET', pattern: /^\/showcase\/visits\/?$/ },
 ];
 
 function proxy(request, response, url) {
   if (!apimHost) return sendJson(response, 503, { error: 'gateway_not_configured' });
   const suffix = url.pathname.slice(proxyPrefix.length);
-  const allowed = ALLOWED_ROUTES.some(route => route.method === request.method && route.pattern.test(suffix));
-  if (!allowed) return sendJson(response, 404, { error: 'not_found' });
+  const route = ALLOWED_ROUTES.find(route => route.method === request.method && route.pattern.test(suffix));
+  if (!route) return sendJson(response, 404, { error: 'not_found' });
   const authorization = request.headers.authorization;
-  if (!authorization?.startsWith('Bearer ')) return sendJson(response, 401, { error: 'authorization_required' });
-  const headers = { Authorization: authorization, Accept: 'application/json' };
+  if (!route.public && !authorization?.startsWith('Bearer ')) return sendJson(response, 401, { error: 'authorization_required' });
+  const headers = { Accept: 'application/json' };
+  if (authorization?.startsWith('Bearer ')) headers.Authorization = authorization;
+  if (route.public) {
+    const forwarded = String(request.headers['x-forwarded-for'] || request.socket.remoteAddress || '');
+    headers['X-Showcase-Client-IP'] = forwarded.split(',')[0].trim().replace(/^::ffff:/, '');
+  }
   if (request.method === 'POST' && request.headers['content-type']) {
     headers['Content-Type'] = request.headers['content-type'];
   }
@@ -96,6 +111,7 @@ createServer((request, response) => {
   try {
     const url = new URL(request.url || '/', `https://${request.headers.host || 'localhost'}`);
     if (url.pathname === '/health') return sendJson(response, 200, { status: 'ok' });
+    if (url.pathname === '/runtime-config.json') return sendJson(response, 200, runtimeConfig);
     if (url.pathname.startsWith('/api/')) {
       if (!proxyPrefix) return sendJson(response, 503, { error: 'gateway_not_configured' });
       if (!url.pathname.startsWith(proxyPrefix)) return sendJson(response, 404, { error: 'not_found' });

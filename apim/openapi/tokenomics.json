@@ -35,9 +35,7 @@
           }
         },
         "security": [
-          {
-            "bearerAuth": []
-          }
+          { "bearerAuth": [] }
         ]
       }
     },
@@ -71,9 +69,48 @@
           }
         },
         "security": [
-          {
-            "bearerAuth": []
+          { "bearerAuth": [] }
+        ]
+      }
+    },
+    "/showcase/visits": {
+      "post": {
+        "operationId": "record-showcase-visit",
+        "summary": "Record a public showcase page visit",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "timezone": { "type": "string", "nullable": true, "maxLength": 100 }
+                }
+              }
+            }
           }
+        },
+        "responses": {
+          "201": { "description": "Visit recorded in Cosmos DB." }
+        }
+      },
+      "get": {
+        "operationId": "get-showcase-visits",
+        "summary": "Get the authenticated showcase visits report",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 90, "default": 30 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Showcase visit totals and visit records." }
+        },
+        "security": [
+          { "bearerAuth": [] }
         ]
       }
     }

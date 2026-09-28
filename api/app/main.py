@@ -17,11 +17,14 @@ import logging
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+import ipaddress
+
+from fastapi import FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .agent_service import AgentChatService, AgentUnavailableError
+from .auth_validation import EntraTokenValidator
 from .config import get_settings
 from .dashboard_service import DashboardService
 from .fabric_client import FabricError, FabricSqlClient
@@ -33,9 +36,12 @@ from .models import (
     PowerBiEmbedArtifact,
     PowerBiEmbedConfig,
     SamplePrompt,
+    ShowcaseVisitRequest,
+    ShowcaseVisitsReport,
     TokenomicsDashboard,
 )
 from .recommendations_service import RecommendationsService
+from .showcase_visits_service import ShowcaseVisitService, ShowcaseVisitsUnavailableError
 
 logger = logging.getLogger("tokenomics.api")
 
@@ -59,6 +65,8 @@ _client = FabricSqlClient(settings)
 _service = DashboardService(settings, _client)
 _agent = AgentChatService(settings, _client)
 _recommendations = RecommendationsService(settings, _client)
+_showcase_visits = ShowcaseVisitService(settings)
+_token_validator = EntraTokenValidator(settings)
 
 
 @app.exception_handler(FabricError)
@@ -176,6 +184,54 @@ def prompts() -> dict:
         "agent": settings.foundry.agent_display_name if settings.foundry else "",
         "prompts": [SamplePrompt(**p).model_dump() for p in data.get("prompts", [])],
     }
+
+
+def _showcase_client_ip(request: Request) -> str:
+    candidates = [
+        request.headers.get("x-showcase-client-ip", ""),
+        request.headers.get("x-forwarded-for", "").split(",")[0].strip(),
+        request.headers.get("x-azure-clientip", ""),
+        request.client.host if request.client else "",
+    ]
+    for candidate in candidates:
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
+    raise HTTPException(status_code=400, detail="client_ip_unavailable")
+
+
+@app.post("/showcase/visits", status_code=status.HTTP_201_CREATED)
+def record_showcase_visit(payload: ShowcaseVisitRequest, request: Request) -> dict:
+    """Record one public showcase page load in Cosmos DB."""
+    try:
+        _showcase_visits.record(
+            ip_address=_showcase_client_ip(request),
+            timezone_name=payload.timezone,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except ShowcaseVisitsUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Failed to record showcase visit")
+        raise HTTPException(status_code=502, detail="showcase_visit_write_failed") from exc
+    return {"recorded": True}
+
+
+@app.get("/showcase/visits", response_model=ShowcaseVisitsReport)
+def showcase_visits(
+    request: Request,
+    days: int = Query(default=30, ge=1, le=90),
+) -> ShowcaseVisitsReport:
+    """Return visit count, unique-IP estimate, location, and visit timestamps."""
+    _token_validator.validate(request.headers.get("authorization"))
+    try:
+        return _showcase_visits.report(days)
+    except ShowcaseVisitsUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Failed to load showcase visits")
+        raise HTTPException(status_code=502, detail="showcase_visit_query_failed") from exc
 
 
 @app.post("/chat", response_model=ChatResponse)

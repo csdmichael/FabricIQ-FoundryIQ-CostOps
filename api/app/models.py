@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TokenomicsRow(BaseModel):
@@ -212,3 +212,26 @@ class ConsumptionCost(BaseModel):
     negotiatedCost: Optional[float] = None
     savings: Optional[float] = None
     pricedTokens: int = 0
+
+
+class ShowcaseVisitRequest(BaseModel):
+    timezone: Optional[str] = Field(default=None, max_length=100)
+
+
+class ShowcaseVisit(BaseModel):
+    id: str
+    visitDate: str
+    visitedAt: str
+    ipAddress: str
+    location: str
+    countryCode: Optional[str] = None
+    timezone: Optional[str] = None
+    userAgent: str = ""
+
+
+class ShowcaseVisitsReport(BaseModel):
+    generatedAt: str
+    days: int
+    totalVisits: int
+    uniqueVisitors: int
+    visits: list[ShowcaseVisit] = []

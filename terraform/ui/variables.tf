@@ -8,3 +8,13 @@ variable "config_path" {
     error_message = "config_path must point to an existing deployment.json file."
   }
 }
+
+variable "runtime_client_id" {
+  description = "Microsoft Entra application client ID used by the browser client."
+  type        = string
+}
+
+variable "runtime_scope" {
+  description = "Delegated API scope requested by the browser client."
+  type        = string
+}

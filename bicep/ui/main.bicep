@@ -15,6 +15,18 @@ param apimGatewayHost string
 @description('APIM tokenomics API path used by the server-side proxy.')
 param tokenomicsApiPath string
 
+@description('Microsoft Entra tenant used by the browser client.')
+param runtimeTenantId string
+
+@description('Microsoft Entra application client ID used by the browser client.')
+param runtimeClientId string
+
+@description('Delegated API scope requested by the browser client.')
+param runtimeScope string
+
+@description('Environment label displayed by the UI.')
+param runtimeEnvironment string = 'Enterprise'
+
 @description('Existing Log Analytics workspace resource ID for UI host diagnostics.')
 param logAnalyticsWorkspaceId string
 
@@ -47,6 +59,22 @@ resource uiApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'APIM_TOKENOMICS_API_PATH'
           value: tokenomicsApiPath
+        }
+        {
+          name: 'RUNTIME_CONFIG_TENANT_ID'
+          value: runtimeTenantId
+        }
+        {
+          name: 'RUNTIME_CONFIG_CLIENT_ID'
+          value: runtimeClientId
+        }
+        {
+          name: 'RUNTIME_CONFIG_SCOPE'
+          value: runtimeScope
+        }
+        {
+          name: 'RUNTIME_CONFIG_ENVIRONMENT'
+          value: runtimeEnvironment
         }
         {
           name: 'NODE_ENV'

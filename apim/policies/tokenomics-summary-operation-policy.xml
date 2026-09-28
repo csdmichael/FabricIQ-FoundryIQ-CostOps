@@ -1,7 +1,7 @@
 <policies>
   <inbound>
     <base />
-    <rewrite-uri template="/api/tokenomics/summary" copy-unmatched-params="true" />
+    <rewrite-uri template="/summary" copy-unmatched-params="true" />
   </inbound>
   <backend>
     <base />

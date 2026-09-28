@@ -55,6 +55,7 @@ resource tokenomicsApi 'Microsoft.ApiManagement/service/apis@2024-06-01-preview'
     displayName: 'Fabric Tokenomics'
     description: 'Privacy-preserving APIM request, token, allocation, and cost analytics.'
     path: tokenomicsApiPath
+    serviceUrl: config.dashboardApi.publicUrl
     protocols: [
       'https'
     ]
@@ -78,7 +79,7 @@ resource tokenomicsApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024
 
 resource tokenomicsSummaryOperation 'Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview' existing = {
   parent: tokenomicsApi
-  name: 'get-tokenomics-summary'
+  name: 'summary'
 }
 
 resource tokenomicsSummaryPolicy 'Microsoft.ApiManagement/service/apis/operations/policies@2024-06-01-preview' = {

@@ -32,7 +32,7 @@ describe('App', () => {
     expect(footer.textContent).toContain('Michael Yaacoub');
     expect(footer.textContent).toContain('Sr Solution Engineer');
     expect(links.map(link => link.href)).toEqual([
-      'https://github.com/csdmichael/FabricIQ-FoundryIQ-CostOps',
+      'https://github.com/csdmichael/FabricIQ-FoundryIQ-CostOps-Docs',
       'https://www.linkedin.com/in/michael-yaacoub-7a46436/',
     ]);
   });

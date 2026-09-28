@@ -80,6 +80,7 @@ import type {
   PowerBiEmbedArtifact,
   PowerBiEmbedConfig,
   SavedPrompt,
+  ShowcaseVisitsReport,
   TokenomicsRow,
   WindowDays
 } from './tokenomics.model';
@@ -109,7 +110,7 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
 })
 export class App implements OnInit {
   private readonly location = inject(Location);
-  private readonly validViews: DashboardView[] = ['overview', 'allocation', 'pricing', 'powerbi', 'ml-insights', 'actions', 'ml-guide', 'data-agent', 'showcase'];
+  private readonly validViews: DashboardView[] = ['overview', 'allocation', 'pricing', 'powerbi', 'ml-insights', 'actions', 'ml-guide', 'data-agent', 'showcase', 'showcase-visits'];
   readonly dashboard = signal<Awaited<ReturnType<TokenomicsService['dashboard']>> | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
@@ -140,6 +141,17 @@ export class App implements OnInit {
   readonly actionsError = signal('');
   readonly actionsErrorInfo = signal<ApiErrorInfo | null>(null);
   readonly actionCategoryFilter = signal<ActionCategory | 'all'>('all');
+
+  readonly showcaseVisits = signal<ShowcaseVisitsReport | null>(null);
+  readonly showcaseVisitsLoading = signal(false);
+  readonly showcaseVisitsError = signal('');
+  readonly showcaseVisitLocations = computed(
+    () => new Set(
+      (this.showcaseVisits()?.visits ?? [])
+        .map(visit => visit.countryCode || visit.location)
+        .filter(location => location && location !== 'Unknown')
+    ).size
+  );
 
   readonly filteredActionPlans = computed<ActionPlan[]>(() => {
     const data = this.actions();
@@ -457,6 +469,7 @@ export class App implements OnInit {
     // need the dashboard telemetry, pricing, prompts, or Power BI to be loaded.
     if (this.activeView() === 'showcase') {
       this.loading.set(false);
+      void this.tokenomics.recordShowcaseVisit();
       return;
     }
 
@@ -477,6 +490,9 @@ export class App implements OnInit {
     await this.refresh();
     await this.loadActions();
     await this.loadPowerBi();
+    if (this.activeView() === 'showcase-visits') {
+      await this.loadShowcaseVisits();
+    }
   }
 
   /** Load the Power BI embed configuration and acquire a Power BI access token. */
@@ -490,6 +506,10 @@ export class App implements OnInit {
   }
 
   async refresh(): Promise<void> {
+    if (this.activeView() === 'showcase-visits') {
+      await this.loadShowcaseVisits();
+      return;
+    }
     this.loading.set(true);
     this.error.set('');
     this.errorInfo.set(null);
@@ -510,6 +530,22 @@ export class App implements OnInit {
     this.windowDays.set(days);
     await this.refresh();
     await this.loadActions();
+    if (this.activeView() === 'showcase-visits') {
+      await this.loadShowcaseVisits();
+    }
+  }
+
+  async loadShowcaseVisits(): Promise<void> {
+    this.showcaseVisitsLoading.set(true);
+    this.showcaseVisitsError.set('');
+    try {
+      this.showcaseVisits.set(await this.tokenomics.getShowcaseVisits(this.windowDays()));
+    } catch (error) {
+      this.showcaseVisits.set(null);
+      this.showcaseVisitsError.set(asApiError(error).info.title);
+    } finally {
+      this.showcaseVisitsLoading.set(false);
+    }
   }
 
   /** Load data-driven FinOps action recommendations for the current window. */
@@ -599,6 +635,9 @@ export class App implements OnInit {
     const frame = document.querySelector<HTMLElement>('.app-frame');
     if (frame) {
       frame.scrollTop = 0;
+    }
+    if (view === 'showcase-visits') {
+      void this.loadShowcaseVisits();
     }
   }
 

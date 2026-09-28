@@ -142,7 +142,13 @@
       "accountName": "caldova-showcase-dkm7l6ym6ryju",
       "databaseName": "tokenomics",
       "containerName": "token-consumption",
-      "partitionKeyPath": "/source_code"
+      "partitionKeyPath": "/source_code",
+      "showcaseVisits": {
+        "containerName": "showcase-visits",
+        "partitionKeyPath": "/visitDate",
+        "retentionDays": 90,
+        "mapsAccountName": "caldova-showcase-maps"
+      }
     },
     "syntheticData": {
       "recordCount": 15000,
@@ -442,13 +448,16 @@
     "deployTokenomicsSeed": true,
     "deployTokenomicsFabric": true,
     "deployTokenomicsSync": true,
-    "deployTokenomicsPowerBi": true
+    "deployTokenomicsPowerBi": true,
+    "deployWorkspacePrivateLink": false
   },
   "tags": {
     "application": "fabric-ai-tokenomics",
     "environment": "production"
   },
   "dashboardApi": {
+    "appName": "caldova-fabric-tokenomics-api",
+    "resourceApiClientId": "3a9e9b7d-7354-4efd-b724-d9f566c67fd1",
     "host": "0.0.0.0",
     "port": 8080,
     "publicUrl": "https://caldova-fabric-tokenomics-api.azurewebsites.net",
