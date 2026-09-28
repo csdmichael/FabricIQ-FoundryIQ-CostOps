@@ -46,6 +46,7 @@ module apimStack './stack.bicep' = {
     requestTimeoutSeconds: apimConfig.requestTimeoutSeconds
     tokenomicsApiId: apimConfig.tokenomicsApiId
     tokenomicsApiPath: apimConfig.tokenomicsApiPath
+    tokenomicsBackendUrl: config.dashboardApi.publicUrl
     fabricProductId: apimConfig.fabricProductId
     uiAllowedOrigin: config.ui.allowedOrigin
     applicationInsightsName: applicationInsightsName

@@ -12,6 +12,7 @@ param rateLimitRenewalSeconds int
 param requestTimeoutSeconds int
 param tokenomicsApiId string
 param tokenomicsApiPath string
+param tokenomicsBackendUrl string
 param fabricProductId string
 param uiAllowedOrigin string
 param applicationInsightsName string
@@ -55,7 +56,7 @@ resource tokenomicsApi 'Microsoft.ApiManagement/service/apis@2024-06-01-preview'
     displayName: 'Fabric Tokenomics'
     description: 'Privacy-preserving APIM request, token, allocation, and cost analytics.'
     path: tokenomicsApiPath
-    serviceUrl: config.dashboardApi.publicUrl
+    serviceUrl: tokenomicsBackendUrl
     protocols: [
       'https'
     ]

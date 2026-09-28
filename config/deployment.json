@@ -448,8 +448,7 @@
     "deployTokenomicsSeed": true,
     "deployTokenomicsFabric": true,
     "deployTokenomicsSync": true,
-    "deployTokenomicsPowerBi": true,
-    "deployWorkspacePrivateLink": false
+    "deployTokenomicsPowerBi": true
   },
   "tags": {
     "application": "fabric-ai-tokenomics",
@@ -458,6 +457,7 @@
   "dashboardApi": {
     "appName": "caldova-fabric-tokenomics-api",
     "resourceApiClientId": "3a9e9b7d-7354-4efd-b724-d9f566c67fd1",
+    "integrationSubnetResourceId": "/subscriptions/cf824570-a8ba-497a-a184-0a52f1830aa9/resourceGroups/m365-myaacoub/providers/Microsoft.Network/virtualNetworks/caldova-dbx-vnet-westus2/subnets/genie-obo-integration",
     "host": "0.0.0.0",
     "port": 8080,
     "publicUrl": "https://caldova-fabric-tokenomics-api.azurewebsites.net",

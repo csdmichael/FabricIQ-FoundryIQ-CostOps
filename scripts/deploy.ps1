@@ -774,8 +774,15 @@ if (Test-Step 'tokenomics-data') {
             "SHOWCASE_COSMOS_DATABASE=$($config.tokenomicsPlatform.cosmos.databaseName)" `
             "SHOWCASE_COSMOS_CONTAINER=$($config.tokenomicsPlatform.cosmos.showcaseVisits.containerName)" `
             "SHOWCASE_VISIT_RETENTION_DAYS=$($config.tokenomicsPlatform.cosmos.showcaseVisits.retentionDays)" `
-            "AZURE_MAPS_CLIENT_ID=$mapsClientId" --only-show-errors -o none
+            "AZURE_MAPS_CLIENT_ID=$mapsClientId" `
+            'WEBSITE_DNS_SERVER=168.63.129.16' `
+            'WEBSITE_VNET_ROUTE_ALL=1' --only-show-errors -o none
         if ($LASTEXITCODE -ne 0) { throw 'Unable to configure showcase visit analytics on the API App Service.' }
+        $integrationSubnetId = [string]$config.dashboardApi.integrationSubnetResourceId
+        $integrationVnetId = $integrationSubnetId -replace '/subnets/[^/]+$', ''
+        $integrationSubnetName = Split-Path -Leaf $integrationSubnetId
+        az webapp vnet-integration add --subscription $config.azure.subscriptionId --resource-group $config.azure.resourceGroup --name $config.dashboardApi.appName --vnet $integrationVnetId --subnet $integrationSubnetName --only-show-errors -o none
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to connect the API App Service to the Cosmos DB private network.' }
     }
 }
 
