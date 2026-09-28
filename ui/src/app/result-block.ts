@@ -7,7 +7,7 @@ import type { ChatChart, ChatTable } from './tokenomics.model';
 type ChartType = 'bar' | 'line' | 'pie' | 'doughnut';
 
 /**
- * Renders a Data Agent result table with a Table / Chart tab switch and small
+ * Renders a Foundry Agent result table with a Table / Chart tab switch and small
  * buttons to change the chart type (bar, line, pie, doughnut).
  */
 @Component({

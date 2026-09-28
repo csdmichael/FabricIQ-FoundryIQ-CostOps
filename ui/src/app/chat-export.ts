@@ -3,7 +3,7 @@ import { saveAs } from 'file-saver';
 import type { ChatMessage } from './tokenomics.model';
 
 /**
- * Exports a Data Agent response (prose + tables) to Excel, PowerPoint, or Word.
+ * Exports a Foundry Agent response (prose + tables) to Excel, PowerPoint, or Word.
  * Libraries are imported dynamically so they do not bloat the initial bundle.
  */
 @Injectable({ providedIn: 'root' })
@@ -23,7 +23,7 @@ export class ChatExportService {
   async toExcel(message: ChatMessage): Promise<void> {
     const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
-    const summary = [['Tokenomics Data Agent'], [this.plainText(message)]];
+    const summary = [['Tokenomics Foundry Agent'], [this.plainText(message)]];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Summary');
     (message.tables ?? []).forEach((t, i) => {
       const aoa = [t.headers, ...t.rows];

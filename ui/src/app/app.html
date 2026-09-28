@@ -31,7 +31,7 @@
           <ion-icon name="bulb-outline"></ion-icon><span>Action Center</span>
         </button>
         <button type="button" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')">
-          <ion-icon name="chatbubbles-outline"></ion-icon><span>Data Agent Chat</span>
+          <ion-icon name="chatbubbles-outline"></ion-icon><span>Foundry Agent Chat</span>
         </button>
         <button type="button" [class.active]="activeView() === 'ml-guide'" (click)="setView('ml-guide')">
           <ion-icon name="help-circle-outline"></ion-icon><span>ML Guide</span>
@@ -59,7 +59,7 @@
       <button type="button" title="Power BI Reports" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon></button>
       <button type="button" title="12 ML Insights" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon></button>
       <button type="button" title="Action Center" [class.active]="activeView() === 'actions'" (click)="setView('actions')"><ion-icon name="bulb-outline"></ion-icon></button>
-      <button type="button" title="Data Agent Chat" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon></button>
+      <button type="button" title="Foundry Agent Chat" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon></button>
       <button type="button" title="ML Guide" [class.active]="activeView() === 'ml-guide'" (click)="setView('ml-guide')"><ion-icon name="help-circle-outline"></ion-icon></button>
       <button type="button" title="Showcase Visits" [class.active]="activeView() === 'showcase-visits'" (click)="setView('showcase-visits')"><ion-icon name="analytics-outline"></ion-icon></button>
     </aside>
@@ -92,7 +92,7 @@
               @case ('ml-insights') { 12 PySpark Machine Learning Insights }
               @case ('actions') { FinOps Action Center }
               @case ('ml-guide') { ML Algorithm Guide }
-              @case ('data-agent') { Data Agent & Prompt Library }
+              @case ('data-agent') { Foundry Agent & Prompt Library }
               @case ('showcase') { Business Value Showcase }
               @case ('showcase-visits') { Showcase Visits }
             }
@@ -1059,7 +1059,7 @@
                   <textarea
                     class="chat-text-input"
                     rows="3"
-                    placeholder="Ask the Tokenomics Data Agent (e.g. 'Predict Q4 spend for Yield Engineering', 'Claude Opus vs GPT Astra cost'). Press Enter to send, Shift+Enter for a new line..."
+                    placeholder="Ask the Tokenomics Foundry Agent (e.g. 'Predict Q4 spend for Yield Engineering', 'Claude Opus vs GPT Astra cost'). Press Enter to send, Shift+Enter for a new line..."
                     [value]="chatInput()"
                     (input)="chatInput.set($any($event.target).value)"
                     (keydown.enter)="onChatEnter($event)"
@@ -1098,7 +1098,7 @@
                       </label>
                       <label>
                         <span>Full Prompt:</span>
-                        <textarea rows="3" placeholder="Enter the exact prompt question for the Data Agent..." [value]="newPromptText()" (input)="newPromptText.set($any($event.target).value)"></textarea>
+                        <textarea rows="3" placeholder="Enter the exact prompt question for the Foundry Agent..." [value]="newPromptText()" (input)="newPromptText.set($any($event.target).value)"></textarea>
                       </label>
                       <label>
                         <span>Description / Hint:</span>
@@ -1131,17 +1131,17 @@
   </div>
   }
 
-  <!-- Global floating Data Agent button (visible on every page except the showcase and the agent page itself) -->
+  <!-- Global floating Foundry Agent button (visible on every page except the showcase and the agent page itself) -->
   @if (activeView() !== 'data-agent' && activeView() !== 'showcase') {
     <button
       type="button"
       class="agent-fab"
       (click)="setView('data-agent')"
-      aria-label="Open the Tokenomics Data Agent chat"
-      title="Ask the Tokenomics Data Agent"
+      aria-label="Open the Tokenomics Foundry Agent chat"
+      title="Ask the Tokenomics Foundry Agent"
     >
       <ion-icon name="chatbubbles-outline" aria-hidden="true"></ion-icon>
-      <span class="agent-fab__label">Ask the Data Agent</span>
+      <span class="agent-fab__label">Ask the Foundry Agent</span>
     </button>
   }
 </ion-app>

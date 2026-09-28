@@ -192,7 +192,7 @@ export class App implements OnInit {
     return `https://app.powerbi.com/groups/${config.workspaceId}/${segment}/${artifact.id}`;
   });
 
-  // Fabric Data Agent Chat State
+  // Foundry Agent Chat State
   readonly chatMessages = signal<ChatMessage[]>([]);
   readonly chatInput = signal('');
   readonly isChatSending = signal(false);
@@ -709,7 +709,7 @@ export class App implements OnInit {
     void this.sendCustomChatMessage();
   }
 
-  /** Export a Data Agent response to Excel / PowerPoint / Word. */
+  /** Export a Foundry Agent response to Excel / PowerPoint / Word. */
   readonly exporting = signal<string>('');
   async exportMessage(message: ChatMessage, format: 'excel' | 'ppt' | 'word'): Promise<void> {
     this.exporting.set(`${message.id}:${format}`);
@@ -758,7 +758,7 @@ export class App implements OnInit {
     };
   }
 
-  // Fabric Data Agent Chat Methods
+  // Foundry Agent Chat Methods
   private persistConversation(): void {
     this.chatHistory.save(this.currentConversationId, this.chatMessages(), this.tokenomics.getChatThreadId());
   }
@@ -830,14 +830,15 @@ export class App implements OnInit {
     try {
       const response = await this.tokenomics.askDataAgent(prompt.prompt, prompt);
       this.chatMessages.update(msgs => [...msgs, response]);
-    } catch {
+    } catch (error) {
+      console.error('Foundry Agent query failed', error);
       this.chatMessages.update(msgs => [
         ...msgs,
         {
           id: `err-${Date.now()}`,
           sender: 'agent',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          content: 'Unable to complete Data Agent query at this moment. Please check network connectivity.'
+          content: 'Unable to complete Foundry Agent query at this moment. Please check network connectivity.'
         }
       ]);
     } finally {
@@ -867,14 +868,15 @@ export class App implements OnInit {
     try {
       const response = await this.tokenomics.askDataAgent(text);
       this.chatMessages.update(msgs => [...msgs, response]);
-    } catch {
+    } catch (error) {
+      console.error('Foundry Agent query failed', error);
       this.chatMessages.update(msgs => [
         ...msgs,
         {
           id: `err-${Date.now()}`,
           sender: 'agent',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          content: 'Unable to reach the Data Agent right now. Please try again.'
+          content: 'Unable to reach the Foundry Agent right now. Please try again.'
         }
       ]);
     } finally {

@@ -1,7 +1,7 @@
 import type { ChatChart, ChatTable } from './tokenomics.model';
 
 /**
- * Parses a Data Agent markdown reply into rich content: prose rendered as HTML,
+ * Parses a Foundry Agent markdown reply into rich content: prose rendered as HTML,
  * plus structured tables (each with a derived chart when it has a label column
  * and at least one numeric column). This turns raw pipe-delimited markdown into
  * high-fidelity tables and charts in the UI.

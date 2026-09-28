@@ -4,7 +4,7 @@ import type { ChatChart } from './tokenomics.model';
 
 Chart.register(...registerables);
 
-/** Renders a bar/line chart derived from a Data Agent result table. */
+/** Renders a bar/line chart derived from a Foundry Agent result table. */
 @Component({
   selector: 'app-result-chart',
   standalone: true,

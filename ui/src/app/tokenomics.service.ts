@@ -204,14 +204,19 @@ export class TokenomicsService {
 
   async askDataAgent(promptText: string, _savedPrompt?: SavedPrompt): Promise<ChatMessage> {
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Foundry agent runs poll through several LLM + Fabric tool-call round trips and can
+    // legitimately take well over a minute for analytical questions, so give this call a
+    // much longer budget than the default 12s used for simple GET queries. No automatic
+    // retry: the agent run/thread messages are already created server-side on the first
+    // attempt, so retrying would just double the wait and could duplicate messages.
     const response = await this.authorizedFetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: promptText, threadId: this.chatThreadId }),
-    });
+    }, { retries: 0, timeoutMs: 150000 });
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      throw new Error(`Data Agent unavailable (HTTP ${response.status}). ${detail}`);
+      throw new Error(`Foundry Agent unavailable (HTTP ${response.status}). ${detail}`);
     }
     const data = await response.json() as ChatApiResponse;
     this.chatThreadId = data.threadId ?? this.chatThreadId;

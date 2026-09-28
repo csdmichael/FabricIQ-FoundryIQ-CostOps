@@ -13,7 +13,7 @@ const STORAGE_KEY = 'costops_chat_history';
 const MAX_CONVERSATIONS = 50;
 
 /**
- * Persists Data Agent conversations to localStorage so users can start a new
+ * Persists Foundry Agent conversations to localStorage so users can start a new
  * chat and retrieve past ones (Copilot-style history).
  */
 @Injectable({ providedIn: 'root' })
