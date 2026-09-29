@@ -49,13 +49,23 @@
     <div class="video-layout">
       <div class="video-stage">
         <div class="video-frame">
-          <!-- Placeholder video player: replace poster/src when recordings are available -->
-          <div class="video-placeholder">
-            <ion-icon name="play-circle-outline"></ion-icon>
-            <strong>Video {{ selectedVideo().sequence }} — {{ selectedVideo().title }}</strong>
-            <span>Recording placeholder • {{ selectedVideo().duration }}</span>
-          </div>
-          <div class="video-topline"><span>Video {{ selectedVideo().sequence }}</span><span>{{ selectedVideo().duration }}</span></div>
+          @if (selectedVideo().source; as source) {
+            <video
+              class="video-player"
+              controls
+              preload="metadata"
+              playsinline
+              [src]="source"
+              [attr.aria-label]="'Video ' + selectedVideo().sequence + ' — ' + selectedVideo().title"
+            ></video>
+          } @else {
+            <div class="video-placeholder">
+              <ion-icon name="play-circle-outline"></ion-icon>
+              <strong>Video {{ selectedVideo().sequence }} — {{ selectedVideo().title }}</strong>
+              <span>Coming soon</span>
+            </div>
+            <div class="video-topline"><span>Video {{ selectedVideo().sequence }}</span><span>Coming soon</span></div>
+          }
         </div>
         <p class="video-desc">{{ selectedVideo().description }}</p>
       </div>
@@ -206,7 +216,7 @@
   <!-- TRY IT -->
   <div class="sc-panel" [hidden]="activeTab() !== 'try-it'">
     <div class="try-grid">
-      <a class="try-card" href="/overview">
+      <a class="try-card" href="/overview" target="_blank" rel="noopener noreferrer">
         <ion-icon name="open-outline"></ion-icon>
         <strong>Open the live CostOps portal</strong>
         <span>Go to the Tokenomics home and explore dashboards, ML insights, reports, and the Foundry Agent on live governed data.</span>
@@ -217,7 +227,7 @@
         <span>Step-by-step walkthrough of every CostOps screen and how to use the platform.</span>
         <div class="try-actions">
           <a [href]="guidePdfUrl" target="_blank" rel="noopener noreferrer">Open PDF <ion-icon name="open-outline"></ion-icon></a>
-          <a [href]="guidePdfUrl" download="AI-Tokenomics-User-Guide.pdf">Download PDF <ion-icon name="download-outline"></ion-icon></a>
+          <a [href]="guidePdfUrl" target="_blank" rel="noopener noreferrer" download="AI-Tokenomics-User-Guide.pdf">Download PDF <ion-icon name="download-outline"></ion-icon></a>
           <a [href]="userGuideUrl" target="_blank" rel="noopener noreferrer">View on GitHub <ion-icon name="logo-github"></ion-icon></a>
         </div>
       </div>
@@ -239,7 +249,7 @@
           <a [href]="businessCasePptxUrl" target="_blank" rel="noopener noreferrer">Download presentation <ion-icon name="download-outline"></ion-icon></a>
         </div>
       </div>
-      <a class="try-card" [href]="accessRequestUrl">
+      <a class="try-card" [href]="accessRequestUrl" target="_blank" rel="noopener noreferrer">
         <ion-icon name="mail-outline"></ion-icon>
         <strong>Request source code access</strong>
         <span>Draft an email to Michael Yaacoub (myaacoub&#64;microsoft.com) for access to the platform repository.</span>

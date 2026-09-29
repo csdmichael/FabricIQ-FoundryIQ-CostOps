@@ -6,7 +6,7 @@ type ShowcaseTab = 'videos' | 'value' | 'features' | 'architecture' | 'try-it';
 type ValueScenarioId = 'lower' | 'planning' | 'higher';
 
 interface ShowcaseTabItem { id: ShowcaseTab; label: string; icon: string; }
-interface VideoItem { sequence: string; title: string; description: string; duration: string; }
+interface VideoItem { sequence: string; title: string; description: string; duration: string; source?: string; }
 interface FeatureItem { icon: string; title: string; description: string; }
 interface SavingsLever { label: string; amount: string; note: string; kind: 'add' | 'subtract'; }
 interface ValueScenario {
@@ -30,7 +30,7 @@ interface ArchitectureLayer { title: string; description: string; items: string[
 
 /**
  * Business-value showcase for the Multi-Cloud AI Tokenomics & FinOps platform.
- * Mirrors the structure of the Agentic SDLC showcase: video series (placeholders),
+ * Mirrors the structure of the Agentic SDLC showcase: video series,
  * business value with selectable spend scenarios, features, architecture, and a
  * try-it panel. Financial figures follow the auditable planning model in the
  * executive business-case deck (see docs/business-case). They are illustrative
@@ -72,12 +72,12 @@ export class ShowcasePage {
   ];
 
   readonly videos: VideoItem[] = [
-    { sequence: '01', title: 'Platform Overview', description: 'Multi-cloud AI tokenomics, the governed Fabric lakehouse, and the FinOps control plane in five minutes.', duration: '05:12' },
-    { sequence: '02', title: 'Live Dashboard Walkthrough', description: 'Command center, cost attribution, model rate cards, and provider filtering on live governed data.', duration: '08:40' },
-    { sequence: '03', title: '12 PySpark ML Insights', description: 'Anomaly detection, budget overrun prediction, model optimization, and quota management outputs.', duration: '07:15' },
-    { sequence: '04', title: 'Tokenomics Foundry Agent', description: 'Ask natural-language FinOps questions answered live from the governed tokenomics lakehouse.', duration: '06:28' },
-    { sequence: '05', title: 'Interactive Reports', description: 'Executive dashboards and reports built directly on the governed tokenomics lakehouse.', duration: '04:50' },
-    { sequence: '06', title: 'Architecture & Governance', description: 'The secure gateway boundary, delegated identity, private networking, and the config-driven deployment pipeline.', duration: '09:05' },
+    { sequence: '01', title: 'Platform Overview', description: 'Multi-cloud AI tokenomics, the governed Fabric lakehouse, and the FinOps control plane.', duration: '14:58', source: '/assets/videos/01-platform-overview.mp4' },
+    { sequence: '02', title: 'Live Dashboard Walkthrough', description: 'Command center, cost attribution, model rate cards, and provider filtering on live governed data.', duration: 'Coming soon' },
+    { sequence: '03', title: '12 PySpark ML Insights', description: 'Anomaly detection, budget overrun prediction, model optimization, and quota management outputs.', duration: 'Coming soon' },
+    { sequence: '04', title: 'Tokenomics Foundry Agent', description: 'Ask natural-language FinOps questions answered live from the governed tokenomics lakehouse.', duration: 'Coming soon' },
+    { sequence: '05', title: 'Interactive Reports', description: 'Executive dashboards and reports built directly on the governed tokenomics lakehouse.', duration: 'Coming soon' },
+    { sequence: '06', title: 'Architecture & Governance', description: 'The secure gateway boundary, delegated identity, private networking, and the config-driven deployment pipeline.', duration: 'Coming soon' },
   ];
   readonly selectedVideo = computed(() => this.videos[this.selectedVideoIndex()]);
 

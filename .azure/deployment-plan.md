@@ -138,6 +138,14 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 
 ## Active Validation Proof
 
+2026-09-29 showcase video application-only release:
+
+- `npm run build --prefix ui` completed successfully with the existing non-blocking Angular warnings.
+- `npm test --prefix ui -- --watch=false` passed one test file and all four tests.
+- `scripts/build-ui-package.ps1 -SkipInstall` produced the deployable 319,280,100-byte UI package with SHA-256 `aaa9b5001d13d1bdff3425ef12da8c85c960492e2036f487dfbcccbdb6556c52`, including the Git LFS-managed Platform Overview recording.
+- `git check-attr` confirmed the MP4 uses the LFS filter and `git diff --check` reported no whitespace errors.
+- The release changes only UI application code and a static media asset; the previously validated Bicep, policy, and RBAC definitions are unchanged.
+
 2026-09-20 CostOps drilldown, enterprise sample, Fabric sync, and agent validation:
 
 - `scripts/validate.ps1 -DeploymentReady -IncludeParity -SkipTerraformInit` passed the configuration contract, 23 broker tests, UI production build and tests, dependency audits, six Tokenomics generator/report tests, OneLake transaction tests, empty-source Delta schema test, seven Bicep roots, Terraform parity, PowerShell syntax, both Copilot Studio desired-state contracts, and deployment safety tests.
