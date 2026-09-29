@@ -46,6 +46,7 @@ interface ArchitectureLayer { title: string; description: string; items: string[
 export class ShowcasePage {
   readonly activeTab = signal<ShowcaseTab>('videos');
   readonly selectedVideoIndex = signal(0);
+  readonly autoplayAll = signal(true);
   readonly selectedValueScenarioId = signal<ValueScenarioId>('planning');
 
   readonly liveUiUrl = 'https://caldova-fabric-costops-ui.azurewebsites.net';
@@ -178,5 +179,10 @@ export class ShowcasePage {
 
   setTab(tab: ShowcaseTab): void { this.activeTab.set(tab); }
   selectVideo(index: number): void { this.selectedVideoIndex.set(index); }
+  playNextVideo(): void {
+    if (!this.autoplayAll()) return;
+    const nextIndex = this.videos.findIndex((video, index) => index > this.selectedVideoIndex() && Boolean(video.source));
+    if (nextIndex >= 0) this.selectedVideoIndex.set(nextIndex);
+  }
   selectValueScenario(id: ValueScenarioId): void { this.selectedValueScenarioId.set(id); }
 }

@@ -138,6 +138,13 @@ written to source, Terraform state examples, logs, screenshots, or documentation
 
 ## Active Validation Proof
 
+2026-09-29 showcase autoplay follow-up:
+
+- `npm test --prefix ui -- --watch=false` passed two test files and all seven tests, including autoplay defaults, sequence advancement, and disabled-autoplay behavior.
+- `npm run build --prefix ui` completed successfully with the existing non-blocking Angular warnings.
+- Local packaged-host verification returned `206 Partial Content`, `Content-Type: video/mp4`, and the correct `Content-Range` for the Platform Overview recording.
+- `scripts/build-ui-package.ps1 -SkipInstall` produced the deployable 319,281,094-byte UI package with SHA-256 `f01153fcf06bfa03a4ee9140c24cc6a5436eb59c06ba60a075d46264a65973dd`.
+
 2026-09-29 showcase video application-only release:
 
 - `npm run build --prefix ui` completed successfully with the existing non-blocking Angular warnings.

@@ -52,11 +52,14 @@
           @if (selectedVideo().source; as source) {
             <video
               class="video-player"
+              [autoplay]="autoplayAll()"
               controls
+              muted
               preload="metadata"
               playsinline
               [src]="source"
               [attr.aria-label]="'Video ' + selectedVideo().sequence + ' — ' + selectedVideo().title"
+              (ended)="playNextVideo()"
             ></video>
           } @else {
             <div class="video-placeholder">
@@ -69,15 +72,27 @@
         </div>
         <p class="video-desc">{{ selectedVideo().description }}</p>
       </div>
-      <ol class="video-list">
-        @for (v of videos; track v.sequence; let i = $index) {
-          <li [class.is-active]="selectedVideoIndex() === i" (click)="selectVideo(i)">
-            <span class="v-seq">{{ v.sequence }}</span>
-            <span class="v-body"><strong>{{ v.title }}</strong><small>{{ v.duration }}</small></span>
-            <ion-icon name="play-circle-outline"></ion-icon>
-          </li>
-        }
-      </ol>
+      <div class="video-playlist">
+        <label class="autoplay-toggle">
+          <input
+            #autoplayToggle
+            type="checkbox"
+            [checked]="autoplayAll()"
+            (change)="autoplayAll.set(autoplayToggle.checked)"
+          />
+          <span>Autoplay all videos</span>
+          <small>Starts muted</small>
+        </label>
+        <ol class="video-list">
+          @for (v of videos; track v.sequence; let i = $index) {
+            <li [class.is-active]="selectedVideoIndex() === i" (click)="selectVideo(i)">
+              <span class="v-seq">{{ v.sequence }}</span>
+              <span class="v-body"><strong>{{ v.title }}</strong><small>{{ v.duration }}</small></span>
+              <ion-icon name="play-circle-outline"></ion-icon>
+            </li>
+          }
+        </ol>
+      </div>
     </div>
   </div>
 

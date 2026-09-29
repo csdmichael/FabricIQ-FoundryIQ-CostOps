@@ -22,6 +22,7 @@ const contentTypes = new Map([
   ['.ico', 'image/x-icon'],
   ['.js', 'text/javascript; charset=utf-8'],
   ['.json', 'application/json; charset=utf-8'],
+  ['.mp4', 'video/mp4'],
   ['.pdf', 'application/pdf'],
   ['.png', 'image/png'],
   ['.svg', 'image/svg+xml'],
@@ -90,21 +91,56 @@ function staticFile(request, response, url) {
   const relative = normalize(decodeURIComponent(url.pathname)).replace(/^[/\\]+/, '');
   let file = resolve(join(root, relative || 'index.html'));
   if (!file.startsWith(root)) return sendJson(response, 400, { error: 'invalid_path' });
+  let stats;
   try {
-    if (statSync(file).isDirectory()) file = join(file, 'index.html');
+    stats = statSync(file);
+    if (stats.isDirectory()) {
+      file = join(file, 'index.html');
+      stats = statSync(file);
+    }
   } catch {
     file = join(root, 'index.html');
+    stats = statSync(file);
   }
   const extension = extname(file).toLowerCase();
   const immutable = /-[A-Z0-9]{8,}\.(?:css|js)$/i.test(file);
-  response.writeHead(200, {
+  const headers = {
     'Content-Type': contentTypes.get(extension) || 'application/octet-stream',
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+    'Accept-Ranges': 'bytes',
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': "default-src 'self'; connect-src 'self' https://caldova-fabric-tokenomics-api.azurewebsites.net https://login.microsoftonline.com https://api.fabric.microsoft.com https://api.powerbi.com https://*.powerbi.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'self' https://app.powerbi.com https://login.microsoftonline.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://login.microsoftonline.com",
     'Referrer-Policy': 'no-referrer',
-  });
-  createReadStream(file).on('error', () => response.destroy()).pipe(response);
+  };
+  const rangeMatch = request.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
+  let start = 0;
+  let end = stats.size - 1;
+  let status = 200;
+
+  if (request.headers.range) {
+    if (!rangeMatch || (!rangeMatch[1] && !rangeMatch[2])) {
+      response.writeHead(416, { ...headers, 'Content-Range': `bytes */${stats.size}` });
+      return response.end();
+    }
+    if (!rangeMatch[1]) {
+      const suffixLength = Number(rangeMatch[2]);
+      start = Math.max(stats.size - suffixLength, 0);
+    } else {
+      start = Number(rangeMatch[1]);
+      if (rangeMatch[2]) end = Math.min(Number(rangeMatch[2]), end);
+    }
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start > end || start >= stats.size) {
+      response.writeHead(416, { ...headers, 'Content-Range': `bytes */${stats.size}` });
+      return response.end();
+    }
+    status = 206;
+    headers['Content-Range'] = `bytes ${start}-${end}/${stats.size}`;
+  }
+
+  headers['Content-Length'] = String(end - start + 1);
+  response.writeHead(status, headers);
+  if (request.method === 'HEAD') return response.end();
+  createReadStream(file, { start, end }).on('error', () => response.destroy()).pipe(response);
 }
 
 createServer((request, response) => {
