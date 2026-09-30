@@ -1,0 +1,82 @@
+name: Deploy — UI
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment for approvals and secrets
+        type: string
+        default: production
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and deploy UI
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve deployment configuration
+        id: config
+        shell: pwsh
+        run: |
+          $config = Get-Content config/deployment.json -Raw | ConvertFrom-Json
+          "resource_group=$($config.azure.resourceGroup)" >> $env:GITHUB_OUTPUT
+          "app_name=$($config.ui.appName)" >> $env:GITHUB_OUTPUT
+          "production_url=$($config.ui.productionUrl)" >> $env:GITHUB_OUTPUT
+
+      - name: Build UI deployment package
+        shell: pwsh
+        run: ./scripts/build-ui-package.ps1
+
+      - name: Publish UI
+        run: |
+          az webapp deploy \
+            --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            --resource-group "${{ steps.config.outputs.resource_group }}" \
+            --name "${{ steps.config.outputs.app_name }}" \
+            --src-path .generated/packages/fabric-costops-ui.zip \
+            --type zip \
+            --async false \
+            --clean true \
+            --restart true \
+            --timeout 300000 \
+            --only-show-errors \
+            --output none
+
+      - name: Verify UI health
+        shell: pwsh
+        run: |
+          $healthUrl = "${{ steps.config.outputs.production_url }}/health"
+          for ($attempt = 1; $attempt -le 12; $attempt++) {
+            try {
+              $health = Invoke-RestMethod -Method Get -Uri $healthUrl -TimeoutSec 30
+              if ($health.status -eq 'ok') {
+                Write-Host "UI health check passed."
+                exit 0
+              }
+            }
+            catch {
+              Write-Warning "Health check attempt $attempt failed: $($_.Exception.Message)"
+            }
+            Start-Sleep -Seconds 10
+          }
+          throw "UI health check failed after deployment: $healthUrl"
