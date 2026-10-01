@@ -27,4 +27,17 @@ describe('ShowcasePage', () => {
 
     expect(page.selectedVideoIndex()).toBe(0);
   });
+
+  it('enables sound on the active video', () => {
+    const page = new ShowcasePage();
+    const video = document.createElement('video');
+    video.muted = true;
+    video.volume = 0;
+
+    page.enableAudio(video);
+
+    expect(page.audioEnabled()).toBe(true);
+    expect(video.muted).toBe(false);
+    expect(video.volume).toBe(1);
+  });
 });

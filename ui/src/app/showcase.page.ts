@@ -47,6 +47,7 @@ export class ShowcasePage {
   readonly activeTab = signal<ShowcaseTab>('videos');
   readonly selectedVideoIndex = signal(0);
   readonly autoplayAll = signal(true);
+  readonly audioEnabled = signal(false);
   readonly selectedValueScenarioId = signal<ValueScenarioId>('planning');
 
   readonly liveUiUrl = 'https://caldova-fabric-costops-ui.azurewebsites.net';
@@ -179,6 +180,11 @@ export class ShowcasePage {
 
   setTab(tab: ShowcaseTab): void { this.activeTab.set(tab); }
   selectVideo(index: number): void { this.selectedVideoIndex.set(index); }
+  enableAudio(video: HTMLVideoElement): void {
+    video.muted = false;
+    video.volume = 1;
+    this.audioEnabled.set(true);
+  }
   playNextVideo(): void {
     if (!this.autoplayAll()) return;
     const nextIndex = this.videos.findIndex((video, index) => index > this.selectedVideoIndex() && Boolean(video.source));

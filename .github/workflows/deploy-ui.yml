@@ -19,6 +19,8 @@ jobs:
     environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -66,12 +68,15 @@ jobs:
         shell: pwsh
         run: |
           $healthUrl = "${{ steps.config.outputs.production_url }}/health"
+          $videoUrl = "${{ steps.config.outputs.production_url }}/assets/videos/01-platform-overview.mp4"
+          $healthy = $false
           for ($attempt = 1; $attempt -le 12; $attempt++) {
             try {
               $health = Invoke-RestMethod -Method Get -Uri $healthUrl -TimeoutSec 30
               if ($health.status -eq 'ok') {
                 Write-Host "UI health check passed."
-                exit 0
+                $healthy = $true
+                break
               }
             }
             catch {
@@ -79,4 +84,14 @@ jobs:
             }
             Start-Sleep -Seconds 10
           }
-          throw "UI health check failed after deployment: $healthUrl"
+          if (-not $healthy) {
+            throw "UI health check failed after deployment: $healthUrl"
+          }
+
+          $video = Invoke-WebRequest -Method Head -Uri $videoUrl -TimeoutSec 30
+          $contentType = [string]$video.Headers.'Content-Type'
+          $contentLength = [long]([string]$video.Headers.'Content-Length')
+          if ($contentType -ne 'video/mp4' -or $contentLength -lt 1MB) {
+            throw "Showcase video verification failed: $videoUrl returned $contentType with $contentLength bytes."
+          }
+          Write-Host "Showcase video verification passed ($contentLength bytes)."

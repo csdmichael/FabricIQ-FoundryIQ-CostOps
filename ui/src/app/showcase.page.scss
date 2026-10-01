@@ -53,6 +53,9 @@
 .video-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
 .video-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #0d1b2f; border: 1px solid var(--line); }
 .video-player { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.video-sound { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border: 1px solid rgba(255,255,255,.45); border-radius: 7px; background: rgba(13,27,47,.82); color: #fff; font-size: 12px; font-weight: 750; cursor: pointer; backdrop-filter: blur(6px); }
+.video-sound:hover { background: rgba(22,163,165,.92); border-color: #6fe3d6; }
+.video-sound ion-icon { font-size: 17px; }
 .video-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #cfe0f0; text-align: center; padding: 20px; }
 .video-placeholder ion-icon { font-size: 60px; color: #6fe3d6; }
 .video-placeholder strong { font-size: 16px; }

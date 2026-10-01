@@ -51,16 +51,23 @@
         <div class="video-frame">
           @if (selectedVideo().source; as source) {
             <video
+              #videoPlayer
               class="video-player"
               [autoplay]="autoplayAll()"
               controls
-              muted
+              [muted]="!audioEnabled()"
               preload="metadata"
               playsinline
               [src]="source"
               [attr.aria-label]="'Video ' + selectedVideo().sequence + ' — ' + selectedVideo().title"
               (ended)="playNextVideo()"
             ></video>
+            @if (!audioEnabled()) {
+              <button type="button" class="video-sound" (click)="enableAudio(videoPlayer)">
+                <ion-icon name="volume-high-outline"></ion-icon>
+                Enable sound
+              </button>
+            }
           } @else {
             <div class="video-placeholder">
               <ion-icon name="play-circle-outline"></ion-icon>
@@ -81,7 +88,7 @@
             (change)="autoplayAll.set(autoplayToggle.checked)"
           />
           <span>Autoplay all videos</span>
-          <small>Starts muted</small>
+          <small>{{ audioEnabled() ? 'Sound on' : 'Enable sound above' }}</small>
         </label>
         <ol class="video-list">
           @for (v of videos; track v.sequence; let i = $index) {
