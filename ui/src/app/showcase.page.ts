@@ -6,7 +6,7 @@ type ShowcaseTab = 'videos' | 'value' | 'features' | 'architecture' | 'try-it';
 type ValueScenarioId = 'lower' | 'planning' | 'higher';
 
 interface ShowcaseTabItem { id: ShowcaseTab; label: string; icon: string; }
-interface VideoItem { sequence: string; title: string; description: string; duration: string; source?: string; }
+interface VideoItem { sequence: string; title: string; description: string; duration: string; source: string; }
 interface FeatureItem { icon: string; title: string; description: string; }
 interface SavingsLever { label: string; amount: string; note: string; kind: 'add' | 'subtract'; }
 interface ValueScenario {
@@ -75,11 +75,10 @@ export class ShowcasePage {
 
   readonly videos: VideoItem[] = [
     { sequence: '01', title: 'Platform Overview', description: 'Multi-cloud AI tokenomics, the governed Fabric lakehouse, and the FinOps control plane.', duration: '14:58', source: '/assets/videos/01-platform-overview.mp4' },
-    { sequence: '02', title: 'Live Dashboard Walkthrough', description: 'Command center, cost attribution, model rate cards, and provider filtering on live governed data.', duration: 'Coming soon' },
-    { sequence: '03', title: '12 PySpark ML Insights', description: 'Anomaly detection, budget overrun prediction, model optimization, and quota management outputs.', duration: 'Coming soon' },
-    { sequence: '04', title: 'Tokenomics Foundry Agent', description: 'Ask natural-language FinOps questions answered live from the governed tokenomics lakehouse.', duration: 'Coming soon' },
-    { sequence: '05', title: 'Interactive Reports', description: 'Executive dashboards and reports built directly on the governed tokenomics lakehouse.', duration: 'Coming soon' },
-    { sequence: '06', title: 'Architecture & Governance', description: 'The secure gateway boundary, delegated identity, private networking, and the config-driven deployment pipeline.', duration: 'Coming soon' },
+    { sequence: '02', title: 'Live Dashboard Walkthrough', description: 'Command center, cost attribution, model rate cards, and provider filtering on live governed data.', duration: '15:11', source: '/assets/videos/02. Live Dashboard Walkthrough.mp4' },
+    { sequence: '03', title: 'UI Chat Agent - Foundry', description: 'Ask natural-language FinOps questions through the UI chat agent backed by Microsoft Foundry.', duration: '09:06', source: '/assets/videos/03. UI Chat Agent - Foundry.mp4' },
+    { sequence: '04', title: 'Architecture & Governance', description: 'The secure gateway boundary, delegated identity, private networking, and the config-driven deployment pipeline.', duration: '15:57', source: '/assets/videos/04. Architecture & Governance.mp4' },
+    { sequence: '05', title: '12 PySpark ML Insights', description: 'Anomaly detection, budget overrun prediction, model optimization, and quota management outputs.', duration: '08:49', source: '/assets/videos/05. 12 PySpark ML Insights.mp4' },
   ];
   readonly selectedVideo = computed(() => this.videos[this.selectedVideoIndex()]);
 
@@ -187,8 +186,8 @@ export class ShowcasePage {
   }
   playNextVideo(): void {
     if (!this.autoplayAll()) return;
-    const nextIndex = this.videos.findIndex((video, index) => index > this.selectedVideoIndex() && Boolean(video.source));
-    if (nextIndex >= 0) this.selectedVideoIndex.set(nextIndex);
+    const nextIndex = this.selectedVideoIndex() + 1;
+    if (nextIndex < this.videos.length) this.selectedVideoIndex.set(nextIndex);
   }
   selectValueScenario(id: ValueScenarioId): void { this.selectedValueScenarioId.set(id); }
 }

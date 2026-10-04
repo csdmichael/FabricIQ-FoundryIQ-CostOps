@@ -9,18 +9,29 @@ describe('ShowcasePage', () => {
     expect(page.selectedVideo().source).toBe('/assets/videos/01-platform-overview.mp4');
   });
 
-  it('advances to the next available recording when autoplay is enabled', () => {
+  it('lists every recording in filename-prefix order', () => {
     const page = new ShowcasePage();
-    page.videos[2].source = '/assets/videos/03-ml-insights.mp4';
+
+    expect(page.videos.map((video) => video.sequence)).toEqual(['01', '02', '03', '04', '05']);
+    expect(page.videos.map((video) => video.source)).toEqual([
+      '/assets/videos/01-platform-overview.mp4',
+      '/assets/videos/02. Live Dashboard Walkthrough.mp4',
+      '/assets/videos/03. UI Chat Agent - Foundry.mp4',
+      '/assets/videos/04. Architecture & Governance.mp4',
+      '/assets/videos/05. 12 PySpark ML Insights.mp4',
+    ]);
+  });
+
+  it('advances to the next recording when autoplay is enabled', () => {
+    const page = new ShowcasePage();
 
     page.playNextVideo();
 
-    expect(page.selectedVideoIndex()).toBe(2);
+    expect(page.selectedVideoIndex()).toBe(1);
   });
 
   it('does not advance when autoplay is disabled', () => {
     const page = new ShowcasePage();
-    page.videos[1].source = '/assets/videos/02-dashboard.mp4';
     page.autoplayAll.set(false);
 
     page.playNextVideo();
