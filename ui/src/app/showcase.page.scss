@@ -56,6 +56,11 @@
 .video-sound { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border: 1px solid rgba(255,255,255,.45); border-radius: 7px; background: rgba(13,27,47,.82); color: #fff; font-size: 12px; font-weight: 750; cursor: pointer; backdrop-filter: blur(6px); }
 .video-sound:hover { background: rgba(22,163,165,.92); border-color: #6fe3d6; }
 .video-sound ion-icon { font-size: 17px; }
+.video-status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px; color: #cfe0f0; text-align: center; }
+.video-status ion-icon { font-size: 48px; color: #6fe3d6; }
+.video-status span { max-width: 520px; color: #9fb3c8; font-size: 12px; }
+.video-status button { padding: 8px 16px; border: 1px solid #6fe3d6; border-radius: 6px; background: transparent; color: #fff; font-weight: 700; cursor: pointer; }
+.video-status.is-error ion-icon { color: #ffb4ab; }
 .video-desc { margin: 14px 2px 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
 .video-playlist { min-width: 0; }
 .autoplay-toggle { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 12px; font-weight: 700; cursor: pointer; }

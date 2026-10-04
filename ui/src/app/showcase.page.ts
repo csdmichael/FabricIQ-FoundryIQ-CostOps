@@ -1,12 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, OnInit, signal } from '@angular/core';
 import { IonIcon } from '@ionic/angular/standalone';
+import { ShowcaseConfigService, ShowcaseVideo } from './showcase-config.service';
 
 type ShowcaseTab = 'videos' | 'value' | 'features' | 'architecture' | 'try-it';
 type ValueScenarioId = 'lower' | 'planning' | 'higher';
 
 interface ShowcaseTabItem { id: ShowcaseTab; label: string; icon: string; }
-interface VideoItem { sequence: string; title: string; description: string; duration: string; source: string; }
 interface FeatureItem { icon: string; title: string; description: string; }
 interface SavingsLever { label: string; amount: string; note: string; kind: 'add' | 'subtract'; }
 interface ValueScenario {
@@ -43,7 +43,7 @@ interface ArchitectureLayer { title: string; description: string; items: string[
   templateUrl: './showcase.page.html',
   styleUrl: './showcase.page.scss',
 })
-export class ShowcasePage {
+export class ShowcasePage implements OnInit {
   readonly activeTab = signal<ShowcaseTab>('videos');
   readonly selectedVideoIndex = signal(0);
   readonly autoplayAll = signal(true);
@@ -73,14 +73,27 @@ export class ShowcasePage {
     { id: 'try-it', label: 'Try it', icon: 'open-outline' },
   ];
 
-  readonly videos: VideoItem[] = [
-    { sequence: '01', title: 'Platform Overview', description: 'Multi-cloud AI tokenomics, the governed Fabric lakehouse, and the FinOps control plane.', duration: '14:58', source: '/assets/videos/01-platform-overview.mp4' },
-    { sequence: '02', title: 'Live Dashboard Walkthrough', description: 'Command center, cost attribution, model rate cards, and provider filtering on live governed data.', duration: '15:11', source: '/assets/videos/02. Live Dashboard Walkthrough.mp4' },
-    { sequence: '03', title: 'UI Chat Agent - Foundry', description: 'Ask natural-language FinOps questions through the UI chat agent backed by Microsoft Foundry.', duration: '09:06', source: '/assets/videos/03. UI Chat Agent - Foundry.mp4' },
-    { sequence: '04', title: 'Architecture & Governance', description: 'The secure gateway boundary, delegated identity, private networking, and the config-driven deployment pipeline.', duration: '15:57', source: '/assets/videos/04. Architecture & Governance.mp4' },
-    { sequence: '05', title: '12 PySpark ML Insights', description: 'Anomaly detection, budget overrun prediction, model optimization, and quota management outputs.', duration: '08:49', source: '/assets/videos/05. 12 PySpark ML Insights.mp4' },
-  ];
-  readonly selectedVideo = computed(() => this.videos[this.selectedVideoIndex()]);
+  readonly videos = signal<readonly ShowcaseVideo[]>([]);
+  readonly videoLoadError = signal<string | null>(null);
+  readonly selectedVideo = computed(() => this.videos()[this.selectedVideoIndex()] ?? null);
+
+  constructor(private readonly showcaseConfig: ShowcaseConfigService = new ShowcaseConfigService()) {}
+
+  ngOnInit(): void {
+    void this.loadVideos();
+  }
+
+  async loadVideos(): Promise<void> {
+    this.videoLoadError.set(null);
+    try {
+      this.videos.set(await this.showcaseConfig.load());
+      this.selectedVideoIndex.set(0);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown showcase configuration error.';
+      this.videoLoadError.set(message);
+      console.error('Unable to load showcase video configuration.', error);
+    }
+  }
 
   readonly valueScenarios: ValueScenario[] = [
     {
@@ -187,7 +200,7 @@ export class ShowcasePage {
   playNextVideo(): void {
     if (!this.autoplayAll()) return;
     const nextIndex = this.selectedVideoIndex() + 1;
-    if (nextIndex < this.videos.length) this.selectedVideoIndex.set(nextIndex);
+    if (nextIndex < this.videos().length) this.selectedVideoIndex.set(nextIndex);
   }
   selectValueScenario(id: ValueScenarioId): void { this.selectedValueScenarioId.set(id); }
 }

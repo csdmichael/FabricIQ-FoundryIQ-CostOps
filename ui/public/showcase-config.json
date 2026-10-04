@@ -1,0 +1,39 @@
+{
+  "videos": [
+    {
+      "sequence": "01",
+      "title": "Platform Overview",
+      "description": "Multi-cloud AI tokenomics, the governed Fabric lakehouse, and the FinOps control plane.",
+      "duration": "14:58",
+      "source": "/assets/videos/01-platform-overview.mp4"
+    },
+    {
+      "sequence": "02",
+      "title": "Live Dashboard Walkthrough",
+      "description": "Command center, cost attribution, model rate cards, and provider filtering on live governed data.",
+      "duration": "15:11",
+      "source": "/assets/videos/02. Live Dashboard Walkthrough.mp4"
+    },
+    {
+      "sequence": "03",
+      "title": "UI Chat Agent - Foundry",
+      "description": "Ask natural-language FinOps questions through the UI chat agent backed by Microsoft Foundry.",
+      "duration": "09:06",
+      "source": "/assets/videos/03. UI Chat Agent - Foundry.mp4"
+    },
+    {
+      "sequence": "04",
+      "title": "Architecture & Governance",
+      "description": "The secure gateway boundary, delegated identity, private networking, and the config-driven deployment pipeline.",
+      "duration": "15:57",
+      "source": "/assets/videos/04. Architecture & Governance.mp4"
+    },
+    {
+      "sequence": "05",
+      "title": "12 PySpark ML Insights",
+      "description": "Anomaly detection, budget overrun prediction, model optimization, and quota management outputs.",
+      "duration": "08:49",
+      "source": "/assets/videos/05. 12 PySpark ML Insights.mp4"
+    }
+  ]
+}

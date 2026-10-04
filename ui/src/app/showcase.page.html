@@ -49,26 +49,39 @@
     <div class="video-layout">
       <div class="video-stage">
         <div class="video-frame">
-          <video
-            #videoPlayer
-            class="video-player"
-            [autoplay]="autoplayAll()"
-            controls
-            [muted]="!audioEnabled()"
-            preload="metadata"
-            playsinline
-            [src]="selectedVideo().source"
-            [attr.aria-label]="'Video ' + selectedVideo().sequence + ' — ' + selectedVideo().title"
-            (ended)="playNextVideo()"
-          ></video>
-          @if (!audioEnabled()) {
-            <button type="button" class="video-sound" (click)="enableAudio(videoPlayer)">
-              <ion-icon name="volume-high-outline"></ion-icon>
-              Enable sound
-            </button>
+          @if (selectedVideo(); as video) {
+            <video
+              #videoPlayer
+              class="video-player"
+              [autoplay]="autoplayAll()"
+              controls
+              [muted]="!audioEnabled()"
+              preload="metadata"
+              playsinline
+              [src]="video.source"
+              [attr.aria-label]="'Video ' + video.sequence + ' — ' + video.title"
+              (ended)="playNextVideo()"
+            ></video>
+            @if (!audioEnabled()) {
+              <button type="button" class="video-sound" (click)="enableAudio(videoPlayer)">
+                <ion-icon name="volume-high-outline"></ion-icon>
+                Enable sound
+              </button>
+            }
+          } @else {
+            <div class="video-status" [class.is-error]="videoLoadError()" role="status">
+              <ion-icon [name]="videoLoadError() ? 'alert-circle-outline' : 'hourglass-outline'"></ion-icon>
+              <strong>{{ videoLoadError() ? 'Unable to load videos' : 'Loading videos' }}</strong>
+              @if (videoLoadError(); as error) {
+                <span>{{ error }}</span>
+                <button type="button" (click)="loadVideos()">Retry</button>
+              }
+            </div>
           }
         </div>
-        <p class="video-desc">{{ selectedVideo().description }}</p>
+        @if (selectedVideo(); as video) {
+          <p class="video-desc">{{ video.description }}</p>
+        }
       </div>
       <div class="video-playlist">
         <label class="autoplay-toggle">
@@ -82,7 +95,7 @@
           <small>{{ audioEnabled() ? 'Sound on' : 'Enable sound above' }}</small>
         </label>
         <ol class="video-list">
-          @for (v of videos; track v.sequence; let i = $index) {
+          @for (v of videos(); track v.sequence; let i = $index) {
             <li [class.is-active]="selectedVideoIndex() === i" (click)="selectVideo(i)">
               <span class="v-seq">{{ v.sequence }}</span>
               <span class="v-body"><strong>{{ v.title }}</strong><small>{{ v.duration }}</small></span>
