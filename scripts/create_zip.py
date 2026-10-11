@@ -14,6 +14,12 @@ def main() -> None:
         dest="required_entries",
         help="Archive entry that must exist; repeat for each required entry.",
     )
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        dest="excluded_extensions",
+        help="File extension or pattern to exclude; repeat for each pattern.",
+    )
     arguments = parser.parse_args()
 
     source = arguments.source.resolve()
@@ -30,6 +36,10 @@ def main() -> None:
             for filename in sorted(filenames):
                 file_path = Path(directory, filename)
                 archive_name = file_path.relative_to(source).as_posix()
+                if arguments.excluded_extensions and any(
+                    archive_name.endswith(ext) for ext in arguments.excluded_extensions
+                ):
+                    continue
                 archive.write(file_path, archive_name)
 
     with zipfile.ZipFile(output, "r") as archive:

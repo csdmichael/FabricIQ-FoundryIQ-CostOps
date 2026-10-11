@@ -20,6 +20,9 @@ const usageColumns = [
   ['model_name', 'string'],
   ['model_version', 'string'],
   ['user_id_hash', 'string'],
+  ['user_name', 'string'],
+  ['user_email', 'string'],
+  ['job_title', 'string'],
   ['team_id', 'string'],
   ['department_id', 'string'],
   ['business_unit_id', 'string'],
@@ -51,6 +54,10 @@ const insightColumns = [
   ['entity_id', 'string'],
   ['team_id', 'string'],
   ['user_id_hash', 'string'],
+  ['user_name', 'string'],
+  ['user_email', 'string'],
+  ['job_title', 'string'],
+  ['cluster_name', 'string'],
   ['project_id', 'string'],
   ['department_id', 'string'],
   ['business_unit_id', 'string'],
@@ -487,7 +494,8 @@ function consumptionReport(config, semanticModelId) {
   const explorer = 'Usage and Cost Explorer';
   const explorerContext = pageContext(explorer);
   const slicerTitles = {
-    event_ts: 'Event Time', usage_date: 'Date', team_id: 'Team', user_id_hash: 'User', project_id: 'Project',
+    event_ts: 'Event Time', usage_date: 'Date', team_id: 'Team', user_id_hash: 'User ID',
+    user_name: 'Person Name', user_email: 'Email', job_title: 'Job Title', project_id: 'Project',
     department_id: 'Department', business_unit_id: 'Business Unit', cost_center_id: 'Cost Center', application_id: 'Application',
     environment: 'Environment', source_code: 'Provider', model_family: 'Model Family', model_name: 'Model',
     model_version: 'Version', task_type: 'Task Type',
@@ -511,7 +519,7 @@ function consumptionReport(config, semanticModelId) {
     card(chargebackContext, 'Usage', 'Cost per 1K Tokens', 'Cost per 1K Tokens', 640, 16, 4000),
     chart(chargebackContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'team_id', measures: ['Reported Cost', 'Market Cost'], title: 'Dollars by Team', x: 16, y: 120, width: 608, height: 272, z: 5000 }),
     chart(chargebackContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'project_id', measures: ['Reported Cost', 'Market Cost'], title: 'Dollars by Project', x: 640, y: 120, width: 624, height: 272, z: 6000 }),
-    tableVisual(chargebackContext, { entity: 'Usage', columns: ['usage_date', 'business_unit_id', 'department_id', 'cost_center_id', 'team_id', 'user_id_hash', 'project_id', 'application_id', 'environment'], measures: ['Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost'], title: 'Allocation Detail', x: 16, y: 408, width: 1248, height: 296, z: 7000 }),
+    tableVisual(chargebackContext, { entity: 'Usage', columns: ['usage_date', 'business_unit_id', 'department_id', 'cost_center_id', 'team_id', 'user_id_hash', 'user_name', 'project_id', 'application_id', 'environment'], measures: ['Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost'], title: 'Allocation Detail', x: 16, y: 408, width: 1248, height: 296, z: 7000 }),
   ];
 
   const economics = 'Model Economics';
@@ -595,7 +603,15 @@ function mlOutputPage(reportName, useCase, index) {
     card(context, entity, `${pfx} Estimated Savings`, 'Estimated Savings', 1056, 108, 2500),
     chart(context, { visualType: 'lineChart', entity, category: 'event_date', measures: [`${pfx} Average Metric`, `${pfx} Average Risk Score`], title: `${useCase.displayName} Across Date`, x: 16, y: 212, width: 608, height: 224, z: 3000 }),
     chart(context, { visualType: 'clusteredBarChart', entity, category: 'team_id', measures: [`${pfx} Average Metric`, `${pfx} Estimated Savings`], title: `${useCase.displayName} by Team`, x: 640, y: 212, width: 624, height: 224, z: 4000 }),
-    tableVisual(context, { entity, columns: ['entity_type', 'entity_id', 'team_id', 'user_id_hash', 'project_id', 'source_code', 'model_family', 'model_name', 'model_version', 'metric_name', 'metric_value', 'risk_score', 'probability', 'recommendation', 'scoring_model_version'], measures: [], title: `${useCase.displayName} Detail and Recommendations`, x: 16, y: 452, width: 1248, height: 252, z: 5000 }),
+    tableVisual(context, {
+      entity,
+      columns: useCase.key === 'user-segmentation'
+        ? ['cluster_name', 'user_name', 'job_title', 'business_unit_id', 'team_id', 'metric_value', 'predicted_cost_usd', 'estimated_savings_usd', 'recommendation']
+        : ['entity_type', 'entity_id', 'team_id', 'user_id_hash', 'project_id', 'source_code', 'model_family', 'model_name', 'model_version', 'metric_name', 'metric_value', 'risk_score', 'probability', 'recommendation', 'scoring_model_version'],
+      measures: [],
+      title: `${useCase.displayName} Detail and Recommendations`,
+      x: 16, y: 452, width: 1248, height: 252, z: 5000
+    }),
   ];
   return reportPage(pageName, visuals);
 }

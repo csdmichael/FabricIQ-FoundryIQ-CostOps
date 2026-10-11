@@ -243,17 +243,96 @@ function createModelPricing(pricePeriods) {
   return { modelPriceSnapshot, modelPriceHistory };
 }
 
+const FIRST_NAMES = [
+  'Sanjay', 'Scott', 'Manish', 'Sumit', 'April', 'Prabu', 'Gary', 'Anand', 'Elena', 'Marcus',
+  'Priya', 'David', 'Chen', 'Rachel', 'Hiroshi', 'Carlos', 'Amina', 'Jennifer', 'Alexander', 'Vikram',
+  'Mei-Ling', 'Robert', 'Sarah', 'Rajiv', 'Linda', 'Thomas', 'Aisha', 'Daniel', 'Sunita', 'Kevin',
+  'Michael', 'Sophia', 'Arun', 'Jessica', 'Wei', 'Brian', 'Fatima', 'Andrew', 'Maria', 'James',
+  'Kavita', 'Eric', 'Li', 'Nathan', 'Ananya', 'Christopher', 'Natalie', 'Rajesh', 'Emily', 'Matthew',
+  'Deepa', 'William', 'Olivia', 'Tarun', 'Stephanie', 'Jonathan', 'Meera', 'Anthony', 'Grace', 'Suresh',
+  'Brandon', 'Swati', 'Richard', 'Hannah', 'Dinesh', 'Jeffrey', 'Kavya', 'Steven', 'Chloe', 'Naveen'
+];
+
+const LAST_NAMES = [
+  'Mehrotra', 'DeBoer', 'Bhatia', 'Sadana', 'Arnzen', 'Raja', 'Dickerson', 'Balaraman', 'Rostova', 'Vance',
+  'Sharma', 'Miller', 'Wei', 'Greenwald', 'Tanaka', 'Mendez', 'Al-Mansoor', 'Wu', 'Wright', 'Patel',
+  'Zhao', 'Campbell', 'Chen', 'Kapoor', 'Thornton', 'Hughes', 'Al-Sayed', 'Sullivan', 'Joshi', 'Chang',
+  'Reynolds', 'Laurent', 'Sengupta', 'Davis', 'Zhang', 'Hayes', 'Farooq', 'Mitchell', 'Santos', 'O\'Connor',
+  'Gupta', 'Henderson', 'Liu', 'Cooper', 'Nair', 'Foster', 'Ramirez', 'Verma', 'Brooks', 'Anderson',
+  'Iyer', 'Taylor', 'Scott', 'Banerjee', 'Morgan', 'Kowalski', 'Mukherjee', 'Bennett', 'Nakamura', 'Choudhury',
+  'Fischer', 'Reddy', 'Morrison', 'Liang', 'Srinivasan', 'Kim', 'Bhandari', 'Park', 'Vasquez', 'Deshmukh'
+];
+
+const ROLE_TITLES = {
+  'Compute & Networking BU': [
+    'Senior Director of High-Bandwidth Memory (HBM3e)',
+    'Principal DDR5 Silicon Architecture Engineer',
+    'Senior Silicon Validation & Emulation Lead',
+    'CXL Interconnect Systems Architect',
+    'DRAM Memory Core Circuit Designer',
+    'Staff High-Performance Computing (HPC) Solutions Architect',
+    'Memory Controller Firmware Lead Engineer'
+  ],
+  'Mobile BU': [
+    'Director of Mobile LPDDR5X Architecture',
+    'Principal Low-Power DRAM Design Engineer',
+    'Mobile SoC Memory Integration Lead',
+    'Ultra-Thin Package Stack Technology Engineer',
+    'Mobile AI Coprocessor Interconnect Lead',
+    'Staff Power-Performance Optimization Engineer'
+  ],
+  'Embedded BU': [
+    'Staff Automotive Memory Systems Engineer',
+    'Industrial IoT Edge AI Architect',
+    'Embedded Automotive Functional Safety (ISO 26262) Lead',
+    'Aerospace & Defense High-Reliability Flash Engineer',
+    'Principal Embedded NOR/NAND Flash Specialist',
+    'Medical Device Embedded Systems Engineer'
+  ],
+  'Storage BU': [
+    'VP of Solid State Storage (SSD) Engineering',
+    'Principal NVMe PCIe Gen5 Controller Architect',
+    '3D NAND Multi-Tier Cell Flash Memory Engineer',
+    'Enterprise QLC SSD Firmware Lead Engineer',
+    'Cloud Hyperscale Storage Solutions Architect',
+    'SSD Performance & Reliability Test Lead'
+  ],
+  'Corporate & Shared Services': [
+    'VP of Global Fab Operations & Automation',
+    'Chief Enterprise AI & Cloud FinOps Architect',
+    'Director of Lithography Yield Analytics & Defect AI',
+    'Principal EDA Workflow Automation Specialist',
+    'Senior Director of Global Supply Chain Planning',
+    'Director of Wafer Sort & Cleanroom Robotics',
+    'Principal MLOps & GenAI Platform Engineer',
+    'Head of Semiconductor Information Security & SOC',
+    'Corporate FinOps & Cloud Economics Manager',
+    'Principal Defect Vision AI Algorithm Engineer'
+  ]
+};
+
 function createUsers(count, random, enterprise) {
   const { personas, departments, businessUnits, teams, projects, applications, costCenters, environments, flagshipProject } = enterprise;
   return Array.from({ length: count }, (_, index) => {
     const persona = personas[index % personas.length];
     const projectIndex = index % projects.length;
+    const businessUnit = businessUnits[index % businessUnits.length];
+    const firstName = FIRST_NAMES[index % FIRST_NAMES.length];
+    const lastName = LAST_NAMES[Math.floor(index / FIRST_NAMES.length) % LAST_NAMES.length];
+    const userName = `${firstName} ${lastName}`;
+    const userEmail = `${firstName.toLowerCase()}.${lastName.toLowerCase().replace(/[^a-z]/g, '')}@micron-corp.com`;
+    const titles = ROLE_TITLES[businessUnit] ?? ROLE_TITLES['Corporate & Shared Services'];
+    const jobTitle = titles[index % titles.length];
+
     return {
       user_id_hash: hash(`tokenomics-user-${String(index + 1).padStart(5, '0')}`),
+      user_name: userName,
+      user_email: userEmail,
+      job_title: jobTitle,
       persona,
       team_id: teams[index % teams.length],
       department_id: departments[index % departments.length],
-      business_unit_id: businessUnits[index % businessUnits.length],
+      business_unit_id: businessUnit,
       cost_center_id: costCenters[index % costCenters.length],
       project_id: projectIndex === 0 ? flagshipProject : projects[projectIndex],
       application_id: applications[index % applications.length],
@@ -350,6 +429,9 @@ export function generateDataset(config) {
       model_version: model.version,
       deployment_id: `${sourceCode}-${model.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`,
       user_id_hash: user.user_id_hash,
+      user_name: user.user_name,
+      user_email: user.user_email,
+      job_title: user.job_title,
       team_id: user.team_id,
       department_id: user.department_id,
       business_unit_id: user.business_unit_id,

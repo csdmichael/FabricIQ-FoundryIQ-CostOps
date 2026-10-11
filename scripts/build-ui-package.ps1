@@ -30,6 +30,8 @@ Invoke-FabricNative -FilePath $python.Source -ArgumentList @(
     (Join-Path $PSScriptRoot 'create_zip.py'),
     $stageRoot,
     $resolvedOutputPath,
+    '--exclude',
+    '.mp4',
     '--require',
     'package.json',
     '--require',

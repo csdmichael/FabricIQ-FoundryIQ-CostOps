@@ -27,6 +27,12 @@
         <button type="button" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')">
           <ion-icon name="sparkles-outline"></ion-icon><span>12 ML Insights</span>
         </button>
+        <button type="button" [class.active]="activeView() === 'user-consumption'" (click)="setView('user-consumption')">
+          <ion-icon name="person-circle-outline"></ion-icon><span>User Consumption</span>
+        </button>
+        <button type="button" [class.active]="activeView() === 'user-segmentation'" (click)="setView('user-segmentation')">
+          <ion-icon name="pie-chart-outline"></ion-icon><span>User Clusters</span>
+        </button>
         <button type="button" [class.active]="activeView() === 'actions'" (click)="setView('actions')">
           <ion-icon name="bulb-outline"></ion-icon><span>Action Center</span>
         </button>
@@ -58,6 +64,8 @@
       <button type="button" title="Model Pricing" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')"><ion-icon name="pricetag-outline"></ion-icon></button>
       <button type="button" title="Power BI Reports" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon></button>
       <button type="button" title="12 ML Insights" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon></button>
+      <button type="button" title="User Consumption" [class.active]="activeView() === 'user-consumption'" (click)="setView('user-consumption')"><ion-icon name="person-circle-outline"></ion-icon></button>
+      <button type="button" title="User Clusters" [class.active]="activeView() === 'user-segmentation'" (click)="setView('user-segmentation')"><ion-icon name="pie-chart-outline"></ion-icon></button>
       <button type="button" title="Action Center" [class.active]="activeView() === 'actions'" (click)="setView('actions')"><ion-icon name="bulb-outline"></ion-icon></button>
       <button type="button" title="Foundry Agent Chat" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon></button>
       <button type="button" title="ML Guide" [class.active]="activeView() === 'ml-guide'" (click)="setView('ml-guide')"><ion-icon name="help-circle-outline"></ion-icon></button>
@@ -67,6 +75,8 @@
     <!-- Mobile Phone Bottom Tabs -->
     <nav class="phone-tabs" aria-label="Mobile navigation">
       <button type="button" [class.active]="activeView() === 'overview'" (click)="setView('overview')"><ion-icon name="grid-outline"></ion-icon><span>Overview</span></button>
+      <button type="button" [class.active]="activeView() === 'user-consumption'" (click)="setView('user-consumption')"><ion-icon name="person-circle-outline"></ion-icon><span>Users</span></button>
+      <button type="button" [class.active]="activeView() === 'user-segmentation'" (click)="setView('user-segmentation')"><ion-icon name="pie-chart-outline"></ion-icon><span>Clusters</span></button>
       <button type="button" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')"><ion-icon name="pricetag-outline"></ion-icon><span>Pricing</span></button>
       <button type="button" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon><span>Power BI</span></button>
       <button type="button" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon><span>ML</span></button>
@@ -90,6 +100,8 @@
               @case ('pricing') { Multi-Cloud Model Pricing & Rate Cards }
               @case ('powerbi') { Interactive Dashboards & Reports }
               @case ('ml-insights') { 12 PySpark Machine Learning Insights }
+              @case ('user-consumption') { Token Consumption by User (Person) }
+              @case ('user-segmentation') { User Behavioral Segmentation & Clusters }
               @case ('actions') { FinOps Action Center }
               @case ('ml-guide') { ML Algorithm Guide }
               @case ('data-agent') { Foundry Agent & Prompt Library }
@@ -845,6 +857,492 @@
                     }
                   </div>
                 </section>
+              }
+            </section>
+          }
+
+          <!-- 6. USER TOKEN CONSUMPTION VIEW -->
+          @if (activeView() === 'user-consumption') {
+            <section class="user-consumption-view">
+              <div class="section-intro">
+                <div>
+                  <span class="eyebrow">Enterprise Person Telemetry</span>
+                  <h2>Token Consumption by User (Person)</h2>
+                  <p class="section-desc">Auditable per-person token intensity, model allocations, and spend tracking across Micron-scale business units and fab operations.</p>
+                </div>
+                <div class="view-header-stats">
+                  <span class="stat-pill"><ion-icon name="people-outline"></ion-icon> {{ userConsumption()?.totalUsers ?? 2400 | number }} People Tracked</span>
+                  <span class="stat-pill highlight"><ion-icon name="cash-outline"></ion-icon> {{ userConsumption()?.totalMarketCost ?? 0 | currency:'USD':'symbol':'1.0-0' }} Period Spend</span>
+                </div>
+              </div>
+
+              <!-- Top KPI Summary Cards -->
+              <div class="user-kpi-grid">
+                <div class="metric-card">
+                  <span class="metric-label">Active Corporate Users</span>
+                  <div class="metric-value">{{ userConsumption()?.totalUsers ?? 2400 | number }}</div>
+                  <div class="metric-footnote"><span class="trend-optimal">100% Attributed</span> across 5 Business Units</div>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Total Tokens Consumed</span>
+                  <div class="metric-value">{{ (userConsumption()?.totalTokens ?? 0) | number }}</div>
+                  <div class="metric-footnote">Input/Output multi-cloud tokens</div>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Total Market Spend</span>
+                  <div class="metric-value highlight">{{ (userConsumption()?.totalMarketCost ?? 0) | currency:'USD' }}</div>
+                  <div class="metric-footnote">Retail list rates across 5 clouds</div>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Negotiated Spend</span>
+                  <div class="metric-value success">{{ (userConsumption()?.totalNegotiatedCost ?? 0) | currency:'USD' }}</div>
+                  <div class="metric-footnote">Enterprise volume pricing</div>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Avg Cost / Person</span>
+                  <div class="metric-value">{{ ((userConsumption()?.totalMarketCost ?? 0) / (userConsumption()?.totalUsers || 1)) | currency:'USD' }}</div>
+                  <div class="metric-footnote">Per employee in {{ windowDays() }}d window</div>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Enterprise Savings</span>
+                  <div class="metric-value success">{{ ((userConsumption()?.totalMarketCost ?? 0) - (userConsumption()?.totalNegotiatedCost ?? 0)) | currency:'USD' }}</div>
+                  <div class="metric-footnote">Volume discount captured</div>
+                </div>
+              </div>
+
+              <!-- Top 5 Spenders Leaderboard -->
+              <div class="top-spenders-panel">
+                <div class="panel-header">
+                  <div class="panel-title-wrap">
+                    <ion-icon name="trophy-outline" class="panel-icon gold"></ion-icon>
+                    <div>
+                      <h3>Top Corporate AI Consumers</h3>
+                      <p>Highest-consuming individuals by token volume and dollar impact</p>
+                    </div>
+                  </div>
+                  <span class="leaderboard-tag">Ranked by Market Spend</span>
+                </div>
+                <div class="top-consumers-cards">
+                  @for (person of topConsumers(); track person.userIdHash; let rank = $index) {
+                    <div class="top-person-card" [class.rank-1]="rank === 0" [class.rank-2]="rank === 1" [class.rank-3]="rank === 2">
+                      <div class="rank-badge">#{{ rank + 1 }}</div>
+                      <div class="person-avatar">{{ person.userName.split(' ')[0][0] }}{{ person.userName.split(' ')[1] ? person.userName.split(' ')[1][0] : '' }}</div>
+                      <div class="person-meta">
+                        <h4>{{ person.userName }}</h4>
+                        <span class="person-email">{{ person.userEmail }}</span>
+                        <span class="person-role">{{ person.jobTitle }}</span>
+                      </div>
+                      <div class="person-bu-badge">{{ person.businessUnit }}</div>
+                      <div class="person-metrics">
+                        <div class="cost-metric">
+                          <span class="num">{{ person.marketCost | currency:'USD' }}</span>
+                          <span class="lbl">Market Spend</span>
+                        </div>
+                        <div class="token-metric">
+                          <span class="num">{{ person.totalTokens | number }}</span>
+                          <span class="lbl">Tokens</span>
+                        </div>
+                        <div class="model-metric">
+                          <span class="model-tag">{{ person.primaryModel }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <!-- Search & Filter Controls -->
+              <div class="user-filter-toolbar">
+                <div class="search-box">
+                  <ion-icon name="search-outline"></ion-icon>
+                  <input type="text" [ngModel]="userSearch()" (ngModelChange)="onUserSearchInput($event)" placeholder="Search by name, email, title, team, BU..." aria-label="Search users" />
+                  @if (userSearch()) {
+                    <button type="button" class="clear-btn" (click)="onUserSearchInput('')" title="Clear search"><ion-icon name="close-outline"></ion-icon></button>
+                  }
+                </div>
+                <div class="filter-dropdowns">
+                  <div class="select-wrap">
+                    <label>Business Unit</label>
+                    <select [ngModel]="selectedUserBu()" (ngModelChange)="setUserBuFilter($event)" aria-label="Filter by business unit">
+                      @for (bu of businessUnitOptions; track bu.id) {
+                        <option [value]="bu.id">{{ bu.label }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="select-wrap">
+                    <label>Department</label>
+                    <select [ngModel]="selectedUserDept()" (ngModelChange)="setUserDeptFilter($event)" aria-label="Filter by department">
+                      @for (dept of departmentOptions; track dept.id) {
+                        <option [value]="dept.id">{{ dept.label }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="select-wrap">
+                    <label>Sort By</label>
+                    <select [ngModel]="selectedUserSort()" (ngModelChange)="setUserSort($event)" aria-label="Sort users by">
+                      <option value="cost">Highest Spend ($)</option>
+                      <option value="tokens">Highest Tokens</option>
+                      <option value="requests">Most Requests</option>
+                      <option value="name">Name (A-Z)</option>
+                    </select>
+                  </div>
+                  <div class="select-wrap compact">
+                    <label>Per Page</label>
+                    <select [ngModel]="userPageSize()" (ngModelChange)="userPageSize.set(+$event); loadUserConsumption()" aria-label="Users per page">
+                      <option [value]="10">10</option>
+                      <option [value]="20">20</option>
+                      <option [value]="50">50</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Main Paginated Users Table -->
+              <div class="users-table-container">
+                @if (userConsumptionLoading()) {
+                  <div class="loading-state">
+                    <ion-spinner name="crescent"></ion-spinner>
+                    <p>Loading governed user token consumption...</p>
+                  </div>
+                } @else if (!userConsumption()?.users?.length) {
+                  <div class="empty-state">
+                    <ion-icon name="search-outline"></ion-icon>
+                    <h3>No users found</h3>
+                    <p>Try broadening your search term or resetting the Business Unit filters.</p>
+                  </div>
+                } @else {
+                  <table class="corporate-users-table" aria-label="Token consumption by person table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Person</th>
+                        <th>Role & Title</th>
+                        <th>Business Unit & Dept</th>
+                        <th>Team & Project</th>
+                        <th class="num-col">Total Tokens</th>
+                        <th class="num-col">Token Split (In / Out)</th>
+                        <th class="num-col">Market Cost</th>
+                        <th class="num-col">Negotiated Cost</th>
+                        <th class="num-col">Requests</th>
+                        <th>Primary Model</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (user of userConsumption()?.users; track user.userIdHash; let idx = $index) {
+                        <tr>
+                          <td class="rank-cell">{{ ((userPage() - 1) * userPageSize()) + idx + 1 }}</td>
+                          <td>
+                            <div class="user-identity">
+                              <div class="table-avatar">{{ user.userName.split(' ')[0][0] }}{{ user.userName.split(' ')[1] ? user.userName.split(' ')[1][0] : '' }}</div>
+                              <div>
+                                <strong class="user-full-name">{{ user.userName }}</strong>
+                                <span class="user-sub-email">{{ user.userEmail }}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span class="user-job-title">{{ user.jobTitle }}</span>
+                          </td>
+                          <td>
+                            <div class="bu-cell">
+                              <span class="bu-tag">{{ user.businessUnit }}</span>
+                              <span class="dept-text">{{ user.department }}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="team-cell">
+                              <span class="team-tag">{{ user.teamId }}</span>
+                              <span class="project-text">{{ user.projectId }}</span>
+                            </div>
+                          </td>
+                          <td class="num-col highlight-cell">
+                            <strong>{{ user.totalTokens | number }}</strong>
+                          </td>
+                          <td class="num-col split-cell">
+                            <span class="inp-tok">{{ user.inputTokens | number }} in</span>
+                            <span class="out-tok">{{ user.outputTokens | number }} out</span>
+                          </td>
+                          <td class="num-col cost-cell">
+                            <strong>{{ user.marketCost | currency:'USD' }}</strong>
+                          </td>
+                          <td class="num-col neg-cost-cell">
+                            {{ user.negotiatedCost | currency:'USD' }}
+                          </td>
+                          <td class="num-col req-cell">
+                            {{ user.requestCount | number }}
+                          </td>
+                          <td>
+                            <div class="model-info-cell">
+                              <span class="model-pill">{{ user.primaryModel }}</span>
+                              <small class="provider-pill">{{ user.primaryProvider }}</small>
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+
+                  <!-- Pagination Footer -->
+                  <div class="table-pagination-footer">
+                    <div class="pagination-info">
+                      Showing <strong>{{ ((userPage() - 1) * userPageSize()) + 1 }}</strong> -
+                      <strong>{{ userPage() * userPageSize() > (userConsumption()?.totalUsers ?? 0) ? (userConsumption()?.totalUsers ?? 0) : userPage() * userPageSize() }}</strong>
+                      of <strong>{{ userConsumption()?.totalUsers ?? 0 | number }}</strong> people
+                    </div>
+                    <div class="pagination-controls">
+                      <button type="button" class="page-nav-btn" [disabled]="userPage() <= 1" (click)="setUserPage(userPage() - 1)">
+                        <ion-icon name="arrow-back-outline"></ion-icon> Previous
+                      </button>
+                      <span class="page-indicator">Page <strong>{{ userPage() }}</strong> of <strong>{{ userConsumption()?.totalPages ?? 1 }}</strong></span>
+                      <button type="button" class="page-nav-btn" [disabled]="userPage() >= (userConsumption()?.totalPages ?? 1)" (click)="setUserPage(userPage() + 1)">
+                        Next <ion-icon name="arrow-forward"></ion-icon>
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
+          }
+
+          <!-- 7. USER SEGMENTATION & CLUSTERS VIEW -->
+          @if (activeView() === 'user-segmentation') {
+            <section class="user-segmentation-view">
+              <div class="section-intro">
+                <div>
+                  <span class="eyebrow">PySpark ML Algorithm 04</span>
+                  <h2>User Segmentation into Clusters</h2>
+                  <p class="section-desc">K-Means and DBSCAN behavioral clustering across 2,400 enterprise people. Displays clusters as circles sized by employee count, with interactive drill-through into top consumers.</p>
+                </div>
+                <div class="view-header-stats">
+                  <span class="stat-pill highlight"><ion-icon name="pie-chart-outline"></ion-icon> 5 Behavioral Cohorts</span>
+                  <span class="stat-pill success"><ion-icon name="sparkles-outline"></ion-icon> Governed Lakehouse ML</span>
+                </div>
+              </div>
+
+              <!-- Cluster Summary Metric Strip -->
+              <div class="user-kpi-grid">
+                <div class="metric-card">
+                  <span class="metric-label">Governed Clusters</span>
+                  <div class="metric-value">5 Cohorts</div>
+                  <div class="metric-footnote">Tuned via silhouette score</div>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Total Segmented People</span>
+                  <div class="metric-value">{{ userSegmentation()?.totalUsers ?? 2400 | number }}</div>
+                  <div class="metric-footnote">100% of active enterprise workforce</div>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Dominant Cluster</span>
+                  <div class="metric-value">Developers (42%)</div>
+                  <div class="metric-footnote">EDA & Silicon Design workflows</div>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Highest Token Intensity</span>
+                  <div class="metric-value highlight">Agent Builders</div>
+                  <div class="metric-footnote">Multi-tool orchestration workflows</div>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">FinOps Savings Potential</span>
+                  <div class="metric-value success">$42,850/mo</div>
+                  <div class="metric-footnote">Identified model tier routing</div>
+                </div>
+              </div>
+
+              <!-- CIRCLES VISUALIZATION: Clusters shown as Circles with count of people -->
+              <div class="cluster-circles-stage">
+                <div class="circles-header">
+                  <h3>Behavioral Cohort Clusters</h3>
+                  <p>Circle diameter visually represents employee population in each cluster. Click any circle to drill through into its members.</p>
+                </div>
+
+                <div class="cluster-bubbles-container">
+                  @for (circle of clusterCircles(); track circle.clusterId) {
+                    <div
+                      class="cluster-bubble-wrap"
+                      [class.active-selected]="selectedCluster()?.clusterId === circle.clusterId"
+                      (click)="selectCluster(circle)">
+                      <div
+                        class="cluster-bubble-circle"
+                        [style.width.px]="circle.sizePx"
+                        [style.height.px]="circle.sizePx"
+                        [style.--cluster-color]="circle.color">
+                        <div class="bubble-inner-content">
+                          <div class="bubble-icon">
+                            @switch (circle.clusterId) {
+                              @case (0) { <ion-icon name="sparkles-outline"></ion-icon> }
+                              @case (1) { <ion-icon name="construct-outline"></ion-icon> }
+                              @case (2) { <ion-icon name="analytics-outline"></ion-icon> }
+                              @case (3) { <ion-icon name="rocket-outline"></ion-icon> }
+                              @default { <ion-icon name="people-outline"></ion-icon> }
+                            }
+                          </div>
+                          <h4 class="bubble-title">{{ circle.clusterName }}</h4>
+                          <!-- Count of people prominently displayed inside circle -->
+                          <div class="bubble-people-count-badge">
+                            <strong>{{ circle.userCount | number }}</strong> People
+                            <span class="bubble-pct">({{ circle.percent }}%)</span>
+                          </div>
+                          <div class="bubble-stats">
+                            <span class="b-spend">{{ circle.totalMarketCost | currency:'USD':'symbol':'1.0-0' }}</span>
+                            <span class="b-tok">{{ (circle.totalTokens / 1000000000) | number:'1.1-1' }}B tok</span>
+                          </div>
+                          <span class="drill-prompt"><ion-icon name="arrow-down-outline"></ion-icon> Drill Through</span>
+                        </div>
+                      </div>
+                      <div class="bubble-legend-label">
+                        <strong>{{ circle.persona }}</strong>
+                        <small>Avg {{ circle.avgCostPerUser | currency:'USD' }} / person</small>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <!-- DRILL-THROUGH SECTION: People grouped by top consumption on top in dollars and tokens with pagination -->
+              @if (selectedCluster()) {
+                <div class="cluster-drillthrough-container" id="cluster-drilldown">
+                  <!-- Selected Cluster Header Profile -->
+                  <div class="cluster-profile-header" [style.border-left-color]="selectedCluster()?.color">
+                    <div class="cluster-profile-title">
+                      <div class="cluster-title-row">
+                        <span class="cluster-id-tag" [style.background-color]="selectedCluster()?.color">Cluster {{ selectedCluster()?.clusterId }}</span>
+                        <h3>{{ selectedCluster()?.clusterName }}</h3>
+                        <span class="cluster-user-count-chip"><ion-icon name="people-outline"></ion-icon> {{ selectedCluster()?.userCount | number }} People</span>
+                      </div>
+                      <p class="cluster-desc">{{ selectedCluster()?.clusterDescription }}</p>
+                      <div class="cluster-traits">
+                        @for (trait of selectedCluster()?.topTraits; track trait) {
+                          <span class="trait-chip">{{ trait }}</span>
+                        }
+                      </div>
+                    </div>
+                    <div class="cluster-action-box">
+                      <div class="action-box-icon"><ion-icon name="bulb-outline"></ion-icon></div>
+                      <div>
+                        <strong>FinOps Recommendation</strong>
+                        <p>{{ selectedCluster()?.recommendation }}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Drill-Through Toolbar: Sort by Top Dollars or Tokens on Top -->
+                  <div class="drillthrough-toolbar">
+                    <div class="drill-left">
+                      <h4>People Grouped by Top Consumption on Top</h4>
+                      <p>Sorted with highest enterprise consumers at the top of the report</p>
+                    </div>
+                    <div class="drill-right">
+                      <div class="search-box compact">
+                        <ion-icon name="search-outline"></ion-icon>
+                        <input type="text" [ngModel]="drillThroughSearch()" (ngModelChange)="onDrillThroughSearch($event)" placeholder="Search in this cluster..." aria-label="Search cluster members" />
+                        @if (drillThroughSearch()) {
+                          <button type="button" class="clear-btn" (click)="onDrillThroughSearch('')" title="Clear search"><ion-icon name="close-outline"></ion-icon></button>
+                        }
+                      </div>
+                      <div class="sort-toggle-group">
+                        <button type="button" class="sort-toggle-btn" [class.active]="drillThroughSort() === 'cost'" (click)="setDrillThroughSort('cost')">
+                          <ion-icon name="cash-outline"></ion-icon> Top Dollars ($) on Top
+                        </button>
+                        <button type="button" class="sort-toggle-btn" [class.active]="drillThroughSort() === 'tokens'" (click)="setDrillThroughSort('tokens')">
+                          <ion-icon name="layers-outline"></ion-icon> Top Tokens on Top
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Top Consumers in Cluster: Paginated Table -->
+                  <div class="drillthrough-table-card">
+                    <table class="corporate-users-table" aria-label="Cluster members consumption table">
+                      <thead>
+                        <tr>
+                          <th>Rank</th>
+                          <th>Person Name</th>
+                          <th>Role & Job Title</th>
+                          <th>Business Unit</th>
+                          <th>Department & Team</th>
+                          <th class="num-col">Market Cost ($)</th>
+                          <th class="num-col">Negotiated Cost</th>
+                          <th class="num-col">Total Tokens</th>
+                          <th class="num-col">Input / Output</th>
+                          <th class="num-col">Requests</th>
+                          <th>Primary Model</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (person of drillThroughPaginatedUsers(); track person.userIdHash; let idx = $index) {
+                          <tr [class.top-tier-row]="idx < 3 && drillThroughPage() === 1">
+                            <td class="rank-cell">
+                              <span class="rank-num-pill" [class.gold-pill]="idx === 0 && drillThroughPage() === 1" [class.silver-pill]="idx === 1 && drillThroughPage() === 1" [class.bronze-pill]="idx === 2 && drillThroughPage() === 1">
+                                #{{ ((drillThroughPage() - 1) * drillThroughPageSize()) + idx + 1 }}
+                              </span>
+                            </td>
+                            <td>
+                              <div class="user-identity">
+                                <div class="table-avatar" [style.background-color]="selectedCluster()?.color">{{ person.userName.split(' ')[0][0] }}{{ person.userName.split(' ')[1] ? person.userName.split(' ')[1][0] : '' }}</div>
+                                <div>
+                                  <strong class="user-full-name">{{ person.userName }}</strong>
+                                  <span class="user-sub-email">{{ person.userEmail }}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span class="user-job-title">{{ person.jobTitle }}</span>
+                            </td>
+                            <td>
+                              <span class="bu-tag">{{ person.businessUnit }}</span>
+                            </td>
+                            <td>
+                              <div class="team-cell">
+                                <span class="dept-text">{{ person.department }}</span>
+                                <span class="team-tag">{{ person.teamId }}</span>
+                              </div>
+                            </td>
+                            <td class="num-col cost-cell">
+                              <strong class="dollar-high">{{ person.marketCost | currency:'USD' }}</strong>
+                            </td>
+                            <td class="num-col neg-cost-cell">
+                              {{ person.negotiatedCost | currency:'USD' }}
+                            </td>
+                            <td class="num-col highlight-cell">
+                              <span class="token-high">{{ person.totalTokens | number }}</span>
+                            </td>
+                            <td class="num-col split-cell">
+                              <span class="inp-tok">{{ person.inputTokens | number }} in</span>
+                              <span class="out-tok">{{ person.outputTokens | number }} out</span>
+                            </td>
+                            <td class="num-col req-cell">
+                              {{ person.requestCount | number }}
+                            </td>
+                            <td>
+                              <div class="model-info-cell">
+                                <span class="model-pill">{{ person.primaryModel }}</span>
+                                <small class="provider-pill">{{ person.primaryProvider }}</small>
+                              </div>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+
+                    <!-- Drill-Through Pagination Controls -->
+                    <div class="table-pagination-footer">
+                      <div class="pagination-info">
+                        Showing <strong>{{ ((drillThroughPage() - 1) * drillThroughPageSize()) + 1 }}</strong> -
+                        <strong>{{ drillThroughPage() * drillThroughPageSize() > drillThroughFilteredUsers().length ? drillThroughFilteredUsers().length : drillThroughPage() * drillThroughPageSize() }}</strong>
+                        of <strong>{{ drillThroughFilteredUsers().length | number }}</strong> cluster members
+                      </div>
+                      <div class="pagination-controls">
+                        <button type="button" class="page-nav-btn" [disabled]="drillThroughPage() <= 1" (click)="setDrillThroughPage(drillThroughPage() - 1)">
+                          <ion-icon name="arrow-back-outline"></ion-icon> Previous
+                        </button>
+                        <span class="page-indicator">Page <strong>{{ drillThroughPage() }}</strong> of <strong>{{ drillThroughTotalPages() }}</strong></span>
+                        <button type="button" class="page-nav-btn" [disabled]="drillThroughPage() >= drillThroughTotalPages()" (click)="setDrillThroughPage(drillThroughPage() + 1)">
+                          Next <ion-icon name="arrow-forward"></ion-icon>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               }
             </section>
           }

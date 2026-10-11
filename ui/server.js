@@ -40,6 +40,8 @@ const ALLOWED_ROUTES = [
   { method: 'GET', pattern: /^\/pricing\/?$/ },
   { method: 'GET', pattern: /^\/pricing\/consumption\/?$/ },
   { method: 'GET', pattern: /^\/actions\/?$/ },
+  { method: 'GET', pattern: /^\/users\/consumption\/?$/ },
+  { method: 'GET', pattern: /^\/users\/segmentation\/?$/ },
   { method: 'GET', pattern: /^\/prompts\/?$/ },
   { method: 'GET', pattern: /^\/powerbi\/embed\/?$/ },
   { method: 'GET', pattern: /^\/health\/?$/ },

@@ -296,3 +296,99 @@ def test_fabric_client_retries_transient_then_succeeds(monkeypatch):
     rows = client.query("SELECT 1")
     assert rows == [{"ok": 1}]
     assert attempts["n"] == 2  # one quick retry recovered
+
+
+def test_user_consumption_and_segmentation_endpoints(monkeypatch):
+    import app.main as main
+    from app.models import (
+        UserClusterSummary,
+        UserConsumptionItem,
+        UserConsumptionResponse,
+        UserSegmentationResponse,
+    )
+
+    fake_item = UserConsumptionItem(
+        userIdHash="hash12345678",
+        userName="Dr. Sanjay Mehrotra",
+        userEmail="sanjay.mehrotra@micron-corp.com",
+        jobTitle="President & Chief Executive Officer",
+        department="Executive Leadership",
+        businessUnit="Corporate & Shared Services",
+        teamId="exec-ops",
+        projectId="yield-copilot",
+        costCenter="CC-AIP-742",
+        totalTokens=12500000,
+        inputTokens=9000000,
+        outputTokens=3500000,
+        marketCost=145.50,
+        negotiatedCost=128.00,
+        requestCount=420,
+        clusterId=3,
+        clusterName="Executive & Strategic Decision Makers",
+        primaryModel="gpt-astra",
+        primaryProvider="Azure OpenAI",
+    )
+
+    fake_consumption = UserConsumptionResponse(
+        totalUsers=1,
+        totalTokens=12500000,
+        totalMarketCost=145.50,
+        totalNegotiatedCost=128.00,
+        page=1,
+        pageSize=20,
+        totalPages=1,
+        users=[fake_item],
+    )
+
+    fake_cluster = UserClusterSummary(
+        clusterId=3,
+        clusterName="Executive & Strategic Decision Makers",
+        clusterDescription="Executive briefings and strategic synthesis",
+        userCount=1,
+        totalTokens=12500000,
+        totalMarketCost=145.50,
+        avgTokensPerUser=12500000,
+        avgCostPerUser=145.50,
+        color="#f59e0b",
+        persona="Executive",
+        topTraits=["High synthesis ratio"],
+        recommendation="Deploy GPT Astra with pre-computed executive caching",
+        topUsers=[fake_item],
+    )
+
+    fake_segmentation = UserSegmentationResponse(
+        totalUsers=1,
+        totalClusters=1,
+        clusters=[fake_cluster],
+    )
+
+    monkeypatch.setattr(main._service, "user_consumption", lambda **kwargs: fake_consumption)
+    monkeypatch.setattr(main._service, "user_segmentation", lambda **kwargs: fake_segmentation)
+
+    client = TestClient(main.app)
+    resp1 = client.get("/users/consumption?days=30")
+    assert resp1.status_code == 200
+    data1 = resp1.json()
+    assert data1["totalUsers"] == 1
+    assert data1["users"][0]["userName"] == "Dr. Sanjay Mehrotra"
+
+    resp2 = client.get("/users/segmentation?days=30")
+    assert resp2.status_code == 200
+    data2 = resp2.json()
+    assert data2["totalClusters"] == 1
+    assert data2["clusters"][0]["clusterName"] == "Executive & Strategic Decision Makers"
+    from app.fabric_client import FabricSqlClient
+
+    client = FabricSqlClient(get_settings())
+    attempts = {"n": 0}
+
+    def flaky(sql, params):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise Exception("TCP Provider: connection timeout expired")
+        return [{"ok": 1}]
+
+    monkeypatch.setattr(client, "_run", flaky)
+    rows = client.query("SELECT 1")
+    assert rows == [{"ok": 1}]
+    assert attempts["n"] == 2  # one quick retry recovered

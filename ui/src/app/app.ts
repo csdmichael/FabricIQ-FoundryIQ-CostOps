@@ -40,6 +40,8 @@ import {
   refreshOutline,
   rocketOutline,
   arrowDownOutline,
+  arrowBackOutline,
+  trophyOutline,
   logoGithub,
   personCircleOutline,
   trendingUpOutline,
@@ -83,6 +85,10 @@ import type {
   SavedPrompt,
   ShowcaseVisitsReport,
   TokenomicsRow,
+  UserClusterSummary,
+  UserConsumptionItem,
+  UserConsumptionResponse,
+  UserSegmentationResponse,
   WindowDays
 } from './tokenomics.model';
 
@@ -111,13 +117,56 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
 })
 export class App implements OnInit {
   private readonly location = inject(Location);
-  private readonly validViews: DashboardView[] = ['overview', 'allocation', 'pricing', 'powerbi', 'ml-insights', 'actions', 'ml-guide', 'data-agent', 'showcase', 'showcase-visits'];
+  private readonly validViews: DashboardView[] = ['overview', 'allocation', 'pricing', 'powerbi', 'ml-insights', 'user-consumption', 'user-segmentation', 'actions', 'ml-guide', 'data-agent', 'showcase', 'showcase-visits'];
   readonly dashboard = signal<Awaited<ReturnType<TokenomicsService['dashboard']>> | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
   readonly errorInfo = signal<ApiErrorInfo | null>(null);
   readonly windowDays = signal<WindowDays>(30);
   readonly activeView = signal<DashboardView>('overview');
+
+  // Business Units & Departments
+  readonly businessUnitOptions = [
+    { id: 'all', label: 'All Business Units (5)' },
+    { id: 'Compute & Networking BU', label: 'Compute & Networking BU' },
+    { id: 'Mobile BU', label: 'Mobile BU' },
+    { id: 'Embedded BU', label: 'Embedded BU' },
+    { id: 'Storage BU', label: 'Storage BU' },
+    { id: 'Corporate & Shared Services', label: 'Corporate & Shared Services' },
+  ];
+
+  readonly departmentOptions = [
+    { id: 'all', label: 'All Departments' },
+    { id: 'Fab Operations', label: 'Fab Operations' },
+    { id: 'Yield Engineering', label: 'Yield Engineering' },
+    { id: 'Process R&D', label: 'Process R&D' },
+    { id: 'Design Engineering', label: 'Design Engineering' },
+    { id: 'Supply Chain & Planning', label: 'Supply Chain & Planning' },
+    { id: 'Quality & Reliability', label: 'Quality & Reliability' },
+    { id: 'Data & AI Platform', label: 'Data & AI Platform' },
+    { id: 'IT & Cybersecurity', label: 'IT & Cybersecurity' },
+    { id: 'Finance & FinOps', label: 'Finance & FinOps' },
+    { id: 'Sales & Marketing', label: 'Sales & Marketing' },
+  ];
+
+  // User Consumption State
+  readonly userConsumption = signal<UserConsumptionResponse | null>(null);
+  readonly userConsumptionLoading = signal(false);
+  readonly userSearch = signal('');
+  readonly selectedUserBu = signal('all');
+  readonly selectedUserDept = signal('all');
+  readonly selectedUserSort = signal<'cost' | 'tokens' | 'requests' | 'name'>('cost');
+  readonly userPage = signal(1);
+  readonly userPageSize = signal(20);
+
+  // User Segmentation & Cluster State
+  readonly userSegmentation = signal<UserSegmentationResponse | null>(null);
+  readonly userSegmentationLoading = signal(false);
+  readonly selectedCluster = signal<UserClusterSummary | null>(null);
+  readonly drillThroughSort = signal<'cost' | 'tokens'>('cost');
+  readonly drillThroughSearch = signal('');
+  readonly drillThroughPage = signal(1);
+  readonly drillThroughPageSize = signal(10);
 
   // Multi-Cloud Provider Filter State
   readonly providerOptions = PROVIDER_OPTIONS;
@@ -397,6 +446,64 @@ export class App implements OnInit {
     });
   });
 
+  readonly topConsumers = computed<UserConsumptionItem[]>(() => {
+    return (this.userConsumption()?.users ?? []).slice(0, 5);
+  });
+
+  readonly clusterCircles = computed(() => {
+    const data = this.userSegmentation();
+    if (!data || !data.clusters.length) return [];
+    const maxUsers = Math.max(...data.clusters.map(c => c.userCount), 1);
+    const totalUsers = data.totalUsers || 1;
+    return data.clusters.map(c => {
+      const scale = c.userCount / maxUsers;
+      const sizePx = Math.round(150 + scale * 75);
+      const percent = Math.round((c.userCount / totalUsers) * 100);
+      return {
+        ...c,
+        sizePx,
+        percent,
+      };
+    });
+  });
+
+  readonly drillThroughFilteredUsers = computed<UserConsumptionItem[]>(() => {
+    const cluster = this.selectedCluster();
+    if (!cluster) return [];
+    let users = [...cluster.topUsers];
+    const search = this.drillThroughSearch().toLowerCase().trim();
+    if (search) {
+      users = users.filter(u =>
+        u.userName.toLowerCase().includes(search) ||
+        u.userEmail.toLowerCase().includes(search) ||
+        u.jobTitle.toLowerCase().includes(search) ||
+        u.teamId.toLowerCase().includes(search) ||
+        u.businessUnit.toLowerCase().includes(search) ||
+        u.projectId.toLowerCase().includes(search)
+      );
+    }
+    const sort = this.drillThroughSort();
+    if (sort === 'tokens') {
+      users.sort((a, b) => b.totalTokens - a.totalTokens);
+    } else {
+      users.sort((a, b) => b.marketCost - a.marketCost);
+    }
+    return users;
+  });
+
+  readonly drillThroughPaginatedUsers = computed<UserConsumptionItem[]>(() => {
+    const users = this.drillThroughFilteredUsers();
+    const page = this.drillThroughPage();
+    const pageSize = this.drillThroughPageSize();
+    const start = (page - 1) * pageSize;
+    return users.slice(start, start + pageSize);
+  });
+
+  readonly drillThroughTotalPages = computed<number>(() => {
+    const total = this.drillThroughFilteredUsers().length;
+    return Math.max(1, Math.ceil(total / this.drillThroughPageSize()));
+  });
+
   constructor(
     readonly tokenomics: TokenomicsService,
     readonly auth: AuthService,
@@ -440,6 +547,8 @@ export class App implements OnInit {
       refreshOutline,
       rocketOutline,
       arrowDownOutline,
+      arrowBackOutline,
+      trophyOutline,
       logoGithub,
       personCircleOutline,
       trendingUpOutline,
@@ -485,6 +594,8 @@ export class App implements OnInit {
     await Promise.all([
       this.loadPrompts(),
       this.loadPricing(),
+      this.loadUserConsumption(),
+      this.loadUserSegmentation(),
     ]);
     this.chatMessages.set(this.tokenomics.getInitialChatMessages());
     await this.refresh();
@@ -513,6 +624,90 @@ export class App implements OnInit {
     this.promptLibrary.setServerPrompts(await this.tokenomics.getSamplePrompts());
   }
 
+  async loadUserConsumption(): Promise<void> {
+    this.userConsumptionLoading.set(true);
+    try {
+      const data = await this.tokenomics.getUserConsumption(
+        this.windowDays(),
+        this.userSearch(),
+        this.selectedUserBu(),
+        this.selectedUserDept(),
+        undefined,
+        this.selectedUserSort(),
+        this.userPage(),
+        this.userPageSize()
+      );
+      this.userConsumption.set(data);
+    } catch (e) {
+      console.error('Failed to load user consumption', e);
+    } finally {
+      this.userConsumptionLoading.set(false);
+    }
+  }
+
+  async loadUserSegmentation(): Promise<void> {
+    this.userSegmentationLoading.set(true);
+    try {
+      const data = await this.tokenomics.getUserSegmentation(this.windowDays());
+      this.userSegmentation.set(data);
+      if (!this.selectedCluster() && data.clusters.length > 0) {
+        this.selectedCluster.set(data.clusters[0]);
+      }
+    } catch (e) {
+      console.error('Failed to load user segmentation', e);
+    } finally {
+      this.userSegmentationLoading.set(false);
+    }
+  }
+
+  selectCluster(cluster: UserClusterSummary): void {
+    this.selectedCluster.set(cluster);
+    this.drillThroughPage.set(1);
+  }
+
+  setUserPage(page: number): void {
+    this.userPage.set(page);
+    void this.loadUserConsumption();
+  }
+
+  setUserSort(sort: 'cost' | 'tokens' | 'requests' | 'name'): void {
+    this.selectedUserSort.set(sort);
+    this.userPage.set(1);
+    void this.loadUserConsumption();
+  }
+
+  setUserBuFilter(bu: string): void {
+    this.selectedUserBu.set(bu);
+    this.userPage.set(1);
+    void this.loadUserConsumption();
+  }
+
+  setUserDeptFilter(dept: string): void {
+    this.selectedUserDept.set(dept);
+    this.userPage.set(1);
+    void this.loadUserConsumption();
+  }
+
+  onUserSearchInput(search: string): void {
+    this.userSearch.set(search);
+    this.userPage.set(1);
+    void this.loadUserConsumption();
+  }
+
+  setDrillThroughPage(page: number): void {
+    this.drillThroughPage.set(page);
+  }
+
+  setDrillThroughSort(sort: 'cost' | 'tokens'): void {
+    this.drillThroughSort.set(sort);
+    this.drillThroughPage.set(1);
+  }
+
+  onDrillThroughSearch(search: string): void {
+    this.drillThroughSearch.set(search);
+    this.drillThroughPage.set(1);
+  }
+
   async refresh(): Promise<void> {
     if (this.activeView() === 'showcase-visits') {
       await this.loadShowcaseVisits();
@@ -523,6 +718,8 @@ export class App implements OnInit {
     this.errorInfo.set(null);
     try {
       this.dashboard.set(await this.tokenomics.dashboard(this.windowDays()));
+      void this.loadUserConsumption();
+      void this.loadUserSegmentation();
     } catch (error) {
       const info = asApiError(error).info;
       this.error.set(info.title);
@@ -643,6 +840,12 @@ export class App implements OnInit {
     const frame = document.querySelector<HTMLElement>('.app-frame');
     if (frame) {
       frame.scrollTop = 0;
+    }
+    if (view === 'user-consumption') {
+      void this.loadUserConsumption();
+    }
+    if (view === 'user-segmentation') {
+      void this.loadUserSegmentation();
     }
     if (view === 'showcase-visits') {
       void this.loadShowcaseVisits();

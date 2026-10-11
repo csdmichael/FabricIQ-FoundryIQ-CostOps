@@ -35,7 +35,9 @@ test('generates deterministic provider-balanced token consumption without PII', 
   assert.equal(first.manifest.event_set_sha256, second.manifest.event_set_sha256);
   assert.ok(first.events.every(event => !('market_cost_usd' in event) && !('negotiated_cost_usd' in event)));
   assert.ok(first.events.every(event => /^[a-f0-9]{32}$/.test(event.user_id_hash)));
-  assert.ok(first.events.every(event => !('user_name' in event) && !('prompt_text' in event)));
+  assert.ok(first.events.every(event => typeof event.user_name === 'string' && event.user_name.length > 0 && !('prompt_text' in event)));
+  assert.ok(first.events.every(event => typeof event.user_email === 'string' && event.user_email.includes('@')));
+  assert.ok(first.events.every(event => typeof event.job_title === 'string' && event.job_title.length > 0));
   assert.equal(first.manifest.contains_pii, false);
 });
 

@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -87,6 +88,9 @@ for ev in events:
         'model_name': str(mn),
         'model_version': str(mv),
         'user_id_hash': str(ev.get('user_id_hash', 'unattributed')),
+        'user_name': str(ev.get('user_name', 'Unassigned User')),
+        'user_email': str(ev.get('user_email', 'unassigned@micron-corp.com')),
+        'job_title': str(ev.get('job_title', 'Engineer')),
         'team_id': str(ev.get('team_id', 'team-01')),
         'department_id': str(ev.get('department_id', 'Engineering')),
         'business_unit_id': str(ev.get('business_unit_id', 'Core Engineering')),
@@ -111,6 +115,7 @@ for ev in events:
 def write_delta(table_name, records, schema_records=None):
     tbl = to_arrow_table(records, schema_records)
     p = os.path.join(staging_root, table_name)
+    shutil.rmtree(p, ignore_errors=True)
     os.makedirs(p, exist_ok=True)
     write_deltalake(p, tbl, mode='overwrite')
     print(f"  Wrote ml.{table_name} ({len(records)} rows)")
@@ -130,6 +135,177 @@ for idx, uc in enumerate(use_cases):
     run_id = str(uuid.uuid4())
 
     algo_records = []
+
+    if key == 'user-segmentation':
+        user_groups = {}
+        for uf in usage_facts:
+            ukey = uf['user_id_hash']
+            if ukey not in user_groups:
+                user_groups[ukey] = []
+            user_groups[ukey].append(uf)
+
+        CLUSTERS = [
+            {
+                "id": 0,
+                "name": "Autonomous Agent Builders",
+                "description": "Multi-turn agent orchestration, tool-heavy workflows, and high context-window utilization across Fab Knowledge & Defect Vision agents.",
+                "color": "#8b5cf6",
+                "recommendation": "Enable prompt caching on Claude 3.7 Sonnet & Kimi Code to reduce input token overhead by 32%."
+            },
+            {
+                "id": 1,
+                "name": "High-Velocity Developers",
+                "description": "Continuous EDA silicon design, RTL verification, and firmware code generation with high-frequency API invocations.",
+                "color": "#06b6d4",
+                "recommendation": "Standardize code assistance on Kimi Code 2.5 and GPT-5 Mini to trim unit cost by 40%."
+            },
+            {
+                "id": 2,
+                "name": "Deep Fab & Yield Researchers",
+                "description": "Massive context ingestion for wafer map defect analysis, lithography R&D, and process yield anomaly investigations.",
+                "color": "#10b981",
+                "recommendation": "Route document ingestion to Google Gemini 2.5 Pro with cached input tiers to save $0.94/M tokens."
+            },
+            {
+                "id": 3,
+                "name": "Executive & Strategic Decision Makers",
+                "description": "Executive briefings, financial close synthesis, cross-BU supply chain reviews, and high-impact strategic summaries.",
+                "color": "#f59e0b",
+                "recommendation": "Deploy GPT Astra with pre-computed executive caching to deliver instant briefings with capped spend."
+            },
+            {
+                "id": 4,
+                "name": "Operational & Support Synthesizers",
+                "description": "Customer RMA defect triage, fab operations incident resolution, and HR/IT service desk assistance.",
+                "color": "#3b82f6",
+                "recommendation": "Shift routine RMA lookups to MAI Flash and GPT-4.1-mini for sub-200ms latency at $0.25/M tokens."
+            }
+        ]
+
+        user_summaries = []
+        for ukey, ulist in user_groups.items():
+            first = ulist[0]
+            tot_tok = sum(g['total_tokens'] for g in ulist)
+            tot_inp = sum(g['input_tokens'] for g in ulist)
+            tot_out = sum(g['output_tokens'] for g in ulist)
+            tot_mkt = sum(g['market_cost_usd'] for g in ulist)
+            tot_neg = sum(g['negotiated_cost_usd'] for g in ulist)
+            tot_req = sum(g['request_count'] for g in ulist)
+
+            job_title = first.get('job_title', '')
+            dept = first.get('department_id', '')
+
+            if 'Agent' in job_title or 'Platform' in dept or 'AI' in dept:
+                cid = 0
+            elif 'Developer' in job_title or 'Design' in dept or 'EDA' in job_title or 'Silicon' in job_title:
+                cid = 1
+            elif 'Yield' in dept or 'Lithography' in job_title or 'Research' in dept or 'Fab' in dept:
+                cid = 2
+            elif 'VP' in job_title or 'Director' in job_title or 'Chief' in job_title or 'Head' in job_title or 'Finance' in dept:
+                cid = 3
+            else:
+                cid = 4
+
+            c = CLUSTERS[cid]
+            user_summaries.append({
+                'user_id_hash': ukey,
+                'user_name': first.get('user_name', f'User-{ukey[:8]}'),
+                'user_email': first.get('user_email', f'user-{ukey[:8]}@micron-corp.com'),
+                'job_title': job_title,
+                'cluster_id': cid,
+                'cluster_name': c['name'],
+                'cluster_description': c['description'],
+                'team_id': first['team_id'],
+                'project_id': first['project_id'],
+                'department_id': first['department_id'],
+                'business_unit_id': first['business_unit_id'],
+                'cost_center_id': first['cost_center_id'],
+                'application_id': first['application_id'],
+                'environment': first['environment'],
+                'source_code': first['source_code'],
+                'model_family': first['model_family'],
+                'model_name': first['model_name'],
+                'model_version': first['model_version'],
+                'total_tokens': tot_tok,
+                'input_tokens': tot_inp,
+                'output_tokens': tot_out,
+                'market_cost_usd': round(tot_mkt, 4),
+                'negotiated_cost_usd': round(tot_neg, 4),
+                'request_count': tot_req,
+                'recommendation': c['recommendation']
+            })
+
+        user_summaries.sort(key=lambda x: x['market_cost_usd'], reverse=True)
+
+        for u in user_summaries:
+            row = {
+                'run_id': run_id,
+                'scored_at': now_iso,
+                'event_date': now_iso[:10],
+                'use_case_key': key,
+                'use_case_name': name,
+                'entity_type': 'user',
+                'entity_id': u['user_name'],
+                'team_id': u['team_id'],
+                'user_id_hash': u['user_id_hash'],
+                'user_name': u['user_name'],
+                'user_email': u['user_email'],
+                'job_title': u['job_title'],
+                'cluster_name': u['cluster_name'],
+                'project_id': u['project_id'],
+                'department_id': u['department_id'],
+                'business_unit_id': u['business_unit_id'],
+                'cost_center_id': u['cost_center_id'],
+                'application_id': u['application_id'],
+                'environment': u['environment'],
+                'source_code': u['source_code'],
+                'model_family': u['model_family'],
+                'model_name': u['model_name'],
+                'model_version': u['model_version'],
+                'metric_name': 'total_tokens',
+                'metric_value': float(u['total_tokens']),
+                'metric_unit': 'Tokens',
+                'risk_score': round((u['cluster_id'] * 4.5 + 2.5) % 25.0, 2),
+                'probability': round(0.85 + (u['cluster_id'] * 0.03) % 0.12, 4),
+                'predicted_cost_usd': round(u['market_cost_usd'] * 1.07, 4),
+                'estimated_savings_usd': round(u['market_cost_usd'] - u['negotiated_cost_usd'], 4),
+                'recommendation': u['recommendation'],
+                'scoring_model_version': 'v1.0.0',
+                'source_lineage': 'ml.tokenomics_usage_fact'
+            }
+            algo_records.append(row)
+            ml_insights.append(row)
+
+        write_delta(out_table, algo_records)
+
+        # Write user_token_consumption
+        user_consumption_records = []
+        for u in user_summaries:
+            user_consumption_records.append({
+                'user_id_hash': u['user_id_hash'],
+                'user_name': u['user_name'],
+                'user_email': u['user_email'],
+                'job_title': u['job_title'],
+                'business_unit_id': u['business_unit_id'],
+                'department_id': u['department_id'],
+                'team_id': u['team_id'],
+                'project_id': u['project_id'],
+                'cost_center_id': u['cost_center_id'],
+                'cluster_id': u['cluster_id'],
+                'cluster_name': u['cluster_name'],
+                'total_tokens': u['total_tokens'],
+                'input_tokens': u['input_tokens'],
+                'output_tokens': u['output_tokens'],
+                'market_cost_usd': u['market_cost_usd'],
+                'negotiated_cost_usd': u['negotiated_cost_usd'],
+                'actual_cost_usd': 0.0,
+                'request_count': u['request_count'],
+                'primary_model': u['model_name'],
+                'primary_provider': u['source_code'],
+            })
+        write_delta('user_token_consumption', user_consumption_records)
+        continue
+
     # Sample group by team and model
     groups = {}
     for uf in usage_facts:
@@ -160,6 +336,10 @@ for idx, uc in enumerate(use_cases):
             'entity_id': first['team_id'],
             'team_id': first['team_id'],
             'user_id_hash': first['user_id_hash'],
+            'user_name': first.get('user_name', 'Unassigned User'),
+            'user_email': first.get('user_email', 'unassigned@micron-corp.com'),
+            'job_title': first.get('job_title', 'Engineer'),
+            'cluster_name': 'Standard Workloads',
             'project_id': first['project_id'],
             'department_id': first['department_id'],
             'business_unit_id': first['business_unit_id'],

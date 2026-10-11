@@ -39,6 +39,8 @@ from .models import (
     ShowcaseVisitRequest,
     ShowcaseVisitsReport,
     TokenomicsDashboard,
+    UserConsumptionResponse,
+    UserSegmentationResponse,
 )
 from .recommendations_service import RecommendationsService
 from .showcase_visits_service import ShowcaseVisitService, ShowcaseVisitsUnavailableError
@@ -153,6 +155,50 @@ def actions(days: int = Query(default=None, description="Observation window in d
         return _recommendations.build(window)
     except Exception as exc:  # pragma: no cover - connectivity dependent
         logger.exception("Failed to build action recommendations")
+        raise HTTPException(status_code=502, detail=f"fabric_query_failed: {exc}") from exc
+
+
+@app.get("/users/consumption", response_model=UserConsumptionResponse)
+def users_consumption(
+    days: int = Query(default=None, description="Observation window in days"),
+    search: str = Query(default=None, description="Search term for user name, email, or role"),
+    businessUnit: str = Query(default=None, description="Filter by business unit"),
+    department: str = Query(default=None, description="Filter by department"),
+    clusterId: int = Query(default=None, description="Filter by cluster ID"),
+    sortBy: str = Query(default="cost", description="Sort by 'cost', 'tokens', 'requests', or 'name'"),
+    page: int = Query(default=1, ge=1, description="Page number"),
+    pageSize: int = Query(default=20, ge=1, le=100, description="Page size"),
+) -> UserConsumptionResponse:
+    window = settings.resolve_window(days)
+    try:
+        return _service.user_consumption(
+            days=window,
+            search=search,
+            business_unit=businessUnit,
+            department=department,
+            cluster_id=clusterId,
+            sort_by=sortBy,
+            page=page,
+            page_size=pageSize,
+        )
+    except FabricError:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to query user consumption")
+        raise HTTPException(status_code=502, detail=f"fabric_query_failed: {exc}") from exc
+
+
+@app.get("/users/segmentation", response_model=UserSegmentationResponse)
+def users_segmentation(
+    days: int = Query(default=None, description="Observation window in days")
+) -> UserSegmentationResponse:
+    window = settings.resolve_window(days)
+    try:
+        return _service.user_segmentation(days=window)
+    except FabricError:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to query user segmentation")
         raise HTTPException(status_code=502, detail=f"fabric_query_failed: {exc}") from exc
 
 

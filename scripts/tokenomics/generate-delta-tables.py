@@ -2,6 +2,7 @@ import argparse
 import glob
 import json
 import os
+import shutil
 from pathlib import Path
 
 from deltalake import write_deltalake
@@ -34,6 +35,7 @@ for src in config['tokenomicsPlatform']['syntheticData']['sourceCodes']:
         consumption_schema_records = records
     tbl = to_arrow_table(records)
     local_path = os.path.join(staging_root, src, 'token_consumption')
+    shutil.rmtree(local_path, ignore_errors=True)
     os.makedirs(local_path, exist_ok=True)
     write_deltalake(local_path, tbl, mode='overwrite')
     print(f'Wrote Delta table: {src}.token_consumption ({len(records)} rows)')
@@ -45,6 +47,7 @@ if os.path.isfile(msft_seed_path):
         msft_records = json.load(f)
     msft_tbl = to_arrow_table(msft_records, consumption_schema_records)
     msft_local_path = os.path.join(staging_root, 'msft', 'token_consumption')
+    shutil.rmtree(msft_local_path, ignore_errors=True)
     os.makedirs(msft_local_path, exist_ok=True)
     write_deltalake(msft_local_path, msft_tbl, mode='overwrite')
     print(f'Wrote Delta table: msft.token_consumption ({len(msft_records)} rows)')
@@ -59,6 +62,7 @@ for rf in ref_files:
         rows = [json.loads(line) for line in f]
     ref_tbl = to_arrow_table(rows)
     ref_local_path = os.path.join(staging_root, 'ml', name)
+    shutil.rmtree(ref_local_path, ignore_errors=True)
     os.makedirs(ref_local_path, exist_ok=True)
     write_deltalake(ref_local_path, ref_tbl, mode='overwrite')
     print(f'Wrote Delta table: ml.{name} ({len(rows)} rows)')
@@ -68,6 +72,7 @@ for rf in ref_files:
     # pricing endpoints work day 1 (the pricing Azure Function keeps it fresh).
     if name == 'model_price_history':
         prices_path = os.path.join(staging_root, 'prices', 'token_price_history')
+        shutil.rmtree(prices_path, ignore_errors=True)
         os.makedirs(prices_path, exist_ok=True)
         write_deltalake(prices_path, to_arrow_table(rows), mode='overwrite')
         print(f'Wrote Delta table: prices.token_price_history ({len(rows)} rows)')

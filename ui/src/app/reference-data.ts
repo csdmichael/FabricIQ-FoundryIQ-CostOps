@@ -360,3 +360,199 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
     actionCategory: 'governance'
   }
 ];
+
+export const MOCK_USER_CLUSTERS: {
+  id: number;
+  name: string;
+  description: string;
+  color: string;
+  persona: string;
+  topTraits: string[];
+  recommendation: string;
+}[] = [
+  {
+    id: 0,
+    name: 'Autonomous Agent Builders',
+    description: 'Multi-turn agent orchestration, tool-heavy workflows, and high context memory across Fab Knowledge, Defect Vision, and MES automated agents.',
+    color: '#8b5cf6',
+    persona: 'Agent Builders & MLOps Architects',
+    topTraits: ['Multi-tool chaining', 'High context memory', 'Complex prompt templates'],
+    recommendation: 'Enable prompt caching on Claude 3.7 Sonnet & Kimi Code to reduce input token overhead by 32%.'
+  },
+  {
+    id: 1,
+    name: 'High-Velocity Developers',
+    description: 'Continuous EDA silicon design, RTL verification, and firmware code generation with high-frequency API invocations.',
+    color: '#06b6d4',
+    persona: 'EDA & Software Engineers',
+    topTraits: ['High request frequency', 'Code synthesis', 'Low per-call latency'],
+    recommendation: 'Standardize code assistance on Kimi Code 2.5 and GPT-5 Mini to trim unit cost by 40%.'
+  },
+  {
+    id: 2,
+    name: 'Deep Fab & Yield Researchers',
+    description: 'Massive context ingestion for wafer map defect analysis, lithography R&D, and process yield anomaly investigations.',
+    color: '#10b981',
+    persona: 'Yield Data Scientists & Fab Specialists',
+    topTraits: ['1M+ context windows', 'Dense document analysis', 'Wafer defect visual embeddings'],
+    recommendation: 'Route document ingestion to Google Gemini 2.5 Pro with cached input tiers to save $0.94/M tokens.'
+  },
+  {
+    id: 3,
+    name: 'Executive & Strategic Decision Makers',
+    description: 'Executive briefings, financial close synthesis, cross-BU supply chain reviews, and high-impact strategic summaries.',
+    color: '#f59e0b',
+    persona: 'VPs, BU Directors & Finance Leads',
+    topTraits: ['Frontier model preference', 'High synthesis ratio', 'Low call frequency'],
+    recommendation: 'Deploy GPT Astra with pre-computed executive caching to deliver instant briefings with capped spend.'
+  },
+  {
+    id: 4,
+    name: 'Operational & Support Synthesizers',
+    description: 'Customer RMA defect triage, fab operations incident resolution, and HR/IT service desk assistance.',
+    color: '#3b82f6',
+    persona: 'Fab Operations & Customer Quality Engineers',
+    topTraits: ['Structured forms', 'Predictable token bursts', 'High SLA availability'],
+    recommendation: 'Shift routine RMA lookups to MAI Flash and GPT-4.1-mini for sub-200ms latency at $0.25/M tokens.'
+  }
+];
+
+export function generateCorporateUsers(): import('./tokenomics.model').UserConsumptionItem[] {
+  const FIRST_NAMES = [
+    'Sanjay', 'Scott', 'Manish', 'Sumit', 'April', 'Prabu', 'Gary', 'Anand', 'Elena', 'Marcus',
+    'Priya', 'David', 'Chen', 'Rachel', 'Hiroshi', 'Carlos', 'Amina', 'Jennifer', 'Alexander', 'Vikram',
+    'Mei-Ling', 'Robert', 'Sarah', 'Rajiv', 'Linda', 'Thomas', 'Aisha', 'Daniel', 'Sunita', 'Kevin',
+    'Michael', 'Sophia', 'Arun', 'Jessica', 'Wei', 'Brian', 'Fatima', 'Andrew', 'Maria', 'James',
+    'Kavita', 'Eric', 'Li', 'Nathan', 'Ananya', 'Christopher', 'Natalie', 'Rajesh', 'Emily', 'Matthew'
+  ];
+
+  const LAST_NAMES = [
+    'Mehrotra', 'DeBoer', 'Bhatia', 'Sadana', 'Arnzen', 'Raja', 'Dickerson', 'Balaraman', 'Rostova', 'Vance',
+    'Sharma', 'Miller', 'Wei', 'Greenwald', 'Tanaka', 'Mendez', 'Al-Mansoor', 'Wu', 'Wright', 'Patel',
+    'Zhao', 'Campbell', 'Chen', 'Kapoor', 'Thornton', 'Hughes', 'Al-Sayed', 'Sullivan', 'Joshi', 'Chang',
+    'Reynolds', 'Laurent', 'Sengupta', 'Davis', 'Zhang', 'Hayes', 'Farooq', 'Mitchell', 'Santos', 'O\'Connor',
+    'Gupta', 'Henderson', 'Liu', 'Cooper', 'Nair', 'Foster', 'Ramirez', 'Verma', 'Brooks', 'Anderson'
+  ];
+
+  const BUSINESS_UNITS = [
+    'Compute & Networking BU',
+    'Mobile BU',
+    'Embedded BU',
+    'Storage BU',
+    'Corporate & Shared Services'
+  ];
+
+  const DEPARTMENTS = [
+    'Fab Operations',
+    'Yield Engineering',
+    'Process R&D',
+    'Design Engineering',
+    'Supply Chain & Planning',
+    'Quality & Reliability',
+    'Data & AI Platform',
+    'IT & Cybersecurity',
+    'Finance & FinOps',
+    'Sales & Marketing'
+  ];
+
+  const TEAMS = [
+    'fab-automation', 'yield-analytics', 'defect-classification', 'process-control',
+    'eda-design', 'supply-forecast', 'reliability-eng', 'ai-platform-core',
+    'mlops', 'data-engineering', 'security-ops', 'finops-governance',
+    'customer-quality', 'field-apps', 'corporate-it'
+  ];
+
+  const PROJECTS = [
+    'yield-copilot', 'predictive-maintenance', 'defect-vision-ai', 'demand-forecasting',
+    'wafer-map-analytics', 'eda-assistant', 'supply-chain-optimizer', 'quality-rma-triage',
+    'fab-knowledge-agent', 'energy-optimization', 'procurement-copilot', 'hr-service-agent',
+    'finance-close-copilot', 'security-soc-analyst', 'exec-briefing-agent'
+  ];
+
+  const TITLES_BY_BU: Record<string, string[]> = {
+    'Compute & Networking BU': [
+      'Senior Director of High-Bandwidth Memory (HBM3e)',
+      'Principal DDR5 Silicon Architecture Engineer',
+      'Senior Silicon Validation & Emulation Lead',
+      'CXL Interconnect Systems Architect',
+      'DRAM Memory Core Circuit Designer'
+    ],
+    'Mobile BU': [
+      'Director of Mobile LPDDR5X Architecture',
+      'Principal Low-Power DRAM Design Engineer',
+      'Mobile SoC Memory Integration Lead',
+      'Ultra-Thin Package Stack Technology Engineer'
+    ],
+    'Embedded BU': [
+      'Staff Automotive Memory Systems Engineer',
+      'Industrial IoT Edge AI Architect',
+      'Aerospace & Defense High-Reliability Flash Engineer',
+      'Principal Embedded NOR/NAND Flash Specialist'
+    ],
+    'Storage BU': [
+      'VP of Solid State Storage (SSD) Engineering',
+      'Principal NVMe PCIe Gen5 Controller Architect',
+      '3D NAND Multi-Tier Cell Flash Memory Engineer',
+      'Enterprise QLC SSD Firmware Lead Engineer'
+    ],
+    'Corporate & Shared Services': [
+      'VP of Global Fab Operations & Automation',
+      'Chief Enterprise AI & Cloud FinOps Architect',
+      'Director of Lithography Yield Analytics & Defect AI',
+      'Principal EDA Workflow Automation Specialist',
+      'Senior Director of Global Supply Chain Planning'
+    ]
+  };
+
+  const MODELS = ['claude-3-7-sonnet', 'gpt-5', 'gpt-5-mini', 'gemini-2.5-pro', 'claude-opus-4-1', 'kimi-code', 'mai-flash', 'gpt-astra'];
+  const PROVIDERS = ['Anthropic Claude', 'Azure OpenAI', 'Google Vertex', 'AWS Bedrock'];
+
+  // Seeded deterministic 240-user generation
+  return Array.from({ length: 240 }, (_, i) => {
+    const fn = FIRST_NAMES[i % FIRST_NAMES.length];
+    const ln = LAST_NAMES[Math.floor(i / FIRST_NAMES.length) % LAST_NAMES.length];
+    const bu = BUSINESS_UNITS[i % BUSINESS_UNITS.length];
+    const dept = DEPARTMENTS[i % DEPARTMENTS.length];
+    const titles = TITLES_BY_BU[bu] ?? TITLES_BY_BU['Corporate & Shared Services'];
+    const title = titles[i % titles.length];
+    const team = TEAMS[i % TEAMS.length];
+    const project = PROJECTS[i % PROJECTS.length];
+
+    let cid = 4;
+    if (title.includes('Architect') || dept.includes('AI') || title.includes('MLOps')) cid = 0;
+    else if (title.includes('Design') || title.includes('Engineer') || title.includes('Validation')) cid = 1;
+    else if (dept.includes('Yield') || title.includes('Lithography') || dept.includes('R&D')) cid = 2;
+    else if (title.includes('VP') || title.includes('Director') || title.includes('Chief') || dept.includes('Finance')) cid = 3;
+
+    const cluster = MOCK_USER_CLUSTERS[cid];
+    const baseMult = (240 - i) * 1.8;
+    const totalTokens = Math.round((500000 + (baseMult * 120000)) * (1 + ((i % 7) * 0.15)));
+    const inputTokens = Math.round(totalTokens * 0.72);
+    const outputTokens = totalTokens - inputTokens;
+    const marketCost = Number(((totalTokens / 1000000) * (1.2 + (cid === 3 ? 4.5 : cid === 0 ? 3.0 : 1.5))).toFixed(2));
+    const negotiatedCost = Number((marketCost * 0.86).toFixed(2));
+    const requestCount = Math.round(180 + (baseMult * 4.2));
+
+    return {
+      userIdHash: `usr-hash-${String(i + 1).padStart(5, '0')}`,
+      userName: `${fn} ${ln}`,
+      userEmail: `${fn.toLowerCase()}.${ln.toLowerCase().replace(/[^a-z]/g, '')}@micron-corp.com`,
+      jobTitle: title,
+      department: dept,
+      businessUnit: bu,
+      teamId: team,
+      projectId: project,
+      costCenter: `CC-SEM-${100 + (i % 15)}`,
+      totalTokens,
+      inputTokens,
+      outputTokens,
+      marketCost,
+      negotiatedCost,
+      requestCount,
+      clusterId: cid,
+      clusterName: cluster.name,
+      primaryModel: MODELS[i % MODELS.length],
+      primaryProvider: PROVIDERS[i % PROVIDERS.length]
+    };
+  }).sort((a, b) => b.marketCost - a.marketCost);
+}

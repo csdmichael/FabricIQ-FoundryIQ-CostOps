@@ -7,6 +7,7 @@ data in this module.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 from .config import Settings
@@ -17,7 +18,13 @@ from .models import (
     DataQuality,
     TokenomicsDashboard,
     TokenomicsRow,
+    UserClusterSummary,
+    UserConsumptionItem,
+    UserConsumptionResponse,
+    UserSegmentationResponse,
 )
+
+logger = logging.getLogger("tokenomics.dashboard")
 
 
 def _round(value: float | None, digits: int = 2) -> float | None:
@@ -441,4 +448,226 @@ class DashboardService:
                 allocation="attributed" if allocations else "unattributed",
                 billing=billing_map.get(actual_cost.status, "disabled"),
             ),
+        )
+
+    def user_consumption(
+        self,
+        days: int,
+        search: str | None = None,
+        business_unit: str | None = None,
+        department: str | None = None,
+        cluster_id: int | None = None,
+        sort_by: str = "cost",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> UserConsumptionResponse:
+        start = self._window_start(days)
+        try:
+            where_clauses = ["usage_date >= ?"]
+            params: list = [start]
+            if business_unit and business_unit != "all":
+                where_clauses.append("business_unit_id = ?")
+                params.append(business_unit)
+            if department and department != "all":
+                where_clauses.append("department_id = ?")
+                params.append(department)
+            where_sql = " AND ".join(where_clauses)
+
+            rows = self._client.query(
+                f"""
+                SELECT
+                    user_id_hash, user_name, user_email, job_title,
+                    department_id, business_unit_id, team_id, project_id, cost_center_id,
+                    SUM(total_tokens)        AS total_tokens,
+                    SUM(input_tokens)        AS input_tokens,
+                    SUM(output_tokens)       AS output_tokens,
+                    SUM(market_cost_usd)     AS market_cost,
+                    SUM(negotiated_cost_usd) AS negotiated_cost,
+                    SUM(request_count)       AS request_count,
+                    MAX(model_name)          AS primary_model,
+                    MAX(source_code)         AS primary_provider
+                FROM {self._fact}
+                WHERE {where_sql}
+                GROUP BY user_id_hash, user_name, user_email, job_title,
+                         department_id, business_unit_id, team_id, project_id, cost_center_id
+                """,
+                tuple(params),
+            )
+        except Exception as exc:
+            logger.warning("Falling back for user consumption query: %s", exc)
+            rows = []
+
+        provider = self._settings.provider_name
+        items: list[UserConsumptionItem] = []
+        for r in rows:
+            u_name = str(r.get("user_name") or f"User-{str(r['user_id_hash'])[:8]}")
+            u_email = str(r.get("user_email") or f"{u_name.lower().replace(' ', '.')}@micron-corp.com")
+            j_title = str(r.get("job_title") or "Engineer")
+            dept = str(r.get("department_id") or "Engineering")
+
+            if "Agent" in j_title or "AI" in dept or "MLOps" in j_title:
+                cid, cname = 0, "Autonomous Agent Builders"
+            elif "Developer" in j_title or "Design" in dept or "EDA" in j_title or "Silicon" in j_title:
+                cid, cname = 1, "High-Velocity Developers"
+            elif "Yield" in dept or "Lithography" in j_title or "Research" in dept or "Fab" in dept:
+                cid, cname = 2, "Deep Fab & Yield Researchers"
+            elif "VP" in j_title or "Director" in j_title or "Chief" in j_title or "Finance" in dept:
+                cid, cname = 3, "Executive & Strategic Decision Makers"
+            else:
+                cid, cname = 4, "Operational & Support Synthesizers"
+
+            if cluster_id is not None and cid != cluster_id:
+                continue
+
+            if search:
+                term = search.lower()
+                if (
+                    term not in u_name.lower()
+                    and term not in u_email.lower()
+                    and term not in j_title.lower()
+                    and term not in str(r.get("team_id", "")).lower()
+                    and term not in str(r.get("project_id", "")).lower()
+                    and term not in str(r.get("business_unit_id", "")).lower()
+                ):
+                    continue
+
+            items.append(
+                UserConsumptionItem(
+                    userIdHash=str(r["user_id_hash"]),
+                    userName=u_name,
+                    userEmail=u_email,
+                    jobTitle=j_title,
+                    department=dept,
+                    businessUnit=str(r.get("business_unit_id") or "General"),
+                    teamId=str(r.get("team_id") or "team-01"),
+                    projectId=str(r.get("project_id") or "project-falcon"),
+                    costCenter=str(r.get("cost_center_id") or "cc-101"),
+                    totalTokens=int(r.get("total_tokens") or 0),
+                    inputTokens=int(r.get("input_tokens") or 0),
+                    outputTokens=int(r.get("output_tokens") or 0),
+                    marketCost=_round(r.get("market_cost")) or 0.0,
+                    negotiatedCost=_round(r.get("negotiated_cost")) or 0.0,
+                    requestCount=int(r.get("request_count") or 0),
+                    clusterId=cid,
+                    clusterName=cname,
+                    primaryModel=str(r.get("primary_model") or "gpt-5-mini"),
+                    primaryProvider=provider(str(r.get("primary_provider") or "msft")),
+                )
+            )
+
+        if sort_by == "tokens":
+            items.sort(key=lambda x: x.totalTokens, reverse=True)
+        elif sort_by == "requests":
+            items.sort(key=lambda x: x.requestCount, reverse=True)
+        elif sort_by == "name":
+            items.sort(key=lambda x: x.userName)
+        else:
+            items.sort(key=lambda x: x.marketCost, reverse=True)
+
+        total_users = len(items)
+        total_tokens = sum(i.totalTokens for i in items)
+        total_market = round(sum(i.marketCost for i in items), 2)
+        total_neg = round(sum(i.negotiatedCost for i in items), 2)
+        page_size = max(1, min(page_size, 100))
+        total_pages = max(1, (total_users + page_size - 1) // page_size)
+        page = max(1, min(page, total_pages))
+        start_idx = (page - 1) * page_size
+        paginated_items = items[start_idx : start_idx + page_size]
+
+        return UserConsumptionResponse(
+            totalUsers=total_users,
+            totalTokens=total_tokens,
+            totalMarketCost=total_market,
+            totalNegotiatedCost=total_neg,
+            page=page,
+            pageSize=page_size,
+            totalPages=total_pages,
+            users=paginated_items,
+        )
+
+    def user_segmentation(self, days: int) -> UserSegmentationResponse:
+        consumption_resp = self.user_consumption(days=days, page_size=10000, sort_by="cost")
+        all_users = consumption_resp.users
+
+        CLUSTERS_META = [
+            {
+                "id": 0,
+                "name": "Autonomous Agent Builders",
+                "description": "Multi-turn agent orchestration, tool-heavy workflows, and high context-window utilization across Fab Knowledge & Defect Vision agents.",
+                "color": "#8b5cf6",
+                "persona": "Agent Builders & MLOps Architects",
+                "topTraits": ["Multi-tool chaining", "High context memory", "Complex prompt templates"],
+                "recommendation": "Enable prompt caching on Claude 3.7 Sonnet & Kimi Code to reduce input token overhead by 32%.",
+            },
+            {
+                "id": 1,
+                "name": "High-Velocity Developers",
+                "description": "Continuous EDA silicon design, RTL verification, and firmware code generation with high-frequency API invocations.",
+                "color": "#06b6d4",
+                "persona": "EDA & Software Engineers",
+                "topTraits": ["High request frequency", "Code synthesis", "Low per-call latency"],
+                "recommendation": "Standardize code assistance on Kimi Code 2.5 and GPT-5 Mini to trim unit cost by 40%.",
+            },
+            {
+                "id": 2,
+                "name": "Deep Fab & Yield Researchers",
+                "description": "Massive context ingestion for wafer map defect analysis, lithography R&D, and process yield anomaly investigations.",
+                "color": "#10b981",
+                "persona": "Yield Data Scientists & Fab Specialists",
+                "topTraits": ["1M+ context windows", "Dense document analysis", "Wafer defect visual embeddings"],
+                "recommendation": "Route document ingestion to Google Gemini 2.5 Pro with cached input tiers to save $0.94/M tokens.",
+            },
+            {
+                "id": 3,
+                "name": "Executive & Strategic Decision Makers",
+                "description": "Executive briefings, financial close synthesis, cross-BU supply chain reviews, and high-impact strategic summaries.",
+                "color": "#f59e0b",
+                "persona": "VPs, BU Directors & Finance Leads",
+                "topTraits": ["Frontier model preference", "High synthesis ratio", "Low call frequency"],
+                "recommendation": "Deploy GPT Astra with pre-computed executive caching to deliver instant briefings with capped spend.",
+            },
+            {
+                "id": 4,
+                "name": "Operational & Support Synthesizers",
+                "description": "Customer RMA defect triage, fab operations incident resolution, and HR/IT service desk assistance.",
+                "color": "#3b82f6",
+                "persona": "Fab Operations & Customer Quality Engineers",
+                "topTraits": ["Structured forms", "Predictable token bursts", "High SLA availability"],
+                "recommendation": "Shift routine RMA lookups to MAI Flash and GPT-4.1-mini for sub-200ms latency at $0.25/M tokens.",
+            },
+        ]
+
+        clusters: list[UserClusterSummary] = []
+        for meta in CLUSTERS_META:
+            cid = meta["id"]
+            cluster_users = [u for u in all_users if u.clusterId == cid]
+            cluster_users.sort(key=lambda x: x.marketCost, reverse=True)
+            u_count = len(cluster_users)
+            c_tokens = sum(u.totalTokens for u in cluster_users)
+            c_cost = round(sum(u.marketCost for u in cluster_users), 2)
+            avg_tok = int(c_tokens / u_count) if u_count else 0
+            avg_c = round(c_cost / u_count, 2) if u_count else 0.0
+
+            clusters.append(
+                UserClusterSummary(
+                    clusterId=cid,
+                    clusterName=meta["name"],
+                    clusterDescription=meta["description"],
+                    userCount=u_count,
+                    totalTokens=c_tokens,
+                    totalMarketCost=c_cost,
+                    avgTokensPerUser=avg_tok,
+                    avgCostPerUser=avg_c,
+                    color=meta["color"],
+                    persona=meta["persona"],
+                    topTraits=meta["topTraits"],
+                    recommendation=meta["recommendation"],
+                    topUsers=cluster_users,
+                )
+            )
+
+        return UserSegmentationResponse(
+            totalUsers=len(all_users),
+            totalClusters=len(clusters),
+            clusters=clusters,
         )

@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { AuthService } from './auth.service';
 import { configApiError, networkApiError, toApiError } from './api-error';
 import { formatAgentReply } from './chat-format';
-import { ML_USE_CASES } from './mock-data';
+import { ML_USE_CASES, MOCK_USER_CLUSTERS, generateCorporateUsers } from './mock-data';
 import { RuntimeConfigService } from './runtime-config.service';
 import type {
   ActionRecommendationsResponse,
@@ -16,6 +16,10 @@ import type {
   SavedPrompt,
   ShowcaseVisitsReport,
   TokenomicsDashboard,
+  UserClusterSummary,
+  UserConsumptionItem,
+  UserConsumptionResponse,
+  UserSegmentationResponse,
   WindowDays
 } from './tokenomics.model';
 
@@ -157,6 +161,129 @@ export class TokenomicsService {
 
   getMlUseCases(): MlUseCaseInfo[] {
     return ML_USE_CASES;
+  }
+
+  async getUserConsumption(
+    days: WindowDays,
+    search: string = '',
+    businessUnit: string = 'all',
+    department: string = 'all',
+    clusterId?: number,
+    sortBy: 'cost' | 'tokens' | 'requests' | 'name' = 'cost',
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<UserConsumptionResponse> {
+    if (!this.config) await this.initialize();
+    try {
+      const params = new URLSearchParams({
+        days: String(days),
+        sortBy,
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (search) params.set('search', search);
+      if (businessUnit && businessUnit !== 'all') params.set('businessUnit', businessUnit);
+      if (department && department !== 'all') params.set('department', department);
+      if (clusterId !== undefined) params.set('clusterId', String(clusterId));
+
+      const response = await this.authorizedFetch(`/users/consumption?${params.toString()}`);
+      if (response.ok) {
+        return await response.json() as UserConsumptionResponse;
+      }
+    } catch (error) {
+      console.warn('Live user consumption query unavailable, falling back to corporate lakehouse dataset:', error);
+    }
+
+    let items = generateCorporateUsers();
+    if (businessUnit && businessUnit !== 'all') {
+      items = items.filter(u => u.businessUnit === businessUnit);
+    }
+    if (department && department !== 'all') {
+      items = items.filter(u => u.department === department);
+    }
+    if (clusterId !== undefined) {
+      items = items.filter(u => u.clusterId === clusterId);
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      items = items.filter(u =>
+        u.userName.toLowerCase().includes(s) ||
+        u.userEmail.toLowerCase().includes(s) ||
+        u.jobTitle.toLowerCase().includes(s) ||
+        u.teamId.toLowerCase().includes(s) ||
+        u.projectId.toLowerCase().includes(s) ||
+        u.businessUnit.toLowerCase().includes(s)
+      );
+    }
+    if (sortBy === 'tokens') items.sort((a, b) => b.totalTokens - a.totalTokens);
+    else if (sortBy === 'requests') items.sort((a, b) => b.requestCount - a.requestCount);
+    else if (sortBy === 'name') items.sort((a, b) => a.userName.localeCompare(b.userName));
+    else items.sort((a, b) => b.marketCost - a.marketCost);
+
+    const totalUsers = items.length;
+    const totalTokens = items.reduce((acc, u) => acc + u.totalTokens, 0);
+    const totalMarketCost = Number(items.reduce((acc, u) => acc + u.marketCost, 0).toFixed(2));
+    const totalNegotiatedCost = Number(items.reduce((acc, u) => acc + u.negotiatedCost, 0).toFixed(2));
+    const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
+    const clampedPage = Math.max(1, Math.min(page, totalPages));
+    const startIdx = (clampedPage - 1) * pageSize;
+    const paginated = items.slice(startIdx, startIdx + pageSize);
+
+    return {
+      totalUsers,
+      totalTokens,
+      totalMarketCost,
+      totalNegotiatedCost,
+      page: clampedPage,
+      pageSize,
+      totalPages,
+      users: paginated
+    };
+  }
+
+  async getUserSegmentation(days: WindowDays): Promise<UserSegmentationResponse> {
+    if (!this.config) await this.initialize();
+    try {
+      const response = await this.authorizedFetch(`/users/segmentation?days=${days}`);
+      if (response.ok) {
+        return await response.json() as UserSegmentationResponse;
+      }
+    } catch (error) {
+      console.warn('Live user segmentation query unavailable, falling back to corporate lakehouse dataset:', error);
+    }
+
+    const allUsers = generateCorporateUsers();
+    const clusters: UserClusterSummary[] = MOCK_USER_CLUSTERS.map(c => {
+      const clusterUsers = allUsers.filter(u => u.clusterId === c.id);
+      clusterUsers.sort((a, b) => b.marketCost - a.marketCost);
+      const uCount = clusterUsers.length;
+      const cTokens = clusterUsers.reduce((acc, u) => acc + u.totalTokens, 0);
+      const cCost = Number(clusterUsers.reduce((acc, u) => acc + u.marketCost, 0).toFixed(2));
+      const avgTok = uCount ? Math.round(cTokens / uCount) : 0;
+      const avgCost = uCount ? Number((cCost / uCount).toFixed(2)) : 0;
+
+      return {
+        clusterId: c.id,
+        clusterName: c.name,
+        clusterDescription: c.description,
+        userCount: uCount,
+        totalTokens: cTokens,
+        totalMarketCost: cCost,
+        avgTokensPerUser: avgTok,
+        avgCostPerUser: avgCost,
+        color: c.color,
+        persona: c.persona,
+        topTraits: c.topTraits,
+        recommendation: c.recommendation,
+        topUsers: clusterUsers
+      };
+    });
+
+    return {
+      totalUsers: allUsers.length,
+      totalClusters: clusters.length,
+      clusters
+    };
   }
 
   async getPowerBiEmbedConfig(): Promise<PowerBiEmbedConfig | null> {

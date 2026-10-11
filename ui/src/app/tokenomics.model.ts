@@ -1,5 +1,60 @@
-export type DashboardView = 'overview' | 'allocation' | 'pricing' | 'powerbi' | 'ml-insights' | 'actions' | 'ml-guide' | 'data-agent' | 'showcase' | 'showcase-visits';
+export type DashboardView = 'overview' | 'allocation' | 'pricing' | 'powerbi' | 'ml-insights' | 'user-consumption' | 'user-segmentation' | 'actions' | 'ml-guide' | 'data-agent' | 'showcase' | 'showcase-visits';
 export type WindowDays = 1 | 7 | 30 | 90;
+
+export interface UserConsumptionItem {
+  userIdHash: string;
+  userName: string;
+  userEmail: string;
+  jobTitle: string;
+  department: string;
+  businessUnit: string;
+  teamId: string;
+  projectId: string;
+  costCenter: string;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  marketCost: number;
+  negotiatedCost: number;
+  requestCount: number;
+  clusterId?: number;
+  clusterName?: string;
+  primaryModel?: string;
+  primaryProvider?: string;
+}
+
+export interface UserConsumptionResponse {
+  totalUsers: number;
+  totalTokens: number;
+  totalMarketCost: number;
+  totalNegotiatedCost: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  users: UserConsumptionItem[];
+}
+
+export interface UserClusterSummary {
+  clusterId: number;
+  clusterName: string;
+  clusterDescription: string;
+  userCount: number;
+  totalTokens: number;
+  totalMarketCost: number;
+  avgTokensPerUser: number;
+  avgCostPerUser: number;
+  color: string;
+  persona: string;
+  topTraits: string[];
+  recommendation: string;
+  topUsers: UserConsumptionItem[];
+}
+
+export interface UserSegmentationResponse {
+  totalUsers: number;
+  totalClusters: number;
+  clusters: UserClusterSummary[];
+}
 
 export interface RuntimeConfig {
   apiBaseUrl: string;

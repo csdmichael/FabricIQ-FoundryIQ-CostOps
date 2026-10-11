@@ -235,3 +235,58 @@ class ShowcaseVisitsReport(BaseModel):
     totalVisits: int
     uniqueVisitors: int
     visits: list[ShowcaseVisit] = []
+
+
+class UserConsumptionItem(BaseModel):
+    userIdHash: str
+    userName: str
+    userEmail: str
+    jobTitle: str
+    department: str
+    businessUnit: str
+    teamId: str
+    projectId: str
+    costCenter: str
+    totalTokens: int
+    inputTokens: int = 0
+    outputTokens: int = 0
+    marketCost: float
+    negotiatedCost: float
+    requestCount: int
+    clusterId: Optional[int] = None
+    clusterName: Optional[str] = None
+    primaryModel: Optional[str] = None
+    primaryProvider: Optional[str] = None
+
+
+class UserConsumptionResponse(BaseModel):
+    totalUsers: int
+    totalTokens: int
+    totalMarketCost: float
+    totalNegotiatedCost: float
+    page: int
+    pageSize: int
+    totalPages: int
+    users: list[UserConsumptionItem] = []
+
+
+class UserClusterSummary(BaseModel):
+    clusterId: int
+    clusterName: str
+    clusterDescription: str
+    userCount: int
+    totalTokens: int
+    totalMarketCost: float
+    avgTokensPerUser: int
+    avgCostPerUser: float
+    color: str
+    persona: str
+    topTraits: list[str] = []
+    recommendation: str
+    topUsers: list[UserConsumptionItem] = []
+
+
+class UserSegmentationResponse(BaseModel):
+    totalUsers: int
+    totalClusters: int
+    clusters: list[UserClusterSummary] = []
