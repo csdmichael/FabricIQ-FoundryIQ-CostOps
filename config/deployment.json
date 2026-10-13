@@ -485,7 +485,11 @@
     "deployTokenomicsSeed": true,
     "deployTokenomicsFabric": true,
     "deployTokenomicsSync": true,
-    "deployTokenomicsPowerBi": true
+    "deployTokenomicsPowerBi": true,
+    "deployBroker": false,
+    "deployFoundry": false,
+    "createCopilotStudioAgents": false,
+    "deployWorkspacePrivateLink": false
   },
   "tags": {
     "application": "fabric-ai-tokenomics",
