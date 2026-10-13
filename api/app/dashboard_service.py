@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
-from .config import Settings
+from .config import SERVICE_COPILOT_STUDIO, Settings
 from .fabric_client import FabricSqlClient
 from .models import (
     ActualCostSnapshot,
@@ -31,6 +31,12 @@ def _round(value: float | None, digits: int = 2) -> float | None:
     if value is None:
         return None
     return round(float(value), digits)
+
+
+def _sum_optional(*values: float | None) -> float | None:
+    """Sum the non-null values, or return None when every value is null."""
+    present = [float(v) for v in values if v is not None]
+    return sum(present) if present else None
 
 
 class DashboardService:
@@ -66,10 +72,12 @@ class DashboardService:
 
     # -- sections ----------------------------------------------------------
     def _summary(self, start: str) -> tuple[DashboardSummary, dict]:
+        # Copilot Studio rows carry no token telemetry, so they do not count as tokenized.
         row = self._client.query(
             f"""
             SELECT
                 SUM(request_count)          AS requests,
+                SUM(CASE WHEN service_code = ? THEN 0 ELSE request_count END) AS token_requests,
                 SUM(input_tokens)           AS input_tokens,
                 SUM(output_tokens)          AS output_tokens,
                 SUM(total_tokens)           AS total_tokens,
@@ -77,14 +85,16 @@ class DashboardService:
                 SUM(negotiated_cost_usd)    AS negotiated_cost,
                 SUM(actual_cost_usd)        AS actual_cost,
                 SUM(tasks_completed)        AS tasks_completed,
+                SUM(ai_credits)             AS ai_credits,
                 COUNT(*)                    AS events
             FROM {self._fact}
             WHERE usage_date >= ?
             """,
-            (start,),
+            (SERVICE_COPILOT_STUDIO, start),
         )[0]
 
         requests = int(row["requests"] or 0)
+        token_requests = int(row["token_requests"] or 0)
         events = int(row["events"] or 0)
         completed = int(row["tasks_completed"] or 0)
         # Success ratio is derived from completed tasks vs. observed events.
@@ -99,8 +109,8 @@ class DashboardService:
             requests=requests,
             successfulRequests=successful,
             failedRequests=failed,
-            tokenizedRequests=requests,
-            tokenCoveragePct=100.0,
+            tokenizedRequests=token_requests,
+            tokenCoveragePct=round(100.0 * token_requests / requests, 1) if requests else 100.0,
             inputTokens=int(row["input_tokens"] or 0),
             outputTokens=int(row["output_tokens"] or 0),
             totalTokens=int(row["total_tokens"] or 0),
@@ -108,6 +118,7 @@ class DashboardService:
             marketCost=market,
             negotiatedCost=negotiated,
             savings=savings,
+            aiCredits=_round(row["ai_credits"]) or 0.0,
             pricingCoveragePct=100.0,
         )
         return summary, row
@@ -126,7 +137,8 @@ class DashboardService:
                 SUM(market_cost_usd)     AS market_cost,
                 SUM(negotiated_cost_usd) AS negotiated_cost,
                 SUM(actual_cost_usd)     AS actual_cost,
-                SUM(request_count)       AS requests
+                SUM(request_count)       AS requests,
+                SUM(ai_credits)          AS ai_credits
             FROM {self._fact}
             WHERE usage_date >= ?
             GROUP BY {bucket_expr}
@@ -142,6 +154,7 @@ class DashboardService:
                 NegotiatedCost=_round(r["negotiated_cost"]),
                 ActualCost=_round(r["actual_cost"]),
                 Requests=int(r["requests"] or 0),
+                AiCredits=_round(r["ai_credits"]),
             )
             for r in rows
         ]
@@ -151,21 +164,25 @@ class DashboardService:
             f"""
             SELECT TOP 200
                 application_id, project_id, team_id, department_id, cost_center_id,
-                source_code, model_family, model_name,
+                source_code, service_code, model_family, model_name,
                 SUM(request_count)       AS requests,
                 SUM(total_tokens)        AS total_tokens,
                 SUM(market_cost_usd)     AS market_cost,
                 SUM(negotiated_cost_usd) AS negotiated_cost,
-                SUM(actual_cost_usd)     AS actual_cost
+                SUM(actual_cost_usd)     AS actual_cost,
+                MAX(consumption_unit)    AS consumption_unit,
+                SUM(ai_credits)          AS ai_credits,
+                CASE WHEN SUM(ai_credits) > 0
+                     THEN SUM(ai_credits * credit_unit_price_usd) / SUM(ai_credits) END AS credit_unit_price_usd
             FROM {self._fact}
             WHERE usage_date >= ?
             GROUP BY application_id, project_id, team_id, department_id, cost_center_id,
-                     source_code, model_family, model_name
+                     source_code, service_code, model_family, model_name
             ORDER BY total_tokens DESC
             """,
             (start,),
         )
-        provider = self._settings.provider_name
+        provider_label = self._settings.provider_label
         return [
             TokenomicsRow(
                 ApplicationId=r["application_id"],
@@ -173,7 +190,12 @@ class DashboardService:
                 TeamId=r["team_id"],
                 Department=r["department_id"],
                 CostCenter=r["cost_center_id"],
-                Provider=provider(r["source_code"]),
+                Provider=provider_label(r["source_code"], r["service_code"]),
+                ServiceCode=r["service_code"],
+                ConsumptionUnit=r["consumption_unit"],
+                AiCredits=_round(r["ai_credits"]),
+                # Unit prices keep four decimals: two would round a $0.0075 prepaid rate to $0.01.
+                CreditUnitPriceUsd=_round(r["credit_unit_price_usd"], 4),
                 ModelFamily=r["model_family"],
                 Model=r["model_name"],
                 Requests=int(r["requests"] or 0),
@@ -189,25 +211,33 @@ class DashboardService:
         rows = self._client.query(
             f"""
             SELECT
-                source_code, model_family, model_name,
+                source_code, service_code, model_family, model_name,
                 SUM(request_count)       AS requests,
                 SUM(total_tokens)        AS total_tokens,
                 SUM(market_cost_usd)     AS market_cost,
                 SUM(negotiated_cost_usd) AS negotiated_cost,
-                SUM(actual_cost_usd)     AS actual_cost
+                SUM(actual_cost_usd)     AS actual_cost,
+                MAX(consumption_unit)    AS consumption_unit,
+                SUM(ai_credits)          AS ai_credits,
+                CASE WHEN SUM(ai_credits) > 0
+                     THEN SUM(ai_credits * credit_unit_price_usd) / SUM(ai_credits) END AS credit_unit_price_usd
             FROM {self._fact}
             WHERE usage_date >= ?
-            GROUP BY source_code, model_family, model_name
+            GROUP BY source_code, service_code, model_family, model_name
             ORDER BY total_tokens DESC
             """,
             (start,),
         )
-        provider = self._settings.provider_name
+        provider_label = self._settings.provider_label
         return [
             TokenomicsRow(
                 Model=r["model_name"],
                 ModelFamily=r["model_family"],
-                Provider=provider(r["source_code"]),
+                Provider=provider_label(r["source_code"], r["service_code"]),
+                ServiceCode=r["service_code"],
+                ConsumptionUnit=r["consumption_unit"],
+                AiCredits=_round(r["ai_credits"]),
+                CreditUnitPriceUsd=_round(r["credit_unit_price_usd"], 4),
                 Requests=int(r["requests"] or 0),
                 TotalTokens=int(r["total_tokens"] or 0),
                 MarketCost=_round(r["market_cost"]),
@@ -253,19 +283,25 @@ class DashboardService:
         rows = self._client.query(
             f"""
             SELECT TOP 25
-                event_ts, source_code, model_name, application_id, project_id,
-                total_tokens, market_cost_usd, negotiated_cost_usd
+                event_ts, source_code, service_code, consumption_unit, model_name,
+                application_id, project_id, total_tokens, market_cost_usd, negotiated_cost_usd,
+                ai_credits, credit_unit_price_usd, agent_id
             FROM {self._fact}
             WHERE usage_date >= ?
             ORDER BY event_ts DESC
             """,
             (start,),
         )
-        provider = self._settings.provider_name
+        provider_label = self._settings.provider_label
         return [
             TokenomicsRow(
                 TimeBucket=str(r["event_ts"]).replace("T", " ")[:19],
-                Provider=provider(r["source_code"]),
+                Provider=provider_label(r["source_code"], r["service_code"]),
+                ServiceCode=r["service_code"],
+                ConsumptionUnit=r["consumption_unit"],
+                AiCredits=_round(r["ai_credits"]),
+                CreditUnitPriceUsd=_round(r["credit_unit_price_usd"], 4),
+                AgentId=r["agent_id"],
                 Model=r["model_name"],
                 ApplicationId=r["application_id"],
                 ProjectId=r["project_id"],
@@ -338,7 +374,7 @@ class DashboardService:
             ORDER BY market_input_usd_per_million ASC
             """
         )
-        provider = self._settings.provider_name
+        provider_label = self._settings.provider_label
         catalog: list[dict] = []
         for r in rows:
             market = float(r["market_input_usd_per_million"] or 0)
@@ -348,7 +384,7 @@ class DashboardService:
             catalog.append(
                 {
                     "provider": r["source_code"],
-                    "providerName": provider(r["source_code"]),
+                    "providerName": provider_label(r["source_code"]),
                     "modelFamily": r["model_family"],
                     "modelName": r["model_name"],
                     "modelVersion": r["model_version"],
@@ -378,7 +414,9 @@ class DashboardService:
         start = self._window_start(days)
         fact = self._fact
         price_table = f"[{s.prices_schema}].[{s.prices_table}]"
-        rows = self._client.query(
+        # Token-billed rows are re-priced from the price history; Copilot Studio rows carry
+        # no tokens, so they are costed from their stored USD columns (credit_rows below).
+        token_rows = self._client.query(
             f"""
             SELECT
                 SUM((f.input_tokens  / 1000000.0) * p.market_input_usd_per_million
@@ -394,12 +432,25 @@ class DashboardService:
              AND f.usage_date   >= p.effective_from
              AND (p.effective_to IS NULL OR f.usage_date < p.effective_to)
             WHERE f.usage_date >= ?
+              AND (f.service_code IS NULL OR f.service_code <> ?)
             """,
-            (start,),
+            (start, SERVICE_COPILOT_STUDIO),
         )
-        row = rows[0] if rows else {}
-        market = _round(row.get("market_cost"))
-        negotiated = _round(row.get("negotiated_cost"))
+        credit_rows = self._client.query(
+            f"""
+            SELECT
+                SUM(market_cost_usd)     AS market_cost,
+                SUM(negotiated_cost_usd) AS negotiated_cost,
+                SUM(ai_credits)          AS ai_credits
+            FROM {fact}
+            WHERE usage_date >= ? AND service_code = ?
+            """,
+            (start, SERVICE_COPILOT_STUDIO),
+        )
+        token = token_rows[0] if token_rows else {}
+        credits = credit_rows[0] if credit_rows else {}
+        market = _round(_sum_optional(token.get("market_cost"), credits.get("market_cost")))
+        negotiated = _round(_sum_optional(token.get("negotiated_cost"), credits.get("negotiated_cost")))
         savings = _round((market or 0) - (negotiated or 0)) if market is not None and negotiated is not None else None
         return {
             "windowDays": days,
@@ -408,7 +459,8 @@ class DashboardService:
             "marketCost": market,
             "negotiatedCost": negotiated,
             "savings": savings,
-            "pricedTokens": int(row.get("priced_tokens") or 0),
+            "pricedTokens": int(token.get("priced_tokens") or 0),
+            "aiCredits": _round(credits.get("ai_credits")) or 0.0,
         }
 
     def build(self, days: int) -> TokenomicsDashboard:
@@ -484,8 +536,10 @@ class DashboardService:
                     SUM(market_cost_usd)     AS market_cost,
                     SUM(negotiated_cost_usd) AS negotiated_cost,
                     SUM(request_count)       AS request_count,
+                    SUM(ai_credits)          AS ai_credits,
                     MAX(model_name)          AS primary_model,
-                    MAX(source_code)         AS primary_provider
+                    MAX(source_code)         AS primary_provider,
+                    MAX(service_code)        AS primary_service
                 FROM {self._fact}
                 WHERE {where_sql}
                 GROUP BY user_id_hash, user_name, user_email, job_title,
@@ -497,7 +551,7 @@ class DashboardService:
             logger.warning("Falling back for user consumption query: %s", exc)
             rows = []
 
-        provider = self._settings.provider_name
+        provider_label = self._settings.provider_label
         items: list[UserConsumptionItem] = []
         for r in rows:
             u_name = str(r.get("user_name") or f"User-{str(r['user_id_hash'])[:8]}")
@@ -551,7 +605,10 @@ class DashboardService:
                     clusterId=cid,
                     clusterName=cname,
                     primaryModel=str(r.get("primary_model") or "gpt-5-mini"),
-                    primaryProvider=provider(str(r.get("primary_provider") or "msft")),
+                    primaryProvider=provider_label(
+                        str(r.get("primary_provider") or "msft"), r.get("primary_service")
+                    ),
+                    aiCredits=_round(r.get("ai_credits")) or 0.0,
                 )
             )
 
@@ -568,6 +625,7 @@ class DashboardService:
         total_tokens = sum(i.totalTokens for i in items)
         total_market = round(sum(i.marketCost for i in items), 2)
         total_neg = round(sum(i.negotiatedCost for i in items), 2)
+        total_ai = round(sum(i.aiCredits for i in items), 2)
         page_size = max(1, min(page_size, 100))
         total_pages = max(1, (total_users + page_size - 1) // page_size)
         page = max(1, min(page, total_pages))
@@ -579,6 +637,7 @@ class DashboardService:
             totalTokens=total_tokens,
             totalMarketCost=total_market,
             totalNegotiatedCost=total_neg,
+            totalAiCredits=total_ai,
             page=page,
             pageSize=page_size,
             totalPages=total_pages,
@@ -645,6 +704,7 @@ class DashboardService:
             u_count = len(cluster_users)
             c_tokens = sum(u.totalTokens for u in cluster_users)
             c_cost = round(sum(u.marketCost for u in cluster_users), 2)
+            c_credits = round(sum(u.aiCredits for u in cluster_users), 2)
             avg_tok = int(c_tokens / u_count) if u_count else 0
             avg_c = round(c_cost / u_count, 2) if u_count else 0.0
 
@@ -656,6 +716,7 @@ class DashboardService:
                     userCount=u_count,
                     totalTokens=c_tokens,
                     totalMarketCost=c_cost,
+                    totalAiCredits=c_credits,
                     avgTokensPerUser=avg_tok,
                     avgCostPerUser=avg_c,
                     color=meta["color"],

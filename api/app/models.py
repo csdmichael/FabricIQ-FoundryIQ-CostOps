@@ -27,6 +27,11 @@ class TokenomicsRow(BaseModel):
     Department: Optional[str] = None
     CostCenter: Optional[str] = None
     Provider: Optional[str] = None
+    ServiceCode: Optional[str] = None
+    ConsumptionUnit: Optional[str] = None
+    AiCredits: Optional[float] = None
+    CreditUnitPriceUsd: Optional[float] = None
+    AgentId: Optional[str] = None
     ModelFamily: Optional[str] = None
     Model: Optional[str] = None
     ModelVersion: Optional[str] = None
@@ -83,6 +88,7 @@ class DashboardSummary(BaseModel):
     marketCost: Optional[float] = None
     negotiatedCost: Optional[float] = None
     savings: Optional[float] = None
+    aiCredits: float = 0.0
     pricingCoveragePct: float
 
 
@@ -212,6 +218,7 @@ class ConsumptionCost(BaseModel):
     negotiatedCost: Optional[float] = None
     savings: Optional[float] = None
     pricedTokens: int = 0
+    aiCredits: float = 0.0
 
 
 class ShowcaseVisitRequest(BaseModel):
@@ -253,6 +260,7 @@ class UserConsumptionItem(BaseModel):
     marketCost: float
     negotiatedCost: float
     requestCount: int
+    aiCredits: float = 0.0
     clusterId: Optional[int] = None
     clusterName: Optional[str] = None
     primaryModel: Optional[str] = None
@@ -264,6 +272,7 @@ class UserConsumptionResponse(BaseModel):
     totalTokens: int
     totalMarketCost: float
     totalNegotiatedCost: float
+    totalAiCredits: float = 0.0
     page: int
     pageSize: int
     totalPages: int
@@ -277,6 +286,7 @@ class UserClusterSummary(BaseModel):
     userCount: int
     totalTokens: int
     totalMarketCost: float
+    totalAiCredits: float = 0.0
     avgTokensPerUser: int
     avgCostPerUser: float
     color: str

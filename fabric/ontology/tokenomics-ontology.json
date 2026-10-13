@@ -18,7 +18,7 @@
       "id": "Provider",
       "label": "Cloud / Model Provider",
       "category": "dimension",
-      "description": "A cloud or model provider that serves AI models (AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, Anthropic Claude).",
+      "description": "A cloud or model provider that serves AI models (AWS Bedrock, GCP Vertex AI, Azure AI Foundry, OpenAI Direct, Anthropic Claude, and Microsoft Copilot Studio, which is msft with service_code copilot-studio).",
       "source": "ml.tokenomics_usage_fact",
       "key": [
         "source_code"
@@ -36,7 +36,7 @@
       ],
       "propertyMeta": {
         "source_code": {
-          "description": "Provider code (aws, gcp, msft, oai, cld).",
+          "description": "Provider code (aws, gcp, msft, oai, cld). msft covers Azure AI Foundry and Microsoft Copilot Studio; use service_code to separate them.",
           "synonyms": [
             "provider code",
             "cloud code"
@@ -197,10 +197,59 @@
       }
     },
     {
+      "id": "AICreditPricePoint",
+      "label": "AI Credit Price Point",
+      "category": "pricing",
+      "description": "An effective-dated Microsoft Copilot Studio AI credit price: list and negotiated USD per AI credit plus the prepaid pack effective rate. Converts AI credits to dollars because Copilot Studio usage has no token telemetry.",
+      "source": "prices.ai_credit_price_history",
+      "key": [
+        "price_id"
+      ],
+      "properties": [
+        "effective_from",
+        "effective_to",
+        "is_current",
+        "market_usd_per_credit",
+        "negotiated_usd_per_credit",
+        "prepaid_pack_credits",
+        "prepaid_pack_price_usd",
+        "prepaid_effective_usd_per_credit",
+        "source_name"
+      ],
+      "synonyms": [
+        "AI credit price",
+        "copilot credit rate",
+        "copilot studio rate",
+        "credit rate card",
+        "credit price"
+      ],
+      "propertyMeta": {
+        "market_usd_per_credit": {
+          "description": "List (pay-as-you-go) USD per AI credit.",
+          "synonyms": [
+            "list credit rate",
+            "pay as you go credit price"
+          ]
+        },
+        "negotiated_usd_per_credit": {
+          "description": "Negotiated USD per AI credit after the enterprise discount.",
+          "synonyms": [
+            "negotiated credit rate"
+          ]
+        },
+        "prepaid_effective_usd_per_credit": {
+          "description": "Effective USD per AI credit for the prepaid pack (pack price divided by pack credits).",
+          "synonyms": [
+            "pack credit rate"
+          ]
+        }
+      }
+    },
+    {
       "id": "UsageEvent",
-      "label": "Token Usage Event",
+      "label": "AI Consumption Event",
       "category": "fact",
-      "description": "The Gold fact: governed token consumption with input/output/cached tokens, latency, and market/negotiated/actual cost, attributed to the full org hierarchy.",
+      "description": "The Gold fact: governed AI consumption. Azure AI Foundry and multi-cloud rows carry token usage (input/output/cached tokens, latency). Microsoft Copilot Studio rows carry AI credits and no tokens. Market, negotiated, and actual USD cost are attributed to the full org hierarchy.",
       "source": "ml.tokenomics_usage_fact",
       "key": [
         "event_id"
@@ -214,7 +263,11 @@
         "market_cost_usd",
         "negotiated_cost_usd",
         "actual_cost_usd",
-        "quality_score"
+        "quality_score",
+        "consumption_unit",
+        "service_code",
+        "ai_credits",
+        "credit_unit_price_usd"
       ],
       "synonyms": [
         "usage",
@@ -226,6 +279,33 @@
         "telemetry"
       ],
       "propertyMeta": {
+        "consumption_unit": {
+          "description": "tokens for token-billed rows; ai_credits for Microsoft Copilot Studio rows.",
+          "synonyms": [
+            "billing unit",
+            "meter"
+          ]
+        },
+        "service_code": {
+          "description": "Microsoft product: azure-ai-foundry or copilot-studio (null for other providers).",
+          "synonyms": [
+            "service",
+            "product"
+          ]
+        },
+        "ai_credits": {
+          "description": "AI credits consumed (Copilot Studio); zero for token rows.",
+          "synonyms": [
+            "copilot credits",
+            "credits"
+          ]
+        },
+        "credit_unit_price_usd": {
+          "description": "List USD per AI credit applied to the row; zero for token rows.",
+          "synonyms": [
+            "credit price"
+          ]
+        },
         "event_ts": {
           "description": "Timestamp of the usage event.",
           "synonyms": [
@@ -1087,6 +1167,20 @@
     }
   ],
   "relationships": [
+    {
+      "from": "AICreditPricePoint",
+      "to": "Provider",
+      "label": "offeredBy",
+      "type": "association",
+      "via": "source_code, service_code"
+    },
+    {
+      "from": "UsageEvent",
+      "to": "AICreditPricePoint",
+      "label": "pricedByCredits",
+      "type": "temporal",
+      "via": "source_code, service_code, usage_date in [effective_from, effective_to) where consumption_unit = ai_credits"
+    },
     {
       "from": "Model",
       "to": "Provider",

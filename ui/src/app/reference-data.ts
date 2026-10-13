@@ -2,7 +2,29 @@
 // This is descriptive metadata (algorithm names, folders, and Lakehouse output tables),
 // not live telemetry. Quantitative dashboard, pricing, and chat data come from the
 // Fabric Lakehouse via the tokenomics API.
-import type { MlUseCaseInfo } from './tokenomics.model';
+import type { CopilotStudioRateCard, MlUseCaseInfo } from './tokenomics.model';
+
+export const COPILOT_STUDIO_PROVIDER = 'Microsoft Copilot Studio';
+
+// Static rate facts from Microsoft Copilot Studio billing (AI credits converted to USD).
+export const COPILOT_STUDIO_RATE_CARD: CopilotStudioRateCard = {
+  listUsdPerCredit: 0.01,
+  negotiatedDiscountPct: 12,
+  negotiatedUsdPerCredit: 0.0088,
+  prepaidPack: { credits: 25000, usdPerMonth: 200, effectiveUsdPerCredit: 0.008 },
+  featureRates: [
+    { feature: 'Classic answer', credits: '1', unit: 'per answer' },
+    { feature: 'Generative answer', credits: '2', unit: 'per answer' },
+    { feature: 'Agent action', credits: '5', unit: 'per action' },
+    { feature: 'Tenant graph grounding', credits: '10', unit: 'per message' },
+    { feature: 'Agent flow actions', credits: '13', unit: 'per 100 actions' },
+    { feature: 'AI tools (basic)', credits: '1', unit: 'per 10 responses' },
+    { feature: 'AI tools (standard)', credits: '15', unit: 'per 10 responses' },
+    { feature: 'AI tools (premium)', credits: '100', unit: 'per 10 responses' },
+    { feature: 'Content processing', credits: '8', unit: 'per page' },
+    { feature: 'GenAI voice', credits: '35', unit: 'per minute' },
+  ],
+};
 
 export const ML_USE_CASES: MlUseCaseInfo[] = [
   {
@@ -254,7 +276,7 @@ export const ML_USE_CASES: MlUseCaseInfo[] = [
     summaryUnit: 'TPM adjustments',
     riskOrStatus: 'warning',
     details: 'Predicts token-per-minute (TPM) and request-per-minute (RPM) exhaustion before gateway 429 throttling occurs, aligning upcoming sprint releases and team onboarding with capacity pools.',
-    recommendation: 'Increase Azure OpenAI GPT-5.6-sol quota for Analytics team by 25k TPM ahead of Q4 reporting peak.',
+    recommendation: 'Increase Azure AI Foundry GPT-5.6-sol quota for Analytics team by 25k TPM ahead of Q4 reporting peak.',
     kpis: [
       { label: 'Throttling Events Avoided', value: '128' },
       { label: 'Underutilized Quota Reclaimed', value: '45k TPM' },
@@ -505,7 +527,8 @@ export function generateCorporateUsers(): import('./tokenomics.model').UserConsu
   };
 
   const MODELS = ['claude-3-7-sonnet', 'gpt-5', 'gpt-5-mini', 'gemini-2.5-pro', 'claude-opus-4-1', 'kimi-code', 'mai-flash', 'gpt-astra'];
-  const PROVIDERS = ['Anthropic Claude', 'Azure OpenAI', 'Google Vertex', 'AWS Bedrock'];
+  const PROVIDERS = ['Anthropic Claude', 'Azure AI Foundry', 'Google Vertex', 'AWS Bedrock', COPILOT_STUDIO_PROVIDER];
+  const { listUsdPerCredit, negotiatedUsdPerCredit } = COPILOT_STUDIO_RATE_CARD;
 
   // Seeded deterministic 240-user generation
   return Array.from({ length: 240 }, (_, i) => {
@@ -526,11 +549,19 @@ export function generateCorporateUsers(): import('./tokenomics.model').UserConsu
 
     const cluster = MOCK_USER_CLUSTERS[cid];
     const baseMult = (240 - i) * 1.8;
-    const totalTokens = Math.round((500000 + (baseMult * 120000)) * (1 + ((i % 7) * 0.15)));
+    const primaryProvider = PROVIDERS[i % PROVIDERS.length];
+    const isCopilotStudio = primaryProvider === COPILOT_STUDIO_PROVIDER;
+    // Copilot Studio is AI-credit billed with no token telemetry, so its USD is credits x list rate.
+    const aiCredits = isCopilotStudio ? Math.round((300 + baseMult * 22) * (1 + ((i % 5) * 0.12))) : 0;
+    const totalTokens = isCopilotStudio ? 0 : Math.round((500000 + (baseMult * 120000)) * (1 + ((i % 7) * 0.15)));
     const inputTokens = Math.round(totalTokens * 0.72);
     const outputTokens = totalTokens - inputTokens;
-    const marketCost = Number(((totalTokens / 1000000) * (1.2 + (cid === 3 ? 4.5 : cid === 0 ? 3.0 : 1.5))).toFixed(2));
-    const negotiatedCost = Number((marketCost * 0.86).toFixed(2));
+    const marketCost = isCopilotStudio
+      ? Number((aiCredits * listUsdPerCredit).toFixed(2))
+      : Number(((totalTokens / 1000000) * (1.2 + (cid === 3 ? 4.5 : cid === 0 ? 3.0 : 1.5))).toFixed(2));
+    const negotiatedCost = isCopilotStudio
+      ? Number((aiCredits * negotiatedUsdPerCredit).toFixed(2))
+      : Number((marketCost * 0.86).toFixed(2));
     const requestCount = Math.round(180 + (baseMult * 4.2));
 
     return {
@@ -549,10 +580,11 @@ export function generateCorporateUsers(): import('./tokenomics.model').UserConsu
       marketCost,
       negotiatedCost,
       requestCount,
+      aiCredits,
       clusterId: cid,
       clusterName: cluster.name,
-      primaryModel: MODELS[i % MODELS.length],
-      primaryProvider: PROVIDERS[i % PROVIDERS.length]
+      primaryModel: isCopilotStudio ? 'Copilot Studio agent' : MODELS[i % MODELS.length],
+      primaryProvider
     };
   }).sort((a, b) => b.marketCost - a.marketCost);
 }

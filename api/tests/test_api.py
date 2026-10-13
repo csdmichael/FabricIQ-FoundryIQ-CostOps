@@ -5,15 +5,20 @@ without requiring Fabric connectivity (the Fabric client is stubbed).
 """
 from __future__ import annotations
 
+import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 API_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(API_ROOT))
 
-from app.config import get_settings  # noqa: E402
+from app.agent_tools import TokenomicsTools, tool_definitions  # noqa: E402
+from app.config import ServiceProviderInfo, get_settings  # noqa: E402
+from app.dashboard_service import DashboardService  # noqa: E402
 from app.models import (  # noqa: E402
     ActualCostSnapshot,
     DashboardSummary,
@@ -296,6 +301,280 @@ def test_fabric_client_retries_transient_then_succeeds(monkeypatch):
     rows = client.query("SELECT 1")
     assert rows == [{"ok": 1}]
     assert attempts["n"] == 2  # one quick retry recovered
+
+
+class _FakeFabric:
+    """Stands in for FabricSqlClient: records every SQL call and replays canned rows in order."""
+
+    def __init__(self, responses: list[list[dict]] | None = None, anchor: str = "2026-09-30") -> None:
+        self.calls: list[tuple[str, tuple]] = []
+        self._responses = list(responses or [])
+        self._anchor = anchor
+
+    def scalar(self, sql, params=()):
+        self.calls.append((sql, tuple(params)))
+        return self._anchor
+
+    def query(self, sql, params=()):
+        self.calls.append((sql, tuple(params)))
+        return self._responses.pop(0) if self._responses else []
+
+
+def _credit_rate_row() -> dict:
+    return {
+        "source_code": "msft",
+        "service_code": "copilot-studio",
+        "pricing_unit": "ai_credit",
+        "currency": "USD",
+        "market_usd_per_credit": 0.01,
+        "negotiated_usd_per_credit": 0.008,
+        "prepaid_pack_credits": 25000,
+        "prepaid_pack_price_usd": 200.0,
+        "prepaid_effective_usd_per_credit": 0.008,
+        "effective_from": "2026-01-01",
+        "source_type": "published_list",
+        "source_name": "Microsoft Copilot Studio pricing",
+    }
+
+
+def _summary_row() -> dict:
+    return {
+        "requests": 50, "token_requests": 10, "input_tokens": 3000, "output_tokens": 2000,
+        "total_tokens": 5000, "market_cost": 6.0, "negotiated_cost": 5.0, "actual_cost": None,
+        "tasks_completed": 50, "ai_credits": 400.0, "events": 50,
+    }
+
+
+@pytest.mark.parametrize(
+    ("source", "service", "expected"),
+    [
+        ("msft", "copilot-studio", "Microsoft Copilot Studio"),
+        ("msft", "azure-ai-foundry", "Azure AI Foundry"),
+        ("msft", None, "Azure AI Foundry"),
+        ("msft", "", "Azure AI Foundry"),
+        ("cld", None, "Anthropic Claude"),
+        ("cld", "copilot-studio", "Anthropic Claude"),
+        ("aws", None, "AWS Bedrock"),
+        (None, None, None),
+    ],
+)
+def test_provider_label_splits_microsoft_by_service(source, service, expected):
+    assert get_settings().provider_label(source, service) == expected
+
+
+def test_provider_label_falls_back_and_honours_configured_names():
+    settings = get_settings()
+    assert any(
+        s.service_code == "copilot-studio" and s.consumption_unit == "ai_credits"
+        for s in settings.service_providers
+    ), "dashboardApi.serviceProviders should load from config"
+
+    without_config = replace(settings, service_providers=[])
+    assert without_config.provider_label("msft", "copilot-studio") == "Microsoft Copilot Studio"
+    assert without_config.provider_label("msft", None) == "Azure AI Foundry"
+
+    renamed = replace(
+        settings,
+        service_providers=[ServiceProviderInfo("copilot-studio", "msft", "Copilot Studio (EMEA)", "ai_credits")],
+    )
+    assert renamed.provider_label("msft", "copilot-studio") == "Copilot Studio (EMEA)"
+
+
+def test_cps_alias_filters_ai_credit_rates_to_copilot_studio():
+    fake = _FakeFabric(responses=[[_credit_rate_row()]])
+
+    result = TokenomicsTools(get_settings(), fake).get_ai_credit_rates(provider=" CPS ")
+
+    sql, params = fake.calls[0]
+    assert "source_code = ? AND service_code = ?" in sql
+    assert params == ("msft", "copilot-studio")
+    assert "is_current = 1" in sql
+    rate = result["creditRates"][0]
+    assert rate["provider"] == "Microsoft Copilot Studio"
+    assert rate["serviceCode"] == "copilot-studio"
+    assert rate["marketUsdPerCredit"] == 0.01
+    assert rate["prepaidEffectiveUsdPerCredit"] == 0.008
+
+
+def test_cps_alias_does_not_query_token_price_tables():
+    fake = _FakeFabric()
+    tools = TokenomicsTools(get_settings(), fake)
+
+    pricing = tools.get_model_pricing(provider="cps")
+    changes = tools.get_price_changes(provider="cps", model="gpt-4.1-mini")
+
+    assert pricing["rateCards"] == [] and "get_ai_credit_rates" in pricing["note"]
+    assert changes["priceChanges"] == [] and "get_ai_credit_rates" in changes["note"]
+    assert fake.calls == [], "token price history has no service_code, so cps must not query it"
+
+
+def test_model_pricing_labels_msft_token_rate_cards_as_foundry():
+    fake = _FakeFabric(responses=[[{
+        "source_code": "msft", "model_family": "GPT", "model_name": "gpt-5-mini",
+        "model_version": "2025-08-07", "market_input_usd_per_million": 0.25,
+        "market_output_usd_per_million": 2.0, "negotiated_input_usd_per_million": 0.2,
+        "negotiated_output_usd_per_million": 1.6, "effective_from": "2025-08-07",
+        "source_name": "Azure pricing",
+    }]])
+
+    card = TokenomicsTools(get_settings(), fake).get_model_pricing(provider="msft")["rateCards"][0]
+
+    assert card["provider"] == "Azure AI Foundry"
+    sql, params = fake.calls[0]
+    assert "source_code = ?" in sql and params == ("msft",)
+
+
+def test_every_declared_tool_is_registered_and_credit_rates_is_read_only():
+    declared = {t["function"]["name"] for t in tool_definitions()}
+    tools = TokenomicsTools(get_settings(), _FakeFabric())
+
+    assert declared == set(tools.handlers())
+    assert "get_ai_credit_rates" in declared
+    assert "get_ai_credit_rates" in tools.handlers()
+
+    fake = _FakeFabric(responses=[[]])
+    TokenomicsTools(get_settings(), fake).dispatch("get_ai_credit_rates", {})
+    assert fake.calls[0][0].split()[0] == "SELECT"
+
+
+def test_dispatch_routes_get_ai_credit_rates_as_json():
+    fake = _FakeFabric(responses=[[_credit_rate_row()]])
+
+    payload = json.loads(TokenomicsTools(get_settings(), fake).dispatch("get_ai_credit_rates", {"provider": "cps"}))
+
+    assert payload["creditRates"][0]["provider"] == "Microsoft Copilot Studio"
+
+
+def test_agent_consumption_cost_prices_copilot_studio_from_stored_usd():
+    fake = _FakeFabric(responses=[
+        [{"market_cost": 10.0, "negotiated_cost": 8.0, "priced_tokens": 1000}],
+        [{"market_cost": 5.0, "negotiated_cost": 4.0, "ai_credits": 500.0}],
+    ])
+
+    result = TokenomicsTools(get_settings(), fake).get_consumption_cost(days=30)
+
+    token_sql, token_params = fake.calls[1]
+    credit_sql, _ = fake.calls[2]
+    assert "service_code <> ?" in token_sql and token_params[-1] == "copilot-studio"
+    assert "p.market_input_usd_per_million" not in credit_sql and "market_cost_usd" in credit_sql
+    assert result["marketCostUsd"] == 15.0
+    assert result["negotiatedCostUsd"] == 12.0
+    assert result["savingsUsd"] == 3.0
+    assert result["pricedTokens"] == 1000
+    assert result["copilotStudio"] == {"aiCredits": 500.0, "marketCostUsd": 5.0, "negotiatedCostUsd": 4.0}
+
+
+def test_dashboard_consumption_cost_adds_copilot_studio_usd_and_credits():
+    fake = _FakeFabric(responses=[
+        [{"market_cost": 10.0, "negotiated_cost": 8.0, "priced_tokens": 1000}],
+        [{"market_cost": 5.0, "negotiated_cost": 4.0, "ai_credits": 500.0}],
+    ])
+
+    cost = DashboardService(get_settings(), fake).consumption_cost(30)
+
+    assert cost["marketCost"] == 15.0
+    assert cost["negotiatedCost"] == 12.0
+    assert cost["pricedTokens"] == 1000
+    assert cost["aiCredits"] == 500.0
+    assert "market_cost_usd" in fake.calls[2][0]
+
+    empty = DashboardService(get_settings(), _FakeFabric(responses=[[], []])).consumption_cost(30)
+    assert empty["marketCost"] is None and empty["aiCredits"] == 0.0
+
+
+def test_dashboard_build_reports_credits_coverage_and_service_labels():
+    copilot_alloc = {
+        "application_id": "hr-app", "project_id": "hr", "team_id": "team-1", "department_id": "HR",
+        "cost_center_id": "cc-1", "source_code": "msft", "service_code": "copilot-studio",
+        "model_family": "Copilot Studio", "model_name": "hr-service-agent", "requests": 40,
+        "total_tokens": 0, "market_cost": 4.0, "negotiated_cost": 3.5, "actual_cost": None,
+        "consumption_unit": "ai_credits", "ai_credits": 400.0, "credit_unit_price_usd": 0.01,
+    }
+    foundry_alloc = {
+        **copilot_alloc, "service_code": "azure-ai-foundry", "model_family": "GPT",
+        "model_name": "gpt-5-mini", "requests": 10, "total_tokens": 5000, "market_cost": 2.0,
+        "negotiated_cost": 1.5, "consumption_unit": "tokens", "ai_credits": None,
+        "credit_unit_price_usd": None,
+    }
+    recent = {
+        "event_ts": "2026-09-30T10:00:00", "source_code": "msft", "service_code": "copilot-studio",
+        "consumption_unit": "ai_credits", "model_name": "hr-service-agent", "application_id": "hr-app",
+        "project_id": "hr", "total_tokens": 0, "market_cost_usd": 0.1, "negotiated_cost_usd": 0.08,
+        "ai_credits": 10.0, "credit_unit_price_usd": 0.01, "agent_id": "hr-service-agent",
+    }
+    fake = _FakeFabric(responses=[
+        [_summary_row()],
+        [{"bucket": "2026-09-01", "total_tokens": 5000, "market_cost": 6.0, "negotiated_cost": 5.0,
+          "actual_cost": None, "requests": 50, "ai_credits": 400.0}],
+        [copilot_alloc, foundry_alloc],
+        [copilot_alloc, foundry_alloc],
+        [{"task_type": "summarization", "requests": 50, "completed": 50, "events": 50}],
+        [recent],
+        [],
+    ])
+
+    dash = DashboardService(get_settings(), fake).build(30)
+
+    assert dash.summary.aiCredits == 400.0
+    assert dash.summary.tokenizedRequests == 10
+    assert dash.summary.tokenCoveragePct == 20.0
+    allocations = {row.ServiceCode: row for row in dash.allocations}
+    assert allocations["copilot-studio"].Provider == "Microsoft Copilot Studio"
+    assert allocations["copilot-studio"].AiCredits == 400.0
+    assert allocations["copilot-studio"].CreditUnitPriceUsd == 0.01
+    assert allocations["azure-ai-foundry"].Provider == "Azure AI Foundry"
+    assert allocations["azure-ai-foundry"].AiCredits is None
+    model_sql = next(sql for sql, _ in fake.calls if "GROUP BY source_code, service_code, model_family" in sql)
+    assert "GROUP BY source_code, service_code, model_family, model_name" in model_sql
+    assert dash.recentRequests[0].Provider == "Microsoft Copilot Studio"
+    assert dash.recentRequests[0].AgentId == "hr-service-agent"
+    assert dash.recentRequests[0].ConsumptionUnit == "ai_credits"
+
+
+def test_user_consumption_primary_provider_uses_service_and_totals_credits():
+    def user_row(name, primary_provider, primary_service, credits):
+        return {
+            "user_id_hash": f"hash-{name}", "user_name": name, "user_email": f"{name}@example.com",
+            "job_title": "Engineer", "department_id": "Engineering", "business_unit_id": "BU1",
+            "team_id": "team-1", "project_id": "project-1", "cost_center_id": "cc-1",
+            "total_tokens": 0, "input_tokens": 0, "output_tokens": 0, "market_cost": 2.0,
+            "negotiated_cost": 1.5, "request_count": 20, "ai_credits": credits,
+            "primary_model": "hr-service-agent", "primary_provider": primary_provider,
+            "primary_service": primary_service,
+        }
+
+    fake = _FakeFabric(responses=[[
+        user_row("ana", "msft", "copilot-studio", 12.5),
+        user_row("ben", None, None, 0.0),
+    ]])
+
+    response = DashboardService(get_settings(), fake).user_consumption(days=30)
+
+    users = {u.userName: u for u in response.users}
+    assert users["ana"].primaryProvider == "Microsoft Copilot Studio"
+    assert users["ana"].aiCredits == 12.5
+    assert users["ben"].primaryProvider == "Azure AI Foundry"
+    assert response.totalAiCredits == 12.5
+
+
+def test_tokenomics_row_exposes_ai_credit_and_agent_fields():
+    row = TokenomicsRow(
+        Provider="Microsoft Copilot Studio",
+        ServiceCode="copilot-studio",
+        ConsumptionUnit="ai_credits",
+        AiCredits=3.5,
+        CreditUnitPriceUsd=0.0075,
+        AgentId="hr-service-agent",
+    )
+
+    payload = row.model_dump()
+
+    assert payload["ServiceCode"] == "copilot-studio"
+    assert payload["ConsumptionUnit"] == "ai_credits"
+    assert payload["AiCredits"] == 3.5
+    assert payload["CreditUnitPriceUsd"] == 0.0075
+    assert payload["AgentId"] == "hr-service-agent"
+    assert TokenomicsRow().AgentId is None
 
 
 def test_user_consumption_and_segmentation_endpoints(monkeypatch):

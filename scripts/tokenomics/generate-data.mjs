@@ -351,6 +351,143 @@ function tokenProfile(persona) {
   }
 }
 
+// Feature credit rates come from the Microsoft Learn billing-rate table. Each feature is stored per unit,
+// so agent flow actions (13 credits per 100 actions) and AI tools (per 10 responses) are converted to per-unit values.
+const COPILOT_STUDIO_FEATURES = [
+  { key: 'classic-answer', unit: 'response', creditsPerUnit: 1, weight: 20, unitRange: [1, 6] },
+  { key: 'generative-answer', unit: 'response', creditsPerUnit: 2, weight: 30, unitRange: [1, 6] },
+  { key: 'agent-action', unit: 'action', creditsPerUnit: 5, weight: 14, unitRange: [1, 4] },
+  { key: 'tenant-graph-grounding', unit: 'response', creditsPerUnit: 10, weight: 6, unitRange: [1, 3] },
+  { key: 'agent-flow-actions', unit: 'action', creditsPerUnit: 0.13, weight: 10, unitRange: [1, 40] },
+  { key: 'ai-tools-basic', unit: 'response', creditsPerUnit: 0.1, weight: 8, unitRange: [1, 10] },
+  { key: 'ai-tools-standard', unit: 'response', creditsPerUnit: 1.5, weight: 5, unitRange: [1, 4] },
+  { key: 'ai-tools-premium', unit: 'response', creditsPerUnit: 10, weight: 2, unitRange: [1, 2] },
+  { key: 'content-processing', unit: 'page', creditsPerUnit: 8, weight: 3, unitRange: [1, 12] },
+  { key: 'voice-genai', unit: 'minute', creditsPerUnit: 35, weight: 2, unitRange: [1, 6] },
+];
+
+function createAiCreditPricing(config) {
+  const pricing = config.tokenomicsPlatform.pricing;
+  const copilot = pricing.copilotStudio;
+  if (!copilot) throw new Error('config.tokenomicsPlatform.pricing.copilotStudio is required for AI credit pricing.');
+  const negotiatedFactor = 1 - Number(pricing.negotiatedDiscountPercent) / 100;
+  const market = Number(copilot.payAsYouGoUsdPerCredit);
+  const negotiated = round(market * negotiatedFactor, 8);
+  const packCredits = Number(copilot.prepaidPack.credits);
+  const packPrice = Number(copilot.prepaidPack.priceUsd);
+  const sourceRecordId = [copilot.sourceCode, copilot.serviceCode, copilot.pricingUnit, copilot.effectiveFrom].join('|');
+  const sourcePayload = JSON.stringify({
+    source_record_id: sourceRecordId,
+    market_usd_per_credit: market,
+    negotiated_usd_per_credit: negotiated,
+    prepaid_pack_credits: packCredits,
+    prepaid_pack_price_usd: packPrice,
+  });
+  return [{
+    price_id: `${copilot.serviceCode}-${hash(`ai-credit-price-history|${sourceRecordId}`)}`,
+    source_code: copilot.sourceCode,
+    service_code: copilot.serviceCode,
+    pricing_unit: copilot.pricingUnit,
+    effective_from: `${copilot.effectiveFrom}T00:00:00.000Z`,
+    effective_to: null,
+    is_current: true,
+    currency: copilot.currency,
+    market_usd_per_credit: market,
+    negotiated_usd_per_credit: negotiated,
+    prepaid_pack_credits: packCredits,
+    prepaid_pack_price_usd: packPrice,
+    prepaid_effective_usd_per_credit: round(packPrice / packCredits, 8),
+    source_type: 'published_price',
+    source_name: copilot.sourceName,
+    source_uri: copilot.sourceUri,
+    source_payload_sha256: sha256(sourcePayload),
+  }];
+}
+
+// Copilot Studio reports AI credits, not tokens. Its rows use a separate random stream so the token rows and
+// reference tables stay identical when Copilot Studio volume changes.
+function createCopilotStudioEvents({ settings, enterprise, users, start, endExclusive, firstIndex, creditPrice }) {
+  const copilot = settings.copilotStudio;
+  if (!copilot || Number(copilot.recordCount) <= 0) return [];
+  const seed = Number(settings.randomSeed);
+  const random = randomFactory(seed + 7919);
+  const agents = copilot.agents;
+  const market = creditPrice.market_usd_per_credit;
+
+  return Array.from({ length: Number(copilot.recordCount) }, (_, offset) => {
+    const index = firstIndex + offset;
+    const feature = pickWeighted(random, COPILOT_STUDIO_FEATURES);
+    const user = pick(random, users);
+    const agentId = agents[offset % agents.length];
+    const anomaly = random() < 0.02;
+    const units = integer(random, feature.unitRange[0], feature.unitRange[1]) * (anomaly ? integer(random, 5, 14) : 1);
+    const credits = round(units * feature.creditsPerUnit, 6);
+    const eventTime = new Date(start.getTime() + Math.floor(random() * (endExclusive.getTime() - start.getTime())));
+    const failed = random() < 0.02;
+    const taskCompleted = failed ? 0 : 1;
+    const toolCallCount = feature.key === 'agent-action' || feature.key === 'agent-flow-actions' ? units : 0;
+
+    return {
+      id: `copilot-studio-${hash(`${seed}-${index}`).slice(0, 24)}`,
+      event_id: `msft-cs-evt-${String(index + 1).padStart(8, '0')}`,
+      event_ts: eventTime.toISOString(),
+      usage_date: isoDate(eventTime),
+      ingested_at: endExclusive.toISOString(),
+      source_code: copilot.sourceCode,
+      account_id: 'copilot-studio-tenant',
+      region: pick(random, ['westus2', 'eastus2', 'westeurope']),
+      request_id: hash(`copilot-request-${seed}-${index}`),
+      correlation_id: hash(`copilot-correlation-${seed}-${Math.floor(index / 3)}`),
+      model_family: 'Copilot Studio',
+      model_name: `copilot-studio-${feature.key}`,
+      model_version: '',
+      deployment_id: `copilot-studio-${agentId}`,
+      user_id_hash: user.user_id_hash,
+      user_name: user.user_name,
+      user_email: user.user_email,
+      job_title: user.job_title,
+      team_id: user.team_id,
+      department_id: user.department_id,
+      business_unit_id: user.business_unit_id,
+      cost_center_id: user.cost_center_id,
+      project_id: user.project_id,
+      application_id: user.application_id,
+      agent_id: agentId,
+      environment: user.environment,
+      task_id: `task-${String(index + 1).padStart(7, '0')}`,
+      task_type: pick(random, enterprise.taskTypes),
+      prompt_template_id: `copilot-${feature.key}`,
+      request_count: units,
+      input_tokens: 0,
+      cached_input_tokens: 0,
+      cache_write_tokens: 0,
+      output_tokens: 0,
+      total_tokens: 0,
+      context_window_tokens: 0,
+      tool_call_count: toolCallCount,
+      tool_success_count: Math.max(0, toolCallCount - (failed ? 1 : 0)),
+      retry_count: 0,
+      failure_count: failed ? 1 : 0,
+      latency_ms: integer(random, 300, 6000) * Math.min(units, 5),
+      status_code: failed ? pick(random, [429, 500]) : 200,
+      service_code: copilot.serviceCode,
+      consumption_unit: 'ai_credits',
+      ai_credits: credits,
+      credit_unit_price_usd: market,
+      is_stream: false,
+      currency: 'USD',
+      reported_cost_usd: round(credits * market, 8),
+      tasks_completed: taskCompleted,
+      hours_saved: taskCompleted ? round(integer(random, 1, 30) / 60, 3) : 0,
+      tickets_reduced: taskCompleted && agentId === 'customer-support-agent' ? integer(random, 0, 3) : 0,
+      code_generated_lines: 0,
+      quality_score: failed ? 0 : round(0.7 + random() * 0.29, 4),
+      prompt_char_count: 0,
+      is_anomaly_seed: anomaly,
+    };
+  });
+}
+
 export function generateDataset(config) {
   const settings = config.tokenomicsPlatform.syntheticData;
   const random = randomFactory(Number(settings.randomSeed));
@@ -456,6 +593,10 @@ export function generateDataset(config) {
       failure_count: failed ? 1 : 0,
       latency_ms: integer(random, 180, 4500) * (retryCount + 1) * multiplier,
       status_code: failed ? pick(random, [429, 500, 503]) : 200,
+      service_code: sourceCode === 'msft' ? 'azure-ai-foundry' : null,
+      consumption_unit: 'tokens',
+      ai_credits: 0,
+      credit_unit_price_usd: 0,
       is_stream: random() < 0.62,
       currency: 'USD',
       reported_cost_usd: round(reportedCost, 8),
@@ -468,6 +609,17 @@ export function generateDataset(config) {
       is_anomaly_seed: anomaly,
     });
   }
+
+  const aiCreditPriceHistory = createAiCreditPricing(config);
+  events.push(...createCopilotStudioEvents({
+    settings,
+    enterprise,
+    users,
+    start,
+    endExclusive,
+    firstIndex: events.length,
+    creditPrice: aiCreditPriceHistory[0],
+  }));
 
   const assignmentHistory = users.map(user => ({
     ...user,
@@ -553,6 +705,7 @@ export function generateDataset(config) {
       capacity_metric: capacityMetrics,
       model_price_snapshot: modelPriceSnapshot,
       model_price_history: modelPriceHistory,
+      ai_credit_price_history: aiCreditPriceHistory,
     },
     manifest: {
       schema_version: 2,
@@ -566,6 +719,9 @@ export function generateDataset(config) {
       source_counts: Object.fromEntries(settings.sourceCodes.map(code => [code, events.filter(event => event.source_code === code).length])),
       price_snapshot_count: modelPriceSnapshot.length,
       price_history_count: modelPriceHistory.length,
+      copilot_studio_record_count: events.filter(event => event.service_code === 'copilot-studio').length,
+      service_counts: Object.fromEntries(['azure-ai-foundry', 'copilot-studio'].map(code => [code, events.filter(event => event.service_code === code).length])),
+      ai_credit_total: round(events.reduce((total, event) => total + event.ai_credits, 0), 6),
       contains_pii: false,
     },
   };

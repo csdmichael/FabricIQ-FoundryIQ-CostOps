@@ -47,6 +47,10 @@ price_hist_file = os.path.join(seed_root, 'reference', 'model_price_history.json
 with open(price_hist_file, 'r', encoding='utf-8') as f:
     price_history = [json.loads(line) for line in f]
 
+credit_price_file = os.path.join(seed_root, 'reference', 'ai_credit_price_history.jsonl')
+with open(credit_price_file, 'r', encoding='utf-8') as f:
+    credit_price_history = [json.loads(line) for line in f]
+
 print("2. Building ml.tokenomics_usage_fact...")
 usage_facts = []
 for ev in events:
@@ -58,6 +62,9 @@ for ev in events:
     inp_tokens = int(ev.get('input_tokens', 0))
     cached_tokens = int(ev.get('cached_input_tokens', 0))
     out_tokens = int(ev.get('output_tokens', 0))
+    service_code = ev.get('service_code') or None
+    consumption_unit = str(ev.get('consumption_unit') or 'tokens')
+    ai_credits = float(ev.get('ai_credits') or 0.0)
 
     # Match price
     matching_price = next((
@@ -78,6 +85,21 @@ for ev in events:
     mkt_cost = round(((inp_tokens - cached_tokens) * mkt_inp + cached_tokens * (mkt_inp * 0.5) + out_tokens * mkt_out) / 1000000.0, 6)
     neg_cost = round(((inp_tokens - cached_tokens) * neg_inp + cached_tokens * (neg_inp * 0.5) + out_tokens * neg_out) / 1000000.0, 6)
     rep_cost = round(float(ev.get('reported_cost_usd', mkt_cost)), 6)
+
+    credit_unit_price = 0.0
+    if consumption_unit == 'ai_credits':
+        # Copilot Studio rows are costed from AI credits, so the token prices above do not apply to them.
+        credit_rate = next((
+            r for r in credit_price_history
+            if r['source_code'] == st and r['service_code'] == service_code
+            and ets >= r['effective_from'] and (r['effective_to'] is None or ets < r['effective_to'])
+        ), None)
+        if credit_rate is None:
+            raise RuntimeError(f'No effective AI credit price was found for {st}/{service_code} at {ets}.')
+        credit_unit_price = float(credit_rate['market_usd_per_credit'])
+        mkt_cost = round(ai_credits * credit_unit_price, 6)
+        neg_cost = round(ai_credits * float(credit_rate['negotiated_usd_per_credit']), 6)
+        rep_cost = round(float(ev.get('reported_cost_usd', mkt_cost)), 6)
 
     usage_facts.append({
         'event_id': str(ev.get('event_id', ev.get('id', str(uuid.uuid4())))),
@@ -109,7 +131,12 @@ for ev in events:
         'negotiated_cost_usd': neg_cost,
         'actual_cost_usd': None,
         'tasks_completed': int(ev.get('tasks_completed', 1)),
-        'quality_score': float(ev.get('quality_score', 0.95))
+        'quality_score': float(ev.get('quality_score', 0.95)),
+        'service_code': service_code,
+        'agent_id': str(ev['agent_id']) if ev.get('agent_id') else None,
+        'consumption_unit': consumption_unit,
+        'ai_credits': ai_credits,
+        'credit_unit_price_usd': credit_unit_price
     })
 
 def write_delta(table_name, records, schema_records=None):

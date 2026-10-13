@@ -413,18 +413,26 @@
                 @if (selectedProvider() !== 'all') {
                   <div class="filter-active-indicator">
                     <ion-icon name="information-circle-outline"></ion-icon>
-                    <span>Filtered to <strong>{{ activeProviderName() }}</strong>. Showing provider-specific token volume, spend, and models.</span>
+                    <span>Filtered to <strong>{{ activeProviderName() }}</strong>. Showing provider-specific volume, spend, and models.</span>
                     <button type="button" (click)="setProvider('all')">Reset to All Clouds</button>
                   </div>
                 }
 
                 <!-- 5 Hero KPIs -->
                 <div class="kpi-grid">
-                  <article class="kpi primary">
-                    <div class="kpi-icon"><ion-icon name="analytics-outline"></ion-icon></div>
-                    <span>Total Tokens</span><strong>{{ compact(summary.totalTokens) }}</strong>
-                    <small>{{ percent(summary.tokenCoveragePct) }} multi-cloud coverage</small>
-                  </article>
+                  @if (selectedProvider() === 'cps') {
+                    <article class="kpi primary">
+                      <div class="kpi-icon"><ion-icon name="sparkles-outline"></ion-icon></div>
+                      <span>AI Credits</span><strong>{{ compact(summary.aiCredits) }}</strong>
+                      <small>Copilot Studio · no token telemetry</small>
+                    </article>
+                  } @else {
+                    <article class="kpi primary">
+                      <div class="kpi-icon"><ion-icon name="analytics-outline"></ion-icon></div>
+                      <span>Total Tokens</span><strong>{{ compact(summary.totalTokens) }}</strong>
+                      <small>{{ percent(summary.tokenCoveragePct) }} multi-cloud coverage</small>
+                    </article>
+                  }
                   <article class="kpi green">
                     <div class="kpi-icon"><ion-icon name="wallet-outline"></ion-icon></div>
                     <span>Billed Model Cost</span><strong>{{ money(summary.dedicatedModelCost, 2) }}</strong>
@@ -440,21 +448,29 @@
                     <span>P95 Latency</span><strong>{{ compact(summary.p95LatencyMs) }}<em> ms</em></strong>
                     <small>{{ percent(successRate()) }} request success</small>
                   </article>
-                  <article class="kpi purple">
-                    <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
-                    <span>Cost / Tokenized Request</span><strong>{{ money(costPerTokenizedRequest(), 3) }}</strong>
-                    <small>Across {{ compact(summary.tokenizedRequests) }} tokenized requests</small>
-                  </article>
+                  @if (selectedProvider() === 'cps') {
+                    <article class="kpi purple">
+                      <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
+                      <span>Effective USD / Credit</span><strong>{{ usdPerCredit(copilotStudio().effectiveNegotiatedUsdPerCredit) }}</strong>
+                      <small>Negotiated, from ledger rows · list {{ usdPerCredit(copilotStudio().effectiveListUsdPerCredit) }}</small>
+                    </article>
+                  } @else {
+                    <article class="kpi purple">
+                      <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
+                      <span>Cost / Tokenized Request</span><strong>{{ money(costPerTokenizedRequest(), 3) }}</strong>
+                      <small>Across {{ compact(summary.tokenizedRequests) }} tokenized requests</small>
+                    </article>
+                  }
                 </div>
 
                 <!-- Trend & Allocation Charts -->
                 <div class="insight-grid">
                   <section class="chart-panel trend-panel">
                     <header>
-                      <div><span class="eyebrow">{{ activeProviderName() }} Volume</span><h3>Tokens & Cost over Time</h3></div>
+                      <div><span class="eyebrow">{{ activeProviderName() }} Volume</span><h3>{{ selectedProvider() === 'cps' ? 'AI Credits & Cost over Time' : 'Tokens & Cost over Time' }}</h3></div>
                       <span class="panel-tag">{{ data.currency }}</span>
                     </header>
-                    <app-tokenomics-chart mode="trend" [rows]="filteredTrend()" [currency]="data.currency" label="Token volume and model cost over time"></app-tokenomics-chart>
+                    <app-tokenomics-chart mode="trend" [rows]="filteredTrend()" [currency]="data.currency" [volumeUnit]="selectedProvider() === 'cps' ? 'credits' : 'tokens'" label="Volume and model cost over time"></app-tokenomics-chart>
                   </section>
                   <section class="chart-panel allocation-panel">
                     <header>
@@ -477,18 +493,22 @@
                         <article>
                           <div class="operation-title">
                             <strong>{{ m.Model }}</strong>
-                            <span class="provider-tag" [ngClass]="m.Provider?.toLowerCase()?.includes('aws') ? 'aws' : m.Provider?.toLowerCase()?.includes('gcp') ? 'gcp' : m.Provider?.toLowerCase()?.includes('anthropic') ? 'cld' : m.Provider?.toLowerCase()?.includes('direct') ? 'oai' : 'msft'">
+                            <span class="provider-tag" [ngClass]="providerCode(m.Provider)">
                               {{ m.Provider }}
                             </span>
                           </div>
                           <div class="operation-metric">
-                            <strong>{{ compact(m.TotalTokens || 0) }} tokens</strong>
+                            @if (isCopilotStudioRow(m)) {
+                              <strong>{{ integer(m.AiCredits) }} AI credits</strong>
+                            } @else {
+                              <strong>{{ compact(m.TotalTokens || 0) }} tokens</strong>
+                            }
                             <span>{{ money(m.NegotiatedCost, 2) }}</span>
                           </div>
                           <div class="meter"><span [style.width.%]="allocationShare(m)"></span></div>
                           <footer>
                             <span>{{ integer(m.Requests) }} requests</span>
-                            <span>{{ percent(allocationShare(m)) }} volume</span>
+                            <span>{{ percent(allocationShare(m)) }} {{ isCopilotStudioRow(m) ? 'of credits' : 'volume' }}</span>
                           </footer>
                         </article>
                       }
@@ -547,11 +567,11 @@
                   <span>Application & Team</span>
                   <span>Department / Project</span>
                   <span>Provider & Model</span>
-                  <span>Tokens</span>
+                  <span>Tokens / AI credits</span>
                   <span>Market Cost</span>
                   <span>Negotiated Cost</span>
                 </div>
-                @for (row of topAllocations(); track (row.ApplicationId || '') + (row.ProjectId || '') + (row.TeamId || '')) {
+                @for (row of topAllocations(); track (row.ApplicationId || '') + (row.ProjectId || '') + (row.TeamId || '') + (isCopilotStudioRow(row) ? 'cps' : 'tokens')) {
                   <div class="table-row">
                     <div class="identity-cell">
                       <i></i>
@@ -565,11 +585,15 @@
                       <small>Project: {{ row.ProjectId }}</small>
                     </span>
                     <span>
-                      <span class="provider-tag" [ngClass]="row.Provider?.toLowerCase()?.includes('aws') ? 'aws' : row.Provider?.toLowerCase()?.includes('gcp') ? 'gcp' : row.Provider?.toLowerCase()?.includes('anthropic') ? 'cld' : row.Provider?.toLowerCase()?.includes('direct') ? 'oai' : 'msft'">{{ row.Provider || 'Azure' }}</span>
+                      <span class="provider-tag" [ngClass]="providerCode(row.Provider)">{{ row.Provider || 'Azure AI Foundry' }}</span>
                       <small>{{ row.Model }}</small>
                     </span>
                     <span class="share-cell">
-                      <strong>{{ compact(row.TotalTokens || 0) }}</strong>
+                      @if (isCopilotStudioRow(row)) {
+                        <strong>{{ integer(row.AiCredits) }} credits</strong>
+                      } @else {
+                        <strong>{{ compact(row.TotalTokens || 0) }}</strong>
+                      }
                       <small>{{ integer(row.Requests) }} requests</small>
                       <i><b [style.width.%]="allocationShare(row)"></b></i>
                     </span>
@@ -619,6 +643,52 @@
                   </label>
                 </div>
               </div>
+
+              <!-- Microsoft Copilot Studio: AI-credit rate card (credits are converted to USD) -->
+              <section class="cps-rate-card" aria-label="Microsoft Copilot Studio AI credit rate card">
+                <header>
+                  <div>
+                    <span class="eyebrow">Microsoft Copilot Studio</span>
+                    <h3>Copilot Studio AI Credits</h3>
+                    <p>Billed in AI credits with no token telemetry. Each credit is converted to USD at the rates below.</p>
+                  </div>
+                  <span class="provider-pill cps">{{ integer(copilotStudio().aiCredits) }} credits in window</span>
+                </header>
+                <div class="cps-rate-grid">
+                  <article>
+                    <span>List (pay-as-you-go)</span>
+                    <strong>{{ money(copilotRateCard.listUsdPerCredit, 4) }}</strong>
+                    <small>per AI credit</small>
+                  </article>
+                  <article>
+                    <span>Negotiated ({{ copilotRateCard.negotiatedDiscountPct }}% off list)</span>
+                    <strong>{{ money(copilotRateCard.negotiatedUsdPerCredit, 4) }}</strong>
+                    <small>per AI credit, enterprise rate</small>
+                  </article>
+                  <article>
+                    <span>Prepaid pack, effective</span>
+                    <strong>{{ money(copilotRateCard.prepaidPack.effectiveUsdPerCredit, 4) }}</strong>
+                    <small>{{ money(copilotRateCard.prepaidPack.usdPerMonth) }} for {{ integer(copilotRateCard.prepaidPack.credits) }} credits per month</small>
+                  </article>
+                  <article>
+                    <span>Effective from ledger rows</span>
+                    <strong>{{ usdPerCredit(copilotStudio().effectiveNegotiatedUsdPerCredit) }}</strong>
+                    <small>Negotiated USD ÷ AI credits · list {{ usdPerCredit(copilotStudio().effectiveListUsdPerCredit) }}</small>
+                  </article>
+                </div>
+                <div class="pricing-table-wrap">
+                  <table class="pricing-table">
+                    <thead>
+                      <tr><th>Copilot Studio feature</th><th>AI credit rate</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (rate of copilotRateCard.featureRates; track rate.feature) {
+                        <tr><td>{{ rate.feature }}</td><td><strong>{{ rate.credits }}</strong> credits {{ rate.unit }}</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </section>
 
               <!-- Search and Provider Filter Pills -->
               <div class="pricing-filter-bar">

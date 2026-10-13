@@ -66,6 +66,18 @@ describe('ShowcasePage', () => {
     expect(video.volume).toBe(1);
   });
 
+  it('describes Azure AI Foundry and Copilot Studio ingestion instead of Azure OpenAI', () => {
+    const page = new ShowcasePage(config);
+    const copy = JSON.stringify({ features: page.features, layers: page.architectureLayers });
+
+    expect(copy).not.toContain('Azure OpenAI');
+    expect(copy).toContain('Azure AI Foundry');
+    expect(page.features.find(feature => feature.title === 'Five-cloud ingestion')?.description)
+      .toContain('Microsoft Copilot Studio (AI credits converted to USD)');
+    expect(page.architectureLayers.find(layer => layer.title === 'Fabric Ingestion')?.items)
+      .toContain('Microsoft Copilot Studio (AI credits converted to USD)');
+  });
+
   it('surfaces configuration loading failures', async () => {
     const errorConfig = {
       load: vi.fn().mockRejectedValue(new Error('Invalid showcase configuration.')),

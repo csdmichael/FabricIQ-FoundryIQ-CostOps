@@ -12,21 +12,24 @@ test('generates deterministic provider-balanced token consumption without PII', 
   const first = generateDataset(config);
   const second = generateDataset(config);
   const settings = config.tokenomicsPlatform.syntheticData;
+  const copilotRecordCount = settings.copilotStudio.recordCount;
+  const totalRecordCount = settings.recordCount + copilotRecordCount;
   const expectedSourceCounts = Object.fromEntries(settings.sourceCodes.map((sourceCode, index) => [
     sourceCode,
-    Math.floor((settings.recordCount + settings.sourceCodes.length - 1 - index) / settings.sourceCodes.length),
+    Math.floor((settings.recordCount + settings.sourceCodes.length - 1 - index) / settings.sourceCodes.length)
+      + (sourceCode === settings.copilotStudio.sourceCode ? copilotRecordCount : 0),
   ]));
 
-  assert.equal(first.events.length, settings.recordCount);
+  assert.equal(first.events.length, totalRecordCount);
   assert.equal(first.references.entity_assignment_history.length, settings.userCount);
   assert.equal(new Set(first.references.entity_assignment_history.map(row => row.user_id_hash)).size, settings.userCount);
   assert.deepEqual(first.manifest.source_counts, expectedSourceCounts);
   assert.deepEqual(first.events[0], second.events[0]);
   assert.deepEqual(first.events.at(-1), second.events.at(-1));
-  assert.equal(new Set(first.events.map(event => event.id)).size, settings.recordCount);
+  assert.equal(new Set(first.events.map(event => event.id)).size, totalRecordCount);
   assert.ok(first.events.some(event => event.is_anomaly_seed));
   assert.ok(first.events.every(event => event.reported_cost_usd >= 0 && event.total_tokens === event.input_tokens + event.output_tokens));
-  assert.ok(first.events.every(event => event.request_count >= Math.floor(settings.requestsPerRecord * 0.5)));
+  assert.ok(first.events.filter(event => event.consumption_unit === 'tokens').every(event => event.request_count >= Math.floor(settings.requestsPerRecord * 0.5)));
   assert.ok(first.events.reduce((total, event) => total + event.request_count, 0) > 10_000_000);
   assert.ok(first.events.reduce((total, event) => total + event.total_tokens, 0) > 50_000_000_000);
   assert.equal(first.manifest.request_count, first.events.reduce((total, event) => total + event.request_count, 0));
@@ -43,7 +46,7 @@ test('generates deterministic provider-balanced token consumption without PII', 
 
 test('generates governed dimensions needed by every ML use case', () => {
   const dataset = generateDataset(config);
-  const required = ['entity_assignment_history', 'budget_plan', 'model_benchmark', 'business_outcome', 'release_calendar', 'quota_policy', 'capacity_metric', 'model_price_snapshot', 'model_price_history'];
+  const required = ['entity_assignment_history', 'budget_plan', 'model_benchmark', 'business_outcome', 'release_calendar', 'quota_policy', 'capacity_metric', 'model_price_snapshot', 'model_price_history', 'ai_credit_price_history'];
   const flagshipProject = config.tokenomicsPlatform.syntheticData.enterprise?.flagshipProject ?? 'project-falcon';
   assert.deepEqual(Object.keys(dataset.references), required);
   assert.equal(dataset.references.entity_assignment_history.length, config.tokenomicsPlatform.syntheticData.userCount);
@@ -76,7 +79,7 @@ test('generates auditable nonoverlapping price history for deterministic as-of e
     assert.ok(ordered[0].market_input_usd_per_million > ordered[2].market_input_usd_per_million);
   }
 
-  for (const event of first.events) {
+  for (const event of first.events.filter(row => row.consumption_unit === 'tokens')) {
     const matches = history.filter(rate =>
       rate.source_code === event.source_code
       && rate.model_name === event.model_name
@@ -86,3 +89,54 @@ test('generates auditable nonoverlapping price history for deterministic as-of e
     assert.equal(matches.length, 1);
   }
 });
+
+test('converts Copilot Studio AI credits to USD with governed rates and no token telemetry', () => {
+  const dataset = generateDataset(config);
+  const copilot = config.tokenomicsPlatform.syntheticData.copilotStudio;
+  const rates = dataset.references.ai_credit_price_history;
+  const creditRows = dataset.events.filter(event => event.consumption_unit === 'ai_credits');
+  const tokenRows = dataset.events.filter(event => event.consumption_unit === 'tokens');
+  const market = rates[0].market_usd_per_credit;
+
+  assert.equal(rates.length, 1);
+  assert.equal(rates[0].is_current, true);
+  assert.equal(rates[0].effective_to, null);
+  assert.equal(market, config.tokenomicsPlatform.pricing.copilotStudio.payAsYouGoUsdPerCredit);
+  assert.equal(rates[0].negotiated_usd_per_credit, 0.0088);
+  assert.equal(rates[0].prepaid_effective_usd_per_credit, 0.008);
+  assert.equal(creditRows.length, copilot.recordCount);
+  assert.equal(dataset.manifest.copilot_studio_record_count, copilot.recordCount);
+  assert.equal(dataset.manifest.service_counts['copilot-studio'], copilot.recordCount);
+  assert.equal(dataset.manifest.service_counts['azure-ai-foundry'], tokenRows.filter(event => event.source_code === 'msft').length);
+  assert.ok(creditRows.every(event => event.service_code === copilot.serviceCode && event.source_code === copilot.sourceCode));
+  assert.ok(creditRows.every(event => event.total_tokens === 0 && event.input_tokens === 0 && event.output_tokens === 0));
+  assert.ok(creditRows.every(event => event.ai_credits > 0 && event.credit_unit_price_usd === market));
+  assert.ok(creditRows.every(event => Math.abs(event.reported_cost_usd - event.ai_credits * market) < 1e-6));
+  assert.ok(creditRows.every(event => copilot.agents.includes(event.agent_id)));
+  assert.ok(tokenRows.every(event => event.ai_credits === 0 && event.credit_unit_price_usd === 0));
+  assert.ok(tokenRows.filter(event => event.source_code === 'msft').every(event => event.service_code === 'azure-ai-foundry'));
+  assert.ok(tokenRows.filter(event => event.source_code !== 'msft').every(event => event.service_code === null));
+  const columns = Object.keys(tokenRows[0]).sort().join();
+  assert.ok(creditRows.every(event => Object.keys(event).sort().join() === columns));
+  assert.ok(Math.abs(dataset.manifest.ai_credit_total - creditRows.reduce((total, event) => total + event.ai_credits, 0)) < 1e-3);
+});
+
+test('applies Microsoft Learn feature credit rates per billed unit', () => {
+  const dataset = generateDataset(config);
+  const perUnit = {
+    'copilot-studio-classic-answer': 1,
+    'copilot-studio-generative-answer': 2,
+    'copilot-studio-agent-action': 5,
+    'copilot-studio-tenant-graph-grounding': 10,
+    'copilot-studio-agent-flow-actions': 0.13,
+    'copilot-studio-ai-tools-basic': 0.1,
+    'copilot-studio-ai-tools-standard': 1.5,
+    'copilot-studio-ai-tools-premium': 10,
+    'copilot-studio-content-processing': 8,
+    'copilot-studio-voice-genai': 35,
+  };
+  const creditRows = dataset.events.filter(event => event.consumption_unit === 'ai_credits');
+  assert.deepEqual([...new Set(creditRows.map(event => event.model_name))].sort(), Object.keys(perUnit).sort());
+  assert.ok(creditRows.every(event => Math.abs(event.ai_credits - event.request_count * perUnit[event.model_name]) < 1e-5));
+});
+

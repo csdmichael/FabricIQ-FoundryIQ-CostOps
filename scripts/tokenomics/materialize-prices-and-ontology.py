@@ -2,6 +2,7 @@
 
 Creates real, queryable Delta tables so they appear in the Fabric Lakehouse:
   prices.token_price_history        - governed effective-dated token prices
+  prices.ai_credit_price_history    - Copilot Studio AI credit rates (USD per credit)
   ontology.ontology_class           - business classes + descriptions + table mapping
   ontology.ontology_property        - properties per class
   ontology.ontology_relationship    - relationships between classes
@@ -58,6 +59,9 @@ def build_prices():
     seed = REPO / ".generated" / "tokenomics" / "seed" / "reference" / "model_price_history.jsonl"
     rows = [json.loads(l) for l in seed.read_text(encoding="utf-8").splitlines() if l.strip()]
     write_local("prices", "token_price_history", rows)
+    credit_seed = REPO / ".generated" / "tokenomics" / "seed" / "reference" / "ai_credit_price_history.jsonl"
+    credit_rows = [json.loads(l) for l in credit_seed.read_text(encoding="utf-8").splitlines() if l.strip()]
+    write_local("prices", "ai_credit_price_history", credit_rows)
     return len(rows)
 
 

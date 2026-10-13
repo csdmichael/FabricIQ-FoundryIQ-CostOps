@@ -107,6 +107,7 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .provider-filter-btn.msft .dot { background: #0288d1; }
 .provider-filter-btn.oai .dot { background: #2e7d32; }
 .provider-filter-btn.cld .dot { background: #7b1fa2; }
+.provider-filter-btn.cps .dot { background: #a21caf; }
 
 .provider-filter-btn.active.all { background: #102644; color: #fff; border-color: #102644; box-shadow: 0 2px 6px rgba(16, 38, 68, 0.25); }
 .provider-filter-btn.active.aws { background: #fff3e0; color: #b73e00; border-color: #ffb74d; box-shadow: 0 2px 6px rgba(230, 81, 0, 0.2); }
@@ -114,6 +115,7 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .provider-filter-btn.active.msft { background: #e3f2fd; color: #01579b; border-color: #81d4fa; box-shadow: 0 2px 8px rgba(2, 136, 209, 0.2); }
 .provider-filter-btn.active.oai { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; box-shadow: 0 2px 6px rgba(46, 125, 50, 0.2); }
 .provider-filter-btn.active.cld { background: #f3e5f5; color: #4a148c; border-color: #ce93d8; box-shadow: 0 2px 6px rgba(123, 31, 162, 0.2); }
+.provider-filter-btn.active.cps { background: #fae8ff; color: #86198f; border-color: #e879f9; box-shadow: 0 2px 6px rgba(162, 28, 175, 0.2); }
 
 .filter-active-indicator {
   display: flex;
@@ -167,6 +169,7 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .provider-pill.msft { background: #e3f2fd; color: #0288d1; border: 1px solid #b3e5fc; }
 .provider-pill.oai { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
 .provider-pill.cld { background: #f3e5f5; color: #7b1fa2; border: 1px solid #e1bee7; }
+.provider-pill.cps { background: #fae8ff; color: #a21caf; border: 1px solid #f5d0fe; }
 
 .updated-at { display: flex; flex-direction: column; align-items: flex-end; margin-left: auto; }
 .updated-at span { color: var(--muted); font-size: 10px; text-transform: uppercase; }
@@ -242,6 +245,7 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .provider-tag.msft { background: #e3f2fd; color: #0288d1; }
 .provider-tag.oai { background: #e8f5e9; color: #2e7d32; }
 .provider-tag.cld { background: #f3e5f5; color: #7b1fa2; }
+.provider-tag.cps { background: #fae8ff; color: #a21caf; }
 
 /* Allocation Table */
 .allocation-table { overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
@@ -279,6 +283,7 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .filter-pills button.msft-pill.active { background: #e3f2fd; color: #01579b; border-color: #81d4fa; }
 .filter-pills button.oai-pill.active { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; }
 .filter-pills button.cld-pill.active { background: #f3e5f5; color: #4a148c; border-color: #ce93d8; }
+.filter-pills button.cps-pill.active { background: #fae8ff; color: #86198f; border-color: #e879f9; }
 
 .pricing-table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
 .pricing-table { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; }
@@ -288,6 +293,18 @@ ion-segment-button { min-width: 50px; min-height: 32px; --border-radius: 4px; --
 .cached-text { color: var(--teal); font-weight: 600; }
 .calc-result { color: var(--green); font-size: 14px; display: block; }
 .strikethrough { text-decoration: line-through; color: var(--muted); font-size: 10px; display: block; }
+
+/* Microsoft Copilot Studio AI-credit rate card (pricing view) */
+.cps-rate-card { margin-bottom: 20px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid #a21caf; border-radius: 6px; }
+.cps-rate-card header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; }
+.cps-rate-card h3 { margin: 2px 0 0; font-size: 17px; }
+.cps-rate-card header p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.cps-rate-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.cps-rate-grid article { min-width: 0; padding: 12px 14px; background: #fdf7fe; border: 1px solid #f5d0fe; border-radius: 6px; }
+.cps-rate-grid article > span { display: block; color: var(--muted); font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
+.cps-rate-grid article > strong { display: block; margin-top: 8px; font-family: 'Segoe UI Variable Display', Aptos, sans-serif; font-size: 22px; line-height: 1; color: #86198f; }
+.cps-rate-grid article > small { display: block; margin-top: 6px; color: var(--muted); font-size: 10.5px; }
+@media (max-width: 900px) { .cps-rate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .discount-badge { display: inline-block; padding: 2px 6px; background: #e6f4ea; color: #137333; font-weight: 800; border-radius: 3px; font-size: 11px; }
 
 /* Power BI View */

@@ -27,10 +27,13 @@ os.makedirs(staging_root, exist_ok=True)
 
 # 1. Consumption sources
 consumption_schema_records = None
+synthetic_msft_records = []
 for src in config['tokenomicsPlatform']['syntheticData']['sourceCodes']:
     p = os.path.join(seed_root, 'consumption', src, 'token_consumption.jsonl')
     with open(p, 'r', encoding='utf-8') as f:
         records = [json.loads(line) for line in f]
+    if src == 'msft':
+        synthetic_msft_records = records
     if consumption_schema_records is None:
         consumption_schema_records = records
     tbl = to_arrow_table(records)
@@ -44,7 +47,8 @@ for src in config['tokenomicsPlatform']['syntheticData']['sourceCodes']:
 msft_seed_path = os.path.join(seed_root, 'consumption', 'msft_log_analytics.json')
 if os.path.isfile(msft_seed_path):
     with open(msft_seed_path, 'r', encoding='utf-8') as f:
-        msft_records = json.load(f)
+        # Copilot Studio credit rows never come from Log Analytics, so they stay beside the Foundry feed.
+        msft_records = json.load(f) + [record for record in synthetic_msft_records if record.get('service_code') == 'copilot-studio']
     msft_tbl = to_arrow_table(msft_records, consumption_schema_records)
     msft_local_path = os.path.join(staging_root, 'msft', 'token_consumption')
     shutil.rmtree(msft_local_path, ignore_errors=True)
@@ -76,5 +80,12 @@ for rf in ref_files:
         os.makedirs(prices_path, exist_ok=True)
         write_deltalake(prices_path, to_arrow_table(rows), mode='overwrite')
         print(f'Wrote Delta table: prices.token_price_history ({len(rows)} rows)')
+
+    if name == 'ai_credit_price_history':
+        prices_path = os.path.join(staging_root, 'prices', 'ai_credit_price_history')
+        shutil.rmtree(prices_path, ignore_errors=True)
+        os.makedirs(prices_path, exist_ok=True)
+        write_deltalake(prices_path, to_arrow_table(rows), mode='overwrite')
+        print(f'Wrote Delta table: prices.ai_credit_price_history ({len(rows)} rows)')
 
 print('All Delta tables written successfully to staging.')

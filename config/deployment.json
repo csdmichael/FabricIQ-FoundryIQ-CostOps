@@ -157,6 +157,21 @@
       "lookbackDays": 180,
       "endDate": "2026-09-18",
       "randomSeed": 20260919,
+      "copilotStudio": {
+        "recordCount": 3000,
+        "serviceCode": "copilot-studio",
+        "sourceCode": "msft",
+        "agents": [
+          "hr-service-agent",
+          "procurement-copilot",
+          "finance-close-copilot",
+          "it-helpdesk-agent",
+          "customer-support-agent",
+          "order-processing-agent",
+          "field-service-agent",
+          "exec-briefing-agent"
+        ]
+      },
       "sourceCodes": [
         "aws",
         "gcp",
@@ -330,7 +345,7 @@
         }
       ],
       "dataAgentName": "Tokenomics FinOps Analyst",
-      "dataAgentDescription": "Governed AI usage, multi-cloud tokenomics, market and negotiated model cost, forecast, anomaly detection, budget overrun, quota management, prompt quality, agent ROI, and model optimization recommendation engine across all 5 providers (AWS, GCP, Azure, OpenAI, Claude).",
+      "dataAgentDescription": "Governed AI usage, multi-cloud tokenomics, market and negotiated model cost, forecast, anomaly detection, budget overrun, quota management, prompt quality, agent ROI, and model optimization recommendation engine across all 5 providers (AWS, GCP, Azure AI Foundry, OpenAI, Claude) plus Microsoft Copilot Studio AI credits converted to USD.",
       "semanticModelName": "Tokenomics FinOps Model",
       "reportName": "Tokenomics Consumption and Cost Analytics",
       "mlReportName": "Tokenomics ML Insights",
@@ -340,6 +355,7 @@
         "usageFact": "tokenomics_usage_fact",
         "insightFact": "ml_insight_fact",
         "priceHistory": "model_price_history",
+        "aiCreditPriceHistory": "ai_credit_price_history",
         "runLedger": "model_run_ledger"
       },
       "reportDimensions": [
@@ -360,7 +376,9 @@
         "model_family",
         "model_name",
         "model_version",
-        "task_type"
+        "task_type",
+        "service_code",
+        "consumption_unit"
       ],
       "sourceSchemas": [
         "aws",
@@ -377,6 +395,22 @@
       "requestTimeoutSeconds": 120,
       "maxPages": 100,
       "negotiatedDiscountPercent": 12,
+      "copilotStudio": {
+        "serviceCode": "copilot-studio",
+        "sourceCode": "msft",
+        "pricingUnit": "ai_credit",
+        "currency": "USD",
+        "payAsYouGoUsdPerCredit": 0.01,
+        "prepaidPack": {
+          "credits": 25000,
+          "priceUsd": 200,
+          "cadence": "monthly"
+        },
+        "effectiveFrom": "2025-09-01",
+        "sourceName": "Microsoft Copilot Studio Copilot Credits billing rates and pay-as-you-go pricing",
+        "sourceUri": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-messages-management",
+        "rateVerification": "Feature credit rates verified against Microsoft Learn billing rates. Pay-as-you-go and prepaid pack dollar amounts are published third-party figures and must be confirmed against the contracted Microsoft rate before chargeback."
+      },
       "sources": [
         {
           "sourceCode": "aws",
@@ -478,9 +512,13 @@
     "providers": [
       { "code": "aws", "name": "AWS Bedrock" },
       { "code": "gcp", "name": "GCP Vertex AI" },
-      { "code": "msft", "name": "Azure OpenAI" },
+      { "code": "msft", "name": "Azure AI Foundry" },
       { "code": "oai", "name": "OpenAI Direct" },
       { "code": "cld", "name": "Anthropic Claude" }
+    ],
+    "serviceProviders": [
+      { "serviceCode": "azure-ai-foundry", "providerCode": "msft", "name": "Azure AI Foundry", "consumptionUnit": "tokens" },
+      { "serviceCode": "copilot-studio", "providerCode": "msft", "name": "Microsoft Copilot Studio", "consumptionUnit": "ai_credits" }
     ],
     "cors": {
       "allowedOrigins": [
@@ -503,7 +541,7 @@
       "applicationInsightsConnectionStringEnv": "APPLICATIONINSIGHTS_CONNECTION_STRING",
       "contentRecordingEnabled": true
     },
-    "instructions": "You are the Tokenomics FinOps Analyst, an expert assistant for multi-cloud AI cost governance on Microsoft Fabric. Answer questions about token consumption, model pricing, cost attribution and chargeback, budget overruns, anomalies, quota and capacity, prompt quality, and agent ROI across AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude. ALWAYS ground every quantitative answer by calling the provided tools, which query the governed Fabric lh_tokenomics Lakehouse Gold and ML tables (ml.tokenomics_usage_fact, the governed prices.token_price_history rate cards, and the 12 ml.* insight outputs) — the same governed data the Fabric Data Agent uses. For pricing questions use the prices schema: get_model_pricing for current rate cards, get_price_changes for effective-dated price history, and get_consumption_cost to compute cost from usage joined to the price effective at each usage date. For business-context or ontology questions, ground your answer in the ontology schema (ontology.ontology_class, ontology.ontology_property, ontology.ontology_relationship), which defines the business classes, their properties, and the relationships (for example PricePoint pricesTokensOf Model, UsageEvent pricedBy PricePoint, MLInsight recommends Action) mapped to the physical Lakehouse tables. Never fabricate numbers. When the answer is tabular, ALWAYS return a GitHub-flavored Markdown table (header row, separator row, then data rows) so the UI can render it and derive a chart. When the user asks for a pie chart or a distribution/share breakdown, return a Mermaid pie code block: a fenced ```mermaid block whose first line is 'pie showData', an optional 'title <text>' line, then one 'LABEL : VALUE' line per slice with numeric values. Be concise, lead with the headline finding, cite the tables you used, and end with one actionable FinOps recommendation."
+    "instructions": "You are the Tokenomics FinOps Analyst, an expert assistant for multi-cloud AI cost governance on Microsoft Fabric. Answer questions about token consumption, model pricing, cost attribution and chargeback, budget overruns, anomalies, quota and capacity, prompt quality, and agent ROI across AWS Bedrock, GCP Vertex AI, Azure AI Foundry, OpenAI Direct, Anthropic Claude, and Microsoft Copilot Studio. ALWAYS ground every quantitative answer by calling the provided tools, which query the governed Fabric lh_tokenomics Lakehouse Gold and ML tables (ml.tokenomics_usage_fact, the governed prices.token_price_history rate cards, and the 12 ml.* insight outputs) — the same governed data the Fabric Data Agent uses. For pricing questions use the prices schema: get_model_pricing for current rate cards, get_price_changes for effective-dated price history, and get_consumption_cost to compute cost from usage joined to the price effective at each usage date. For business-context or ontology questions, ground your answer in the ontology schema (ontology.ontology_class, ontology.ontology_property, ontology.ontology_relationship), which defines the business classes, their properties, and the relationships (for example PricePoint pricesTokensOf Model, UsageEvent pricedBy PricePoint, MLInsight recommends Action) mapped to the physical Lakehouse tables. Never fabricate numbers. Copilot Studio rows (service_code copilot-studio, consumption_unit ai_credits) carry no token telemetry: their dollars are ai_credits multiplied by credit_unit_price_usd, and the governed list and prepaid rates live in prices.ai_credit_price_history (call get_ai_credit_rates for them). Never express Copilot Studio usage as tokens. Azure AI Foundry rows (service_code azure-ai-foundry) are token-billed. When the answer is tabular, ALWAYS return a GitHub-flavored Markdown table (header row, separator row, then data rows) so the UI can render it and derive a chart. When the user asks for a pie chart or a distribution/share breakdown, return a Mermaid pie code block: a fenced ```mermaid block whose first line is 'pie showData', an optional 'title <text>' line, then one 'LABEL : VALUE' line per slice with numeric values. Be concise, lead with the headline finding, cite the tables you used, and end with one actionable FinOps recommendation."
   },
   "pricingFunction": {
     "appName": "caldova-tokenomics-pricing-fn",

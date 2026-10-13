@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "welcomeMessage": "Hello! I am your **Tokenomics FinOps Analyst**. I answer questions by querying the governed tokenomics lakehouse (Gold and ML tables). Ask about multi-cloud spend, model pricing, budget overruns, quota, prompt quality, or pick one of the sample prompts below.",
+  "welcomeMessage": "Hello! I am your **Tokenomics FinOps Analyst**. I answer questions by querying the governed tokenomics lakehouse (Gold and ML tables). Ask about multi-cloud spend, Azure AI Foundry and Copilot Studio dollars (AI credits converted to USD), model pricing, budget overruns, quota, prompt quality, or pick one of the sample prompts below.",
   "prompts": [
     {
       "id": "exec-summary",
       "title": "Multi-Cloud AI Spend & Token Summary",
       "category": "Executive & FinOps",
-      "prompt": "Summarize multi-cloud AI token consumption and spend across AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude for the past 30 days. Break down total tokens, market cost, and negotiated cost by provider and model family.",
+      "prompt": "Summarize multi-cloud AI consumption and spend across AWS Bedrock, GCP Vertex AI, Azure AI Foundry, OpenAI Direct, and Anthropic Claude, plus Microsoft Copilot Studio AI credits converted to USD, for the past 30 days. Break down tokens, AI credits, market cost, and negotiated cost by provider and model family.",
       "description": "Executive overview of total token volume, market vs negotiated cost, and provider market share.",
       "targetTables": ["ml.tokenomics_usage_fact", "ml.model_price_history"],
       "suggestedDimensions": ["source_code", "model_family", "usage_date"]
@@ -51,7 +51,7 @@
       "id": "provider-efficiency",
       "title": "Compare Token Efficiency Across Clouds",
       "category": "Model Optimization",
-      "prompt": "Compare cost per 1M tokens and cost per completed task across AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude. Which provider delivers the best price-performance for our current workload mix?",
+      "prompt": "Compare cost per 1M tokens and cost per completed task across AWS Bedrock, GCP Vertex AI, Azure AI Foundry, OpenAI Direct, and Anthropic Claude. Which provider delivers the best price-performance for our current workload mix?",
       "description": "Benchmarks price-performance by provider using effective negotiated rates.",
       "targetTables": ["ml.tokenomics_usage_fact", "ml.model_benchmark"],
       "suggestedDimensions": ["source_code", "model_family", "task_type"]
@@ -163,6 +163,69 @@
       "description": "Reads ontology.ontology_property to describe the attributes of the pricing and ML-insight business classes.",
       "targetTables": ["ontology.ontology_property", "ontology.ontology_class"],
       "suggestedDimensions": ["class_id", "property_name"]
+    },
+    {
+      "id": "copilot-studio-credits-usd",
+      "title": "Copilot Studio AI Credits in Dollars",
+      "category": "Copilot Studio",
+      "prompt": "Convert Microsoft Copilot Studio AI credit consumption to dollars for the past 30 days. Show total AI credits, list (market) USD, negotiated USD, and the effective USD per AI credit by agent, and confirm which credit rate was applied to each row.",
+      "description": "Converts Copilot Studio AI credits to USD using the governed credit rate on each usage row. Copilot Studio has no token telemetry, so cost is credits multiplied by the credit rate.",
+      "targetTables": ["ml.tokenomics_usage_fact", "prices.ai_credit_price_history"],
+      "suggestedDimensions": ["agent_id", "ai_credits", "market_cost_usd", "credit_unit_price_usd"]
+    },
+    {
+      "id": "copilot-studio-feature-mix",
+      "title": "Copilot Studio Credit Mix by Feature",
+      "category": "Copilot Studio",
+      "prompt": "Which Copilot Studio features consume the most AI credits in the last 30 days: classic answers, generative answers, agent actions, tenant graph grounding, agent flow actions, AI tools, content processing, or voice? Show credits and USD by feature and each feature's share of Copilot Studio spend.",
+      "description": "Breaks Copilot Studio AI credits and dollars down by billed feature (model_name copilot-studio-*) to find the credit-heavy features.",
+      "targetTables": ["ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["model_name", "ai_credits", "market_cost_usd"]
+    },
+    {
+      "id": "copilot-studio-top-agents",
+      "title": "Top Copilot Studio Agents by Spend",
+      "category": "Copilot Studio",
+      "prompt": "Rank the Copilot Studio agents by AI credits and USD for the past 30 days. Which agents are the top cost drivers, and which ones depend most on tenant graph grounding or premium AI tools credits?",
+      "description": "Ranks Copilot Studio agents by credit consumption and cost, and highlights the premium-feature share per agent.",
+      "targetTables": ["ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["agent_id", "application_id", "ai_credits", "market_cost_usd"]
+    },
+    {
+      "id": "copilot-studio-rate-card",
+      "title": "Copilot Studio Credit Rate Card",
+      "category": "Copilot Studio",
+      "prompt": "Show the governed Copilot Studio AI credit rate card: list pay-as-you-go USD per credit, negotiated USD per credit, and the prepaid pack effective rate (25,000 credits for $200 per month). Compare each rate with the effective USD per AI credit we paid this month.",
+      "description": "Reads prices.ai_credit_price_history to show list, negotiated, and prepaid credit rates next to the effective rate in the usage data.",
+      "targetTables": ["prices.ai_credit_price_history", "ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["market_usd_per_credit", "negotiated_usd_per_credit", "prepaid_effective_usd_per_credit"]
+    },
+    {
+      "id": "azure-foundry-spend-usd",
+      "title": "Azure AI Foundry Token Spend in Dollars",
+      "category": "Azure AI Foundry",
+      "prompt": "Summarize Azure AI Foundry token consumption and dollars for the past 30 days: input, cached, and output tokens, plus market and negotiated cost by model family. Use only token-billed Azure AI Foundry rows (service_code azure-ai-foundry) and exclude Copilot Studio credits.",
+      "description": "Shows token-billed Azure AI Foundry usage and its dollars, separated from Copilot Studio credit rows.",
+      "targetTables": ["ml.tokenomics_usage_fact", "prices.token_price_history"],
+      "suggestedDimensions": ["service_code", "model_family", "total_tokens", "market_cost_usd"]
+    },
+    {
+      "id": "microsoft-ai-total-spend",
+      "title": "Total Microsoft AI Spend: Foundry Tokens and Copilot Studio Credits",
+      "category": "Executive & FinOps",
+      "prompt": "Show total Microsoft AI consumption dollars for the past 30 days, split into Azure AI Foundry token cost and Copilot Studio credit cost, with each share of total AI spend across all five providers. Which of the two is growing faster week over week?",
+      "description": "Adds Azure AI Foundry token dollars and Copilot Studio credit dollars into one Microsoft AI total in USD.",
+      "targetTables": ["ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["service_code", "consumption_unit", "usage_date", "market_cost_usd"]
+    },
+    {
+      "id": "copilot-studio-vs-foundry-efficiency",
+      "title": "Copilot Studio vs Azure Foundry Unit Economics",
+      "category": "Model Optimization",
+      "prompt": "Compare Copilot Studio and Azure AI Foundry on dollars per completed task over the past 30 days, using tasks_completed and market cost from the usage fact. Explain any difference in unit economics and which agents or models drive it.",
+      "description": "Benchmarks the two Microsoft AI services on cost per completed task.",
+      "targetTables": ["ml.tokenomics_usage_fact"],
+      "suggestedDimensions": ["service_code", "tasks_completed", "market_cost_usd"]
     }
   ]
 }

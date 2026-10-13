@@ -29,6 +29,7 @@ export class TokenomicsChart implements AfterViewInit, OnChanges, OnDestroy {
   @Input() mode: 'trend' | 'allocation' = 'trend';
   @Input() rows: TokenomicsRow[] = [];
   @Input() currency = 'USD';
+  @Input() volumeUnit: 'tokens' | 'credits' = 'tokens';
   @Input() label = 'Tokenomics chart';
   @ViewChild('canvas') private canvas?: ElementRef<HTMLCanvasElement>;
   private chart?: Chart;
@@ -44,11 +45,12 @@ export class TokenomicsChart implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private trendConfiguration(): ChartConfiguration {
-    const buckets = new Map<string, { tokens: number; cost: number }>();
+    const credits = this.volumeUnit === 'credits';
+    const buckets = new Map<string, { volume: number; cost: number }>();
     for (const row of this.rows) {
       const key = row.TimeBucket ?? 'Unknown';
-      const bucket = buckets.get(key) ?? { tokens: 0, cost: 0 };
-      bucket.tokens += row.TotalTokens ?? 0;
+      const bucket = buckets.get(key) ?? { volume: 0, cost: 0 };
+      bucket.volume += credits ? (row.AiCredits ?? 0) : (row.TotalTokens ?? 0);
       bucket.cost += row.ActualCost ?? row.NegotiatedCost ?? 0;
       buckets.set(key, bucket);
     }
@@ -61,7 +63,7 @@ export class TokenomicsChart implements AfterViewInit, OnChanges, OnDestroy {
           return isNaN(d.getTime()) ? date : new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(d);
         }),
         datasets: [
-          { type: 'bar', label: 'Tokens (M)', data: entries.map(([, value]) => Number((value.tokens / 1_000_000).toFixed(2))), backgroundColor: '#16a3a5', borderRadius: 3, yAxisID: 'y' },
+          { type: 'bar', label: credits ? 'AI credits' : 'Tokens (M)', data: entries.map(([, value]) => (credits ? Math.round(value.volume) : Number((value.volume / 1_000_000).toFixed(2)))), backgroundColor: credits ? '#a21caf' : '#16a3a5', borderRadius: 3, yAxisID: 'y' },
           { type: 'line', label: 'Cost', data: entries.map(([, value]) => Number(value.cost.toFixed(2))), borderColor: '#f06435', backgroundColor: '#f06435', pointBackgroundColor: '#ffffff', pointBorderWidth: 3, pointRadius: 4, borderWidth: 3, tension: 0.28, yAxisID: 'y1' },
         ],
       },
@@ -72,7 +74,7 @@ export class TokenomicsChart implements AfterViewInit, OnChanges, OnDestroy {
         plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: '#52606f', font: { family: 'Aptos, Segoe UI, sans-serif' } } } },
         scales: {
           x: { grid: { display: false }, ticks: { color: '#667384' } },
-          y: { beginAtZero: true, grid: { color: '#e5e8eb' }, title: { display: true, text: 'Million tokens', color: '#667384' }, ticks: { color: '#667384' } },
+          y: { beginAtZero: true, grid: { color: '#e5e8eb' }, title: { display: true, text: credits ? 'AI credits' : 'Million tokens', color: '#667384' }, ticks: { color: '#667384' } },
           y1: { beginAtZero: true, position: 'right', grid: { display: false }, title: { display: true, text: this.currency, color: '#667384' }, ticks: { color: '#667384' } },
         },
       },
@@ -85,7 +87,7 @@ export class TokenomicsChart implements AfterViewInit, OnChanges, OnDestroy {
       data: {
         labels: this.rows.map(row => row.TeamId ?? row.ApplicationId ?? 'Unattributed'),
         datasets: [{
-          data: this.rows.map(row => row.ActualCost ?? row.TotalTokens ?? 0),
+          data: this.rows.map(row => row.ActualCost ?? row.NegotiatedCost ?? 0),
           backgroundColor: ['#1678c8', '#16a3a5', '#f06435', '#6b3fa0', '#2f7d32', '#d9a400'],
           borderColor: '#ffffff',
           borderWidth: 3,

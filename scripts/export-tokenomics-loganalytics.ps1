@@ -59,7 +59,7 @@ ScopedTokens
     input_tokens = tolong(PromptTokens), cached_input_tokens = long(0), cache_write_tokens = long(0),
     output_tokens = tolong(CompletionTokens), total_tokens = tolong(TotalTokens), context_window_tokens = long(0),
     tool_call_count = long(0), tool_success_count = long(0), retry_count = long(0), failure_count = long(0), latency_ms = long(0), status_code = long(200),
-    is_stream = tobool(IsStreamCompletion), currency = 'USD', reported_cost_usd = real(0), tasks_completed = long(0),
+    is_stream = tobool(IsStreamCompletion), currency = 'USD', reported_cost_usd = real(0), service_code = 'azure-ai-foundry', consumption_unit = 'tokens', ai_credits = real(0), credit_unit_price_usd = real(0), tasks_completed = long(0),
     hours_saved = real(0), tickets_reduced = long(0), code_generated_lines = long(0), quality_score = real(0), prompt_char_count = long(0), is_anomaly_seed = false,
     __expected_row_count = tolong(toscalar(ScopedTokens | count))
 | order by event_ts asc, event_id asc

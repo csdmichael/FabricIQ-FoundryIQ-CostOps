@@ -172,7 +172,7 @@ export class ShowcasePage implements OnInit {
   ];
 
   readonly features: FeatureItem[] = [
-    { icon: 'cloud-outline', title: 'Five-cloud ingestion', description: 'Normalized token telemetry from AWS Bedrock, GCP Vertex AI, Azure OpenAI, OpenAI Direct, and Anthropic Claude.' },
+    { icon: 'cloud-outline', title: 'Five-cloud ingestion', description: 'Normalized token telemetry from AWS Bedrock, GCP Vertex AI, Azure AI Foundry, OpenAI Direct, and Anthropic Claude, plus Microsoft Copilot Studio (AI credits converted to USD).' },
     { icon: 'pricetag-outline', title: 'Time-series rate cards', description: 'SHA-256-provenanced market and negotiated pricing with effective-dated joins across every provider.' },
     { icon: 'server-outline', title: 'Governed Fabric lakehouse', description: 'Token consumption and ML output tables with a governed tokenomics usage-fact star schema.' },
     { icon: 'sparkles-outline', title: '12 PySpark ML models', description: 'Anomaly detection, cost forecasting, chargeback, budget overrun, quota, prompt quality, and agent ROI.' },
@@ -185,7 +185,7 @@ export class ShowcasePage implements OnInit {
 
   readonly architectureLayers: ArchitectureLayer[] = [
     { title: 'Token & Pricing Ingestion', description: 'Multi-cloud token telemetry, Microsoft usage logs, and real-time pricing.', items: ['Azure API Management + Foundry (Microsoft)', 'AWS Bedrock, GCP Vertex AI, Anthropic Claude, OpenAI, Meta Llama', 'Azure / AWS / Google pricing APIs via Azure Function'] },
-    { title: 'Fabric Ingestion', description: 'Dataflow Gen2 unifies every source into one ingestion layer.', items: ['Microsoft token consumption (Log Analytics)', 'Other-provider token consumption (Blob / S3 / Cloud Storage)', 'Normalized multi-cloud pricing data'] },
+    { title: 'Fabric Ingestion', description: 'Dataflow Gen2 unifies every source into one ingestion layer.', items: ['Microsoft token consumption (Log Analytics)', 'Microsoft Copilot Studio (AI credits converted to USD)', 'Other-provider token consumption (Blob / S3 / Cloud Storage)', 'Normalized multi-cloud pricing data'] },
     { title: 'Governed Lakehouse (Medallion Architecture)', description: 'Bronze / Silver / Gold tiers on OneLake with an optional data agent.', items: ['Bronze — raw token consumption + pricing', 'Silver — merged, enriched, ML outputs added', 'Gold — semantic model & Power BI-ready tables', 'Fabric Data Agent (optionally with Fabric Ontology)'] },
     { title: 'Experience & Governance', description: 'Secure, responsive control plane and AI assistants.', items: ['Microsoft Foundry AI assistant', 'Angular / Ionic CostOps chat UI', 'Power BI dashboards & reports', 'Secure API gateway + identity'] },
   ];

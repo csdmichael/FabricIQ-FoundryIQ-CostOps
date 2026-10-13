@@ -7,6 +7,7 @@ const CURRENCY_FORMAT = '$#,##0.00;($#,##0.00);$0.00';
 const PERCENT_FORMAT = '0.0%';
 const DECIMAL_FORMAT = '#,##0.00';
 const INTEGER_FORMAT = '#,##0';
+const RATE_FORMAT = '$#,##0.0000';
 const DATE_FORMAT = 'yyyy-MM-dd';
 const DATETIME_FORMAT = 'yyyy-MM-dd HH:mm:ss';
 const PLACEHOLDER_SEMANTIC_MODEL_ID = '00000000-0000-0000-0000-000000000000';
@@ -31,6 +32,9 @@ const usageColumns = [
   ['application_id', 'string'],
   ['environment', 'string'],
   ['task_type', 'string'],
+  ['service_code', 'string'],
+  ['consumption_unit', 'string'],
+  ['agent_id', 'string'],
   ['request_count', 'int64', INTEGER_FORMAT],
   ['input_tokens', 'int64', INTEGER_FORMAT],
   ['cached_input_tokens', 'int64', INTEGER_FORMAT],
@@ -40,6 +44,8 @@ const usageColumns = [
   ['market_cost_usd', 'double', CURRENCY_FORMAT],
   ['negotiated_cost_usd', 'double', CURRENCY_FORMAT],
   ['actual_cost_usd', 'double', CURRENCY_FORMAT],
+  ['ai_credits', 'double', DECIMAL_FORMAT],
+  ['credit_unit_price_usd', 'double', RATE_FORMAT],
   ['tasks_completed', 'int64', INTEGER_FORMAT],
   ['quality_score', 'double', '0.000'],
 ];
@@ -99,6 +105,26 @@ const priceColumns = [
   ['negotiated_output_usd_per_million', 'double', CURRENCY_FORMAT],
   ['source_name', 'string'],
   ['source_uri', 'string'],
+];
+
+const aiCreditPriceColumns = [
+  ['price_id', 'string'],
+  ['source_code', 'string'],
+  ['service_code', 'string'],
+  ['pricing_unit', 'string'],
+  ['effective_from', 'dateTime', DATETIME_FORMAT],
+  ['effective_to', 'dateTime', DATETIME_FORMAT],
+  ['is_current', 'boolean'],
+  ['currency', 'string'],
+  ['market_usd_per_credit', 'double', RATE_FORMAT],
+  ['negotiated_usd_per_credit', 'double', RATE_FORMAT],
+  ['prepaid_pack_credits', 'int64', INTEGER_FORMAT],
+  ['prepaid_pack_price_usd', 'double', CURRENCY_FORMAT],
+  ['prepaid_effective_usd_per_credit', 'double', RATE_FORMAT],
+  ['source_type', 'string'],
+  ['source_name', 'string'],
+  ['source_uri', 'string'],
+  ['source_payload_sha256', 'string'],
 ];
 
 const runColumns = [
@@ -193,6 +219,13 @@ function usageMeasures() {
     measure('Active Projects', "DISTINCTCOUNT('Usage'[project_id])", INTEGER_FORMAT),
     measure('Active Models', "DISTINCTCOUNT('Usage'[model_name])", INTEGER_FORMAT),
     measure('Completed Tasks', "SUM('Usage'[tasks_completed])", INTEGER_FORMAT),
+    measure('AI Credits', "SUM('Usage'[ai_credits])", DECIMAL_FORMAT),
+    // A SUM over no Copilot Studio rows is blank, so token-only categories drop out of credit charts.
+    measure('Copilot Studio AI Credits', "CALCULATE([AI Credits], 'Usage'[service_code] = \"copilot-studio\")", DECIMAL_FORMAT),
+    measure('Copilot Studio Cost', "CALCULATE([Market Cost], 'Usage'[service_code] = \"copilot-studio\")", CURRENCY_FORMAT),
+    measure('Copilot Studio Negotiated Cost', "CALCULATE([Negotiated Cost], 'Usage'[service_code] = \"copilot-studio\")", CURRENCY_FORMAT),
+    measure('Azure AI Foundry Cost', "CALCULATE([Market Cost], 'Usage'[service_code] = \"azure-ai-foundry\")", CURRENCY_FORMAT),
+    measure('Effective USD per AI Credit', "DIVIDE(CALCULATE([Reported Cost], 'Usage'[service_code] = \"copilot-studio\"), [AI Credits])", RATE_FORMAT),
   ];
 }
 
@@ -246,6 +279,15 @@ function semanticModelDefinition(config, metadata) {
         measure('Negotiated Input Rate', "AVERAGE('Price History'[negotiated_input_usd_per_million])", CURRENCY_FORMAT),
         measure('Negotiated Output Rate', "AVERAGE('Price History'[negotiated_output_usd_per_million])", CURRENCY_FORMAT),
       ],
+      sqlEndpointHost: metadata.sqlEndpointConnectionString,
+      databaseName: fabric.lakehouseName,
+    }),
+    modelTable({
+      name: 'AI Credit Price History',
+      schema: outputSchema,
+      sourceTable: fabric.reportingTables.aiCreditPriceHistory,
+      columns: aiCreditPriceColumns,
+      measures: [],
       sqlEndpointHost: metadata.sqlEndpointConnectionString,
       databaseName: fabric.lakehouseName,
     }),
@@ -479,12 +521,14 @@ function consumptionReport(config, semanticModelId) {
   const executive = 'Executive Overview';
   const executiveContext = pageContext(executive);
   const executiveVisuals = [
-    card(executiveContext, 'Usage', 'Total Tokens', 'Total Tokens', 16, 16, 1000),
-    card(executiveContext, 'Usage', 'Market Cost', 'Market Cost', 224, 16, 2000),
-    card(executiveContext, 'Usage', 'Negotiated Cost', 'Negotiated Cost', 432, 16, 3000),
-    card(executiveContext, 'Usage', 'Potential Savings', 'Potential Savings', 640, 16, 4000),
-    card(executiveContext, 'Usage', 'Active Users', 'Active Users', 848, 16, 5000),
-    card(executiveContext, 'Usage', 'Active Projects', 'Active Projects', 1056, 16, 6000),
+    card(executiveContext, 'Usage', 'Total Tokens', 'Total Tokens', 16, 16, 1000, 150),
+    card(executiveContext, 'Usage', 'Market Cost', 'Market Cost', 174, 16, 2000, 150),
+    card(executiveContext, 'Usage', 'Negotiated Cost', 'Negotiated Cost', 332, 16, 3000, 150),
+    card(executiveContext, 'Usage', 'Potential Savings', 'Potential Savings', 490, 16, 4000, 150),
+    card(executiveContext, 'Usage', 'Active Users', 'Active Users', 648, 16, 5000, 150),
+    card(executiveContext, 'Usage', 'Active Projects', 'Active Projects', 806, 16, 6000, 150),
+    card(executiveContext, 'Usage', 'Copilot Studio Cost', 'Copilot Studio Cost', 964, 16, 6500, 150),
+    card(executiveContext, 'Usage', 'Azure AI Foundry Cost', 'Azure AI Foundry Cost', 1122, 16, 6600, 150),
     chart(executiveContext, { visualType: 'lineChart', entity: 'Usage', category: 'usage_date', measures: ['Market Cost', 'Negotiated Cost', 'Reported Cost'], title: 'Cost Across Date', x: 16, y: 120, width: 816, height: 280, z: 7000 }),
     chart(executiveContext, { visualType: 'pieChart', entity: 'Usage', category: 'source_code', measures: ['Market Cost'], title: 'Cost by Model Provider', x: 848, y: 120, width: 416, height: 280, z: 8000 }),
     chart(executiveContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'team_id', measures: ['Market Cost'], title: 'Cost by Team', x: 16, y: 416, width: 608, height: 288, z: 9000 }),
@@ -498,16 +542,18 @@ function consumptionReport(config, semanticModelId) {
     user_name: 'Person Name', user_email: 'Email', job_title: 'Job Title', project_id: 'Project',
     department_id: 'Department', business_unit_id: 'Business Unit', cost_center_id: 'Cost Center', application_id: 'Application',
     environment: 'Environment', source_code: 'Provider', model_family: 'Model Family', model_name: 'Model',
-    model_version: 'Version', task_type: 'Task Type',
+    model_version: 'Version', task_type: 'Task Type', service_code: 'Service',
+    consumption_unit: 'Consumption Unit',
   };
   const reportDimensions = config.tokenomicsPlatform.fabric.reportDimensions;
   const slicerFields = reportDimensions.map(property => [property, slicerTitles[property] ?? property]);
   const explorerVisuals = slicerFields.map(([property, title], index) =>
     slicer(explorerContext, 'Usage', property, title, 16 + (index % 8) * 156, 16 + Math.floor(index / 8) * 80, 1000 + index * 100),
   );
+  // Twenty slicers wrap to three rows of eight, so the charts below start after y=252.
   explorerVisuals.push(
-    chart(explorerContext, { visualType: 'lineChart', entity: 'Usage', category: 'event_ts', measures: ['Total Tokens', 'Market Cost'], title: 'Token Consumption and Dollars Across Time', x: 16, y: 184, width: 1248, height: 220, z: 3000 }),
-    tableVisual(explorerContext, { entity: 'Usage', columns: reportDimensions, measures: ['Total Requests', 'Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost'], title: 'Governed Consumption and Cost Detail', x: 16, y: 420, width: 1248, height: 284, z: 4000 }),
+    chart(explorerContext, { visualType: 'lineChart', entity: 'Usage', category: 'event_ts', measures: ['Total Tokens', 'Market Cost'], title: 'Token Consumption and Dollars Across Time', x: 16, y: 264, width: 1248, height: 160, z: 3000 }),
+    tableVisual(explorerContext, { entity: 'Usage', columns: reportDimensions, measures: ['Total Requests', 'Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost'], title: 'Governed Consumption and Cost Detail', x: 16, y: 436, width: 1248, height: 268, z: 4000 }),
   );
 
   const chargeback = 'Chargeback and Allocation';
@@ -561,11 +607,26 @@ function consumptionReport(config, semanticModelId) {
     slicer(providerDrilldownContext, 'Usage', 'project_id', 'Project', 1072, 16, 4200, 192),
     matrixVisual(providerDrilldownContext, {
       entity: 'Usage',
-      rows: ['source_code', 'model_family', 'model_name', 'model_version', 'user_id_hash'],
+      rows: ['source_code', 'service_code', 'model_family', 'model_name', 'model_version', 'user_id_hash'],
       measures: ['Total Tokens', 'Reported Cost', 'Market Cost', 'Negotiated Cost'],
-      title: 'Provider > Model Family > Model > Version > User',
+      title: 'Provider > Service > Model Family > Model > Version > User',
       x: 16, y: 120, width: 1248, height: 584, z: 5000,
     }),
+  ];
+
+  const copilot = 'Copilot Studio & Azure Foundry';
+  const copilotContext = pageContext(copilot);
+  const copilotVisuals = [
+    card(copilotContext, 'Usage', 'AI Credits', 'AI Credits', 16, 16, 1000),
+    card(copilotContext, 'Usage', 'Copilot Studio Cost', 'Copilot Studio Cost', 224, 16, 2000),
+    card(copilotContext, 'Usage', 'Copilot Studio Negotiated Cost', 'Copilot Studio Negotiated Cost', 432, 16, 3000),
+    card(copilotContext, 'Usage', 'Azure AI Foundry Cost', 'Azure AI Foundry Cost', 640, 16, 4000),
+    card(copilotContext, 'Usage', 'Effective USD per AI Credit', 'Effective USD per AI Credit', 848, 16, 5000),
+    chart(copilotContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'agent_id', measures: ['Copilot Studio Cost'], title: 'Copilot Studio USD by Agent', x: 16, y: 120, width: 608, height: 240, z: 6000 }),
+    chart(copilotContext, { visualType: 'clusteredBarChart', entity: 'Usage', category: 'model_name', measures: ['Copilot Studio AI Credits'], title: 'AI Credits by Feature', x: 640, y: 120, width: 624, height: 240, z: 7000 }),
+    chart(copilotContext, { visualType: 'lineChart', entity: 'Usage', category: 'usage_date', measures: ['Copilot Studio AI Credits'], title: 'AI Credits Across Date', x: 16, y: 372, width: 608, height: 200, z: 8000 }),
+    chart(copilotContext, { visualType: 'lineChart', entity: 'Usage', category: 'usage_date', measures: ['Copilot Studio Cost', 'Azure AI Foundry Cost'], title: 'USD by Service Across Date', x: 640, y: 372, width: 624, height: 200, z: 9000 }),
+    tableVisual(copilotContext, { entity: 'AI Credit Price History', columns: ['service_code', 'effective_from', 'effective_to', 'is_current', 'market_usd_per_credit', 'negotiated_usd_per_credit', 'prepaid_pack_credits', 'prepaid_pack_price_usd', 'prepaid_effective_usd_per_credit', 'source_name'], title: 'Copilot Studio AI Credit Rate Card', x: 16, y: 588, width: 1248, height: 116, z: 10000 }),
   ];
 
   return reportDefinition({
@@ -579,6 +640,7 @@ function consumptionReport(config, semanticModelId) {
       reportPage(explorer, explorerVisuals),
       reportPage(chargeback, chargebackVisuals),
       reportPage(economics, economicsVisuals),
+      reportPage(copilot, copilotVisuals),
     ],
   });
 }
@@ -692,6 +754,7 @@ export function generatePowerBiArtifacts(config, metadata, semanticModelId = PLA
     { qualifiedName: `${fabric.outputSchema}.${fabric.reportingTables.usageFact}`, semanticTable: 'Usage', columns: usageColumns.map(([name]) => name) },
     { qualifiedName: `${fabric.outputSchema}.${fabric.reportingTables.insightFact}`, semanticTable: 'ML Insights', columns: insightColumns.map(([name]) => name) },
     { qualifiedName: `${fabric.pricesSchema ?? fabric.outputSchema}.${fabric.pricesTable ?? fabric.reportingTables.priceHistory}`, semanticTable: 'Price History', columns: priceColumns.map(([name]) => name) },
+    { qualifiedName: `${fabric.outputSchema}.${fabric.reportingTables.aiCreditPriceHistory}`, semanticTable: 'AI Credit Price History', columns: aiCreditPriceColumns.map(([name]) => name) },
     { qualifiedName: `${fabric.outputSchema}.${fabric.reportingTables.runLedger}`, semanticTable: 'Model Runs', columns: runColumns.map(([name]) => name) },
     ...fabric.mlUseCases.map((useCase, index) => ({
       qualifiedName: `${fabric.outputSchema}.${useCase.outputTableName}`,
@@ -707,10 +770,10 @@ export function generatePowerBiArtifacts(config, metadata, semanticModelId = PLA
     semanticModel: {
       name: fabric.semanticModelName,
       semanticModelId,
-      tableCount: 4 + fabric.mlUseCases.length,
+      tableCount: tableContracts.length,
     },
     reports: [
-      { name: fabric.reportName, pageNames: ['Executive Overview', 'Consumption by User', 'Consumption by Provider', 'Usage and Cost Explorer', 'Chargeback and Allocation', 'Model Economics'] },
+      { name: fabric.reportName, pageNames: ['Executive Overview', 'Consumption by User', 'Consumption by Provider', 'Usage and Cost Explorer', 'Chargeback and Allocation', 'Model Economics', 'Copilot Studio & Azure Foundry'] },
       { name: fabric.mlReportName, pageNames: ['ML Portfolio Overview', ...fabric.mlUseCases.map((useCase, index) => `${String(index + 1).padStart(2, '0')} ${useCase.displayName}`), 'Model Governance'] },
     ],
     dashboards: [

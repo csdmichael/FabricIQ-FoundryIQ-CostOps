@@ -88,7 +88,7 @@ if ([int]$tokenomicsPlatform.syntheticData.recordCount -lt 4000 -or [int]$tokeno
     [int64]$tokenomicsPlatform.syntheticData.randomSeed -lt 1) {
     throw 'Tokenomics synthetic-data scale must remain bounded and production-like.'
 }
-if (@($tokenomicsPlatform.syntheticData.sourceCodes) -join ',' -ne 'aws,gcp,oai,cld' -or
+if (@($tokenomicsPlatform.syntheticData.sourceCodes) -join ',' -ne 'aws,gcp,oai,cld,msft' -or
     @($tokenomicsPlatform.fabric.sourceSchemas) -join ',' -ne 'aws,gcp,oai,cld,msft' -or
     $tokenomicsPlatform.fabric.outputSchema -ne 'ml') {
     throw 'Tokenomics source and output schema codes must use aws,gcp,oai,cld,msft and ml.'
@@ -104,9 +104,9 @@ if ($mlUseCases.Count -ne 12 -or @($mlUseCases.key | Select-Object -Unique).Coun
     throw 'Tokenomics ML configuration must contain 12 unique use cases, folders, notebook pairs, and output tables.'
 }
 $reportingTables = @($tokenomicsPlatform.fabric.reportingTables.PSObject.Properties.Value)
-$requiredReportDimensions = @('event_ts', 'usage_date', 'team_id', 'user_id_hash', 'project_id', 'department_id', 'business_unit_id', 'cost_center_id', 'application_id', 'environment', 'source_code', 'model_family', 'model_name', 'model_version', 'task_type')
+$requiredReportDimensions = @('event_ts', 'usage_date', 'team_id', 'user_id_hash', 'user_name', 'user_email', 'job_title', 'project_id', 'department_id', 'business_unit_id', 'cost_center_id', 'application_id', 'environment', 'source_code', 'model_family', 'model_name', 'model_version', 'task_type', 'service_code', 'consumption_unit')
 $configuredReportDimensions = @($tokenomicsPlatform.fabric.reportDimensions)
-if ($reportingTables.Count -ne 4 -or @($reportingTables | Select-Object -Unique).Count -ne 4 -or
+if ($reportingTables.Count -ne 5 -or @($reportingTables | Select-Object -Unique).Count -ne 5 -or
     @($reportingTables | Where-Object { $_ -notmatch '^[a-z][a-z0-9_]{0,127}$' }).Count -gt 0 -or
     ($configuredReportDimensions -join ',') -ne ($requiredReportDimensions -join ',') -or
     @(@($config.tokenomicsPlatform.fabric.reportName, $config.tokenomicsPlatform.fabric.mlReportName) | Select-Object -Unique).Count -ne 2 -or

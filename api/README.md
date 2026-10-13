@@ -23,8 +23,7 @@ embed configuration for the dashboards built on the same OneLake tables.
 | GET    | `/health`        | Liveness + Fabric connectivity probe                    |
 | GET    | `/summary`       | `TokenomicsDashboard` for `?days=1\|7\|30\|90`           |
 | GET    | `/pricing`       | Current multi-cloud model rate cards                    |
-| GET    | `/pricing/consumption` | Total consumption cost joined to the `prices` history for `?days=1\|7\|30\|90` |
-| GET    | `/actions`       | Data-driven FinOps action plans for `?days=1\|7\|30\|90` |
+| GET    | `/pricing/consumption` | Total consumption cost for `?days=1\|7\|30\|90`: token usage joined to the `prices` history; Copilot Studio costed from stored USD || GET    | `/actions`       | Data-driven FinOps action plans for `?days=1\|7\|30\|90` |
 | GET    | `/powerbi/embed` | Power BI report + dashboard embed configuration         |
 
 The `/summary` response matches the `TokenomicsDashboard` TypeScript contract
@@ -36,6 +35,64 @@ consumed by the Angular UI (`ui/src/app/tokenomics.model.ts`).
   recent requests.
 - `<provider>.token_consumption` — best-effort p95 latency.
 - `config.powerBi.*` — Power BI embed IDs and URLs.
+
+## Provider labels
+
+Usage and price rows carry a PascalCase `Provider` label. Azure AI Foundry (token-billed) and
+Microsoft Copilot Studio (AI-credit-billed) both use `source_code` `msft`, so `service_code` picks the label.
+
+| `source_code` | `service_code`             | `Provider` label         |
+|---------------|----------------------------|--------------------------|
+| `msft`        | `copilot-studio`           | Microsoft Copilot Studio |
+| `msft`        | `azure-ai-foundry` or null | Azure AI Foundry         |
+| `aws`         | any                        | AWS Bedrock              |
+| `gcp`         | any                        | GCP Vertex AI            |
+| `oai`         | any                        | OpenAI Direct            |
+| `cld`         | any                        | Anthropic Claude         |
+
+Names come from `dashboardApi.providers` and `dashboardApi.serviceProviders` in
+[`config/deployment.json`](../config/deployment.json). When `serviceProviders` is absent, the two
+Microsoft labels above are the fallback.
+
+## AI credits (Microsoft Copilot Studio)
+
+Copilot Studio rows (`service_code` `copilot-studio`, `consumption_unit` `ai_credits`) carry no token
+telemetry. Their dollars are `ai_credits` × `credit_unit_price_usd`, stored in `market_cost_usd` and
+`negotiated_cost_usd`. The `TokenomicsRow` objects in `trend`, `allocations`, `models`, and
+`recentRequests` expose these fields:
+
+| Field                | Meaning                                                                   |
+|----------------------|---------------------------------------------------------------------------|
+| `ServiceCode`        | `azure-ai-foundry`, `copilot-studio`, or null for non-Microsoft rows      |
+| `ConsumptionUnit`    | `tokens` or `ai_credits`                                                  |
+| `AiCredits`          | Credits consumed (null on token-only rows)                                |
+| `CreditUnitPriceUsd` | Credit-weighted USD per credit, four decimals                             |
+| `AgentId`            | Copilot Studio agent name or token-row agent id (set on `recentRequests`) |
+
+`allocations` and `models` group by `service_code`, so the two Microsoft products never merge. They are
+not split by agent, which keeps their row counts unchanged.
+
+Totals: `summary.aiCredits`. `summary.tokenizedRequests` and `tokenCoveragePct` count token-billed
+requests only. `/pricing/consumption` returns `aiCredits`, `/users/consumption` returns `aiCredits` per
+user plus `totalAiCredits`, and `/users/segmentation` clusters return `totalAiCredits`.
+
+## Agent tools
+
+[`app/agent_tools.py`](app/agent_tools.py) declares the tools in `tool_definitions()` and maps each name
+to its handler in `handlers()`. A test fails if the two lists differ.
+
+| Tool | Purpose |
+|---|---|
+| `get_spend_summary`, `get_top_models`, `get_cost_by_dimension` | Totals and rankings with `aiCredits`. The `provider` dimension reports the two Microsoft products separately. |
+| `get_consumption_cost` | Token usage re-priced from the price history; Copilot Studio costed from stored USD. |
+| `get_model_pricing`, `get_price_changes` | Token rate cards and price history (`prices.token_price_history`). |
+| `get_ai_credit_rates` | Current Copilot Studio rates (list, negotiated, prepaid pack) from `prices.ai_credit_price_history` where `is_current = 1`. The table name can be overridden with `dashboardApi.aiCreditPriceTable`. |
+
+Provider codes are `aws`, `gcp`, `msft`, `oai`, `cld`, and `cps`. `msft` covers both Microsoft products.
+`cps` is the alias for Copilot Studio. `get_ai_credit_rates` translates it to
+`source_code = 'msft' AND service_code = 'copilot-studio'`. The token price tables have no `service_code`,
+so `get_model_pricing` and `get_price_changes` return no rows for `cps` and a note that points to
+`get_ai_credit_rates`.
 
 ## Run locally
 

@@ -47,10 +47,33 @@ def _load_json(path: Path) -> dict[str, Any]:
         return json.load(handle)
 
 
+# Microsoft (source_code ``msft``) rows are split into products by service_code:
+# Azure AI Foundry is token-billed, Microsoft Copilot Studio is AI-credit-billed.
+SERVICE_AZURE_AI_FOUNDRY = "azure-ai-foundry"
+SERVICE_COPILOT_STUDIO = "copilot-studio"
+
+
 @dataclass(frozen=True)
 class ProviderInfo:
     code: str
     name: str
+
+
+@dataclass(frozen=True)
+class ServiceProviderInfo:
+    """A billable product under a provider, such as Copilot Studio under ``msft``."""
+
+    service_code: str
+    provider_code: str
+    name: str
+    consumption_unit: str = "tokens"
+
+
+# Labels used when dashboardApi.serviceProviders is absent from the config.
+_FALLBACK_SERVICE_PROVIDERS: list[ServiceProviderInfo] = [
+    ServiceProviderInfo(SERVICE_AZURE_AI_FOUNDRY, "msft", "Azure AI Foundry", "tokens"),
+    ServiceProviderInfo(SERVICE_COPILOT_STUDIO, "msft", "Microsoft Copilot Studio", "ai_credits"),
+]
 
 
 @dataclass(frozen=True)
@@ -128,6 +151,10 @@ class Settings:
     # Pricing source of truth (Fabric ``prices`` schema)
     prices_schema: str = "prices"
     prices_table: str = "token_price_history"
+    ai_credit_price_table: str = "ai_credit_price_history"
+
+    # Products under a provider (Azure AI Foundry vs Copilot Studio under msft)
+    service_providers: list[ServiceProviderInfo] = field(default_factory=list)
 
     # Public showcase visit analytics
     showcase_cosmos_endpoint: str = ""
@@ -145,6 +172,23 @@ class Settings:
             if provider.code == code:
                 return provider.name
         return code
+
+    def provider_label(self, source_code: str | None, service_code: str | None = None) -> str | None:
+        """Provider label for a usage or price row.
+
+        Azure AI Foundry (token-billed) and Microsoft Copilot Studio (credit-billed)
+        both use source_code ``msft``, so the service decides the label for Microsoft
+        rows. Every other source is labelled by ``provider_name``.
+        """
+        if source_code is None:
+            return None
+        code = str(source_code)
+        if code == "msft":
+            service = str(service_code or SERVICE_AZURE_AI_FOUNDRY)
+            for entry in self.service_providers or _FALLBACK_SERVICE_PROVIDERS:
+                if entry.provider_code == code and entry.service_code == service:
+                    return entry.name
+        return self.provider_name(code)
 
     def resolve_window(self, days: int | None) -> int:
         if days is None:
@@ -185,6 +229,16 @@ def get_settings() -> Settings:
 
     providers = [
         ProviderInfo(code=p["code"], name=p["name"]) for p in api_cfg.get("providers", [])
+    ]
+
+    service_providers = [
+        ServiceProviderInfo(
+            service_code=str(s["serviceCode"]),
+            provider_code=str(s["providerCode"]),
+            name=str(s["name"]),
+            consumption_unit=str(s.get("consumptionUnit", "tokens")),
+        )
+        for s in api_cfg.get("serviceProviders", [])
     ]
 
     def _artifact(id_key: str, name_key: str, url_key: str) -> PowerBiArtifact | None:
@@ -274,6 +328,8 @@ def get_settings() -> Settings:
         apim_model_token_limit_per_minute=int(apim_cfg.get("modelTokenLimitPerMinute", 50000)),
         prices_schema=str(api_cfg.get("pricesSchema", "prices")),
         prices_table=str(api_cfg.get("pricesTable", "token_price_history")),
+        ai_credit_price_table=str(api_cfg.get("aiCreditPriceTable", "ai_credit_price_history")),
+        service_providers=service_providers,
         showcase_cosmos_endpoint=os.environ.get(
             "SHOWCASE_COSMOS_ENDPOINT",
             f"https://{platform_cosmos.get('accountName', '')}.documents.azure.com:443/"

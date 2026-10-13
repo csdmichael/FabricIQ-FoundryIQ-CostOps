@@ -67,6 +67,7 @@ import { ChatExportService } from './chat-export';
 import { ChatHistoryService } from './chat-history.service';
 import { PowerBiEmbed } from './powerbi-embed';
 import { PromptLibraryService } from './prompt-library.service';
+import { COPILOT_STUDIO_RATE_CARD } from './reference-data';
 import { ResultBlock } from './result-block';
 import { ResultChart } from './result-chart';
 import { ShowcasePage } from './showcase.page';
@@ -103,7 +104,8 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
   { id: 'all', name: 'All Clouds (5)', shortName: 'All', code: 'all' },
   { id: 'aws', name: 'AWS Bedrock', shortName: 'AWS', code: 'aws' },
   { id: 'gcp', name: 'GCP Vertex AI', shortName: 'GCP', code: 'gcp' },
-  { id: 'msft', name: 'Azure OpenAI', shortName: 'Azure', code: 'msft' },
+  { id: 'msft', name: 'Azure AI Foundry', shortName: 'Azure Foundry', code: 'msft' },
+  { id: 'cps', name: 'Microsoft Copilot Studio', shortName: 'Copilot Studio', code: 'cps' },
   { id: 'oai', name: 'OpenAI Direct', shortName: 'OpenAI', code: 'oai' },
   { id: 'cld', name: 'Anthropic Claude', shortName: 'Claude', code: 'cld' },
 ];
@@ -170,6 +172,7 @@ export class App implements OnInit {
 
   // Multi-Cloud Provider Filter State
   readonly providerOptions = PROVIDER_OPTIONS;
+  readonly copilotRateCard = COPILOT_STUDIO_RATE_CARD;
   readonly selectedProvider = signal<string>('all');
   readonly allocationSearch = signal<string>('');
 
@@ -268,6 +271,41 @@ export class App implements OnInit {
     return opt?.name ?? 'All Clouds (5)';
   });
 
+  /** Copilot Studio rows are AI-credit billed and carry no token telemetry. */
+  isCopilotStudioRow(row: Pick<TokenomicsRow, 'ServiceCode' | 'Provider'>): boolean {
+    return row.ServiceCode === 'copilot-studio' || (row.Provider ?? '').toLowerCase().includes('copilot');
+  }
+
+  /** Maps an API provider label to its filter/CSS code. Copilot Studio is checked before the Azure fallback. */
+  providerCode(provider: string | null | undefined): string {
+    const p = (provider ?? '').toLowerCase();
+    if (p.includes('copilot')) return 'cps';
+    if (p.includes('aws')) return 'aws';
+    if (p.includes('gcp')) return 'gcp';
+    if (p.includes('anthropic')) return 'cld';
+    if (p.includes('direct')) return 'oai';
+    return 'msft';
+  }
+
+  /** Copilot Studio totals from ledger rows. Effective rates are null when no credits were consumed. */
+  readonly copilotStudio = computed(() => {
+    const rows = (this.dashboard()?.allocations ?? []).filter(row => this.isCopilotStudioRow(row));
+    const aiCredits = rows.reduce((sum, row) => sum + (row.AiCredits ?? 0), 0);
+    const marketCost = rows.reduce((sum, row) => sum + (row.MarketCost ?? 0), 0);
+    const negotiatedCost = rows.reduce((sum, row) => sum + (row.NegotiatedCost ?? 0), 0);
+    return {
+      aiCredits,
+      marketCost,
+      negotiatedCost,
+      effectiveListUsdPerCredit: aiCredits > 0 ? marketCost / aiCredits : null,
+      effectiveNegotiatedUsdPerCredit: aiCredits > 0 ? negotiatedCost / aiCredits : null,
+    };
+  });
+
+  usdPerCredit(value: number | null): string {
+    return value === null ? '—' : this.money(value, 4);
+  }
+
   matchesProvider(providerString?: string, modelString?: string, targetFilter?: string): boolean {
     const filter = targetFilter ?? this.selectedProvider();
     if (!filter || filter === 'all') return true;
@@ -281,7 +319,9 @@ export class App implements OnInit {
         return p.includes('gcp') || p.includes('vertex') || m.includes('gemini');
       case 'msft':
       case 'azure':
-        return p.includes('azure') || p.includes('foundry') || p.includes('msft') || (p.includes('openai') && !p.includes('direct') && !p.includes('oai'));
+        return !p.includes('copilot') && (p.includes('azure') || p.includes('foundry') || p.includes('msft') || (p.includes('openai') && !p.includes('direct') && !p.includes('oai')));
+      case 'cps':
+        return p.includes('copilot');
       case 'oai':
       case 'openai':
         return (p.includes('direct') || p.includes('oai') || p.includes('openai direct')) || (p.includes('openai') && !p.includes('azure'));
@@ -327,6 +367,7 @@ export class App implements OnInit {
     if (filter === 'all') {
       return {
         ...data.summary,
+        aiCredits: this.copilotStudio().aiCredits,
         dedicatedModelCost: data.actualCost.dedicatedModelCost,
         scopeCost: data.actualCost.scopeCost,
         activeModelsCount: data.models.length,
@@ -345,18 +386,21 @@ export class App implements OnInit {
     const negotiatedCost = Number(allocations.reduce((sum, r) => sum + (r.NegotiatedCost ?? 0), 0).toFixed(2));
     const dedicatedModelCost = Number(allocations.reduce((sum, r) => sum + (r.ActualCost ?? r.NegotiatedCost ?? 0), 0).toFixed(2));
     const savings = Number((marketCost - negotiatedCost).toFixed(2));
+    const aiCredits = allocations.reduce((sum, r) => sum + (r.AiCredits ?? 0), 0);
+    const isCopilot = filter === 'cps';
 
-    const p95Latency = filter === 'gcp' ? 260 : filter === 'aws' ? 290 : filter === 'msft' ? 310 : filter === 'cld' ? 340 : 380;
+    const p95Latency = filter === 'gcp' ? 260 : filter === 'aws' ? 290 : filter === 'msft' ? 310 : filter === 'cps' ? 350 : filter === 'cld' ? 340 : 380;
 
     return {
       requests,
       successfulRequests,
       failedRequests,
-      tokenizedRequests: requests,
-      tokenCoveragePct: 100,
+      tokenizedRequests: isCopilot ? 0 : requests,
+      tokenCoveragePct: isCopilot ? 0 : 100,
       inputTokens: Math.round(totalTokens * 0.72),
       outputTokens: Math.round(totalTokens * 0.28),
       totalTokens,
+      aiCredits,
       p95LatencyMs: p95Latency,
       marketCost,
       negotiatedCost,
@@ -377,15 +421,19 @@ export class App implements OnInit {
     const fullTrend = data.trend;
     if (filter === 'all') return fullTrend;
 
-    const allAllocations = data.allocations;
-    const allTokens = allAllocations.reduce((acc, r) => acc + (r.TotalTokens ?? 0), 0) || 1;
-    const providerTokens = (data.allocations.filter(r => this.matchesProvider(r.Provider, r.Model, filter)))
-      .reduce((acc, r) => acc + (r.TotalTokens ?? 0), 0);
-    const ratio = providerTokens / allTokens;
+    // Copilot Studio has no token telemetry, so its share is measured in list USD and shown as AI credits.
+    const isCopilot = filter === 'cps';
+    const basis = (r: TokenomicsRow): number => (isCopilot ? (r.MarketCost ?? 0) : (r.TotalTokens ?? 0));
+    const totalBasis = data.allocations.reduce((acc, r) => acc + basis(r), 0) || 1;
+    const providerBasis = data.allocations
+      .filter(r => this.matchesProvider(r.Provider, r.Model, filter))
+      .reduce((acc, r) => acc + basis(r), 0);
+    const ratio = providerBasis / totalBasis;
 
     return fullTrend.map(row => ({
       ...row,
-      TotalTokens: Math.round((row.TotalTokens ?? 0) * ratio),
+      TotalTokens: isCopilot ? 0 : Math.round((row.TotalTokens ?? 0) * ratio),
+      AiCredits: isCopilot ? Math.round(((row.MarketCost ?? 0) * ratio) / COPILOT_STUDIO_RATE_CARD.listUsdPerCredit) : 0,
       MarketCost: Number(((row.MarketCost ?? 0) * ratio).toFixed(2)),
       NegotiatedCost: Number(((row.NegotiatedCost ?? 0) * ratio).toFixed(2)),
       ActualCost: Number(((row.ActualCost ?? 0) * ratio).toFixed(2)),
@@ -414,12 +462,14 @@ export class App implements OnInit {
         : right === null || right === undefined ? left : left + right
     );
     for (const row of this.filteredAllocations()) {
-      const key = [row.ApplicationId, row.ProjectId, row.TeamId, row.CostCenter].join('|');
+      // Copilot Studio credit lines stay separate from token lines so each row shows a single volume unit.
+      const key = [row.ApplicationId, row.ProjectId, row.TeamId, row.CostCenter, this.isCopilotStudioRow(row) ? 'cps' : 'tokens'].join('|');
       const current = grouped.get(key);
       grouped.set(key, current ? {
         ...current,
         Requests: (current.Requests ?? 0) + (row.Requests ?? 0),
         TotalTokens: (current.TotalTokens ?? 0) + (row.TotalTokens ?? 0),
+        AiCredits: (current.AiCredits ?? 0) + (row.AiCredits ?? 0),
         MarketCost: addNullable(current.MarketCost, row.MarketCost),
         NegotiatedCost: addNullable(current.NegotiatedCost, row.NegotiatedCost),
         ActualCost: addNullable(current.ActualCost, row.ActualCost),
@@ -1151,6 +1201,10 @@ export class App implements OnInit {
   }
 
   allocationShare(row: TokenomicsRow): number {
+    if (this.isCopilotStudioRow(row)) {
+      const credits = this.copilotStudio().aiCredits;
+      return credits ? ((row.AiCredits ?? 0) / credits) * 100 : 0;
+    }
     const total = this.filteredSummary()?.totalTokens || this.dashboard()?.summary.totalTokens || 0;
     return total ? ((row.TotalTokens ?? 0) / total) * 100 : 0;
   }

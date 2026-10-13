@@ -17,6 +17,7 @@ export interface UserConsumptionItem {
   marketCost: number;
   negotiatedCost: number;
   requestCount: number;
+  aiCredits?: number;
   clusterId?: number;
   clusterName?: string;
   primaryModel?: string;
@@ -128,6 +129,13 @@ export interface TokenomicsRow {
   NegotiatedCost?: number | null;
   ActualCost?: number | null;
   PricedTokens?: number;
+  /** Microsoft product code: 'azure-ai-foundry' (token-billed) or 'copilot-studio' (AI-credit-billed). Null for other clouds. */
+  ServiceCode?: 'azure-ai-foundry' | 'copilot-studio' | null;
+  ConsumptionUnit?: 'tokens' | 'ai_credits';
+  /** AI credits consumed by the row; 0 for token rows. */
+  AiCredits?: number;
+  /** List USD per AI credit applied to the row; 0 for token rows. */
+  CreditUnitPriceUsd?: number;
   ApplicationId?: string;
   ProjectId?: string;
   TeamId?: string;
@@ -146,7 +154,7 @@ export interface TokenomicsRow {
 }
 
 export interface ModelPriceItem {
-  provider: 'aws' | 'gcp' | 'msft' | 'oai' | 'cld';
+  provider: 'aws' | 'gcp' | 'msft' | 'cps' | 'oai' | 'cld';
   providerName: string;
   modelFamily: string;
   modelName: string;
@@ -162,6 +170,15 @@ export interface ModelPriceItem {
   marketRateUSD: number;
   negotiatedRateUSD: number;
   discountPercent: number;
+}
+
+/** Static Microsoft Copilot Studio AI-credit rate facts (USD per AI credit unless noted). */
+export interface CopilotStudioRateCard {
+  listUsdPerCredit: number;
+  negotiatedDiscountPct: number;
+  negotiatedUsdPerCredit: number;
+  prepaidPack: { credits: number; usdPerMonth: number; effectiveUsdPerCredit: number };
+  featureRates: { feature: string; credits: string; unit: string }[];
 }
 
 export interface MlFeatureImpact {

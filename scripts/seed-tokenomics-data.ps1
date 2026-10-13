@@ -69,7 +69,8 @@ try {
     $stderr = [string](@($result.value | Where-Object { $_.code -like '*StdErr*' } | Select-Object -First 1).message).Trim()
     if ($stderr) { throw "The private seed runner reported an error: $stderr" }
     $verification = $stdout | ConvertFrom-Json
-    if ([int]$verification.recordCount -ne [int]$platform.syntheticData.recordCount) {
+    $expectedRecordCount = [int]$platform.syntheticData.recordCount + [int]$platform.syntheticData.copilotStudio.recordCount
+    if ([int]$verification.recordCount -ne $expectedRecordCount) {
         throw 'The private seed verification count does not match configuration.'
     }
     if ([string]$verification.eventSetSha256 -notmatch '^[0-9a-f]{64}$' -or

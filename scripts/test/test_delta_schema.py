@@ -28,6 +28,19 @@ class DeltaSchemaTests(unittest.TestCase):
         self.assertEqual(table.schema.field('reported_cost_usd').type, pa.float64())
         self.assertEqual(table.schema.field('is_stream').type, pa.bool_())
 
+    def test_zero_then_fractional_credits_do_not_truncate(self):
+        records = [
+            {'source_code': 'aws', 'ai_credits': 0, 'credit_unit_price_usd': 0, 'quality_score': 0},
+            {'source_code': 'msft', 'ai_credits': 12.5, 'credit_unit_price_usd': 0.01, 'quality_score': 0.5},
+        ]
+
+        table = to_arrow_table(records)
+
+        self.assertEqual(table.schema.field('ai_credits').type, pa.float64())
+        self.assertEqual(table.schema.field('credit_unit_price_usd').type, pa.float64())
+        self.assertEqual(table.schema.field('quality_score').type, pa.float64())
+        self.assertEqual(table.column('ai_credits').to_pylist(), [0.0, 12.5])
+
 
 if __name__ == '__main__':
     unittest.main()
