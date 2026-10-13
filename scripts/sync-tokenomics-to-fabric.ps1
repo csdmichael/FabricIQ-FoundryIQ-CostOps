@@ -15,7 +15,7 @@ function Wait-Delay {
     param([int] $Seconds)
 
     $event = [System.Threading.ManualResetEventSlim]::new($false)
-    try { $event.Wait([Math]::Max(1, $Seconds) * 1000) } finally { $event.Dispose() }
+    try { $null = $event.Wait([Math]::Max(1, $Seconds) * 1000) } finally { $event.Dispose() }
 }
 
 $config = Get-FabricDeploymentConfig -Path $ConfigPath

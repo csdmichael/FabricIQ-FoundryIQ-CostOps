@@ -41,7 +41,7 @@ function Wait-RetryDelay {
     param([int] $Seconds)
 
     $delay = [Math]::Max(1, [Math]::Min($Seconds, 60))
-    [System.Threading.ManualResetEventSlim]::new($false).Wait($delay * 1000)
+    $null = [System.Threading.ManualResetEventSlim]::new($false).Wait($delay * 1000)
 }
 
 function Invoke-FabricRequest {

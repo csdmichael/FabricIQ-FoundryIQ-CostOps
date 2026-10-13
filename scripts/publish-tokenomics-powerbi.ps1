@@ -39,7 +39,7 @@ function Wait-Delay {
 
     $delay = [Math]::Max(1, [Math]::Min($Seconds, 60))
     $event = [System.Threading.ManualResetEventSlim]::new($false)
-    try { $event.Wait($delay * 1000) } finally { $event.Dispose() }
+    try { $null = $event.Wait($delay * 1000) } finally { $event.Dispose() }
 }
 
 function Get-HeaderValue {
