@@ -222,6 +222,7 @@ describe('App', () => {
     fixture.componentInstance.error.set('');
     fixture.componentInstance.dashboard.set(dashboardWith([foundryRow, copilotRow]));
     fixture.componentInstance.setView('pricing');
+    fixture.componentInstance.setPricingCostModel('ai-credits');
     fixture.detectChanges();
     await fixture.whenStable();
 
@@ -232,5 +233,33 @@ describe('App', () => {
     expect(card.textContent).toContain('$0.008');
     expect(card.textContent).toContain('$200 for 25,000 credits per month');
     expect(card.textContent).toContain('1,000 credits in window');
+  });
+
+  it('defaults pricing to token providers and switches AI credits to Copilot Studio', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+
+    expect(app.pricingCostModel()).toBe('tokens');
+    expect(app.tokenPricingProviderOptions().some(option => option.id === 'cps')).toBe(false);
+
+    app.setPricingCostModel('ai-credits');
+    expect(app.selectedProvider()).toBe('cps');
+
+    app.setPricingCostModel('tokens');
+    expect(app.selectedProvider()).toBe('all');
+  });
+
+  it('groups recommendation notifications and exposes assignments for Michael Yaacoub', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+
+    expect(app.recommendationCount()).toBe(8);
+    app.setNotificationTab('assigned');
+    expect(app.visibleProjectRecommendations().length).toBe(3);
+    expect(app.visibleProjectRecommendations().every(group => group.ownerName === 'Michael Yaacoub')).toBe(true);
+    expect(app.assignedRecommendationCount()).toBe(7);
+
+    const recommendation = app.visibleProjectRecommendations()[0].recommendations[0];
+    app.executeRecommendation(recommendation);
+    expect(app.executedRecommendationIds().has(recommendation.id)).toBe(true);
+    expect(app.recommendationCount()).toBe(7);
   });
 });

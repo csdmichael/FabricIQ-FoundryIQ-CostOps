@@ -13,6 +13,7 @@ import {
   gitBranchOutline,
   constructOutline,
   mailOutline,
+  notificationsOutline,
   optionsOutline,
   alertCircleOutline,
   analyticsOutline,
@@ -29,6 +30,7 @@ import {
   pieChartOutline,
   ellipseOutline,
   flashOutline,
+  folderOpenOutline,
   gridOutline,
   informationCircleOutline,
   logInOutline,
@@ -110,6 +112,65 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
   { id: 'cld', name: 'Anthropic Claude', shortName: 'Claude', code: 'cld' },
 ];
 
+interface RecommendationNotification {
+  id: string;
+  title: string;
+  category: ActionCategory;
+  mockAction: string;
+}
+
+interface ProjectRecommendationGroup {
+  projectId: string;
+  projectName: string;
+  ownerName: string;
+  ownerEmail: string;
+  recommendations: RecommendationNotification[];
+}
+
+const CURRENT_USER_EMAIL = 'admin@Caldova37587778.onmicrosoft.com';
+const PROJECT_RECOMMENDATIONS: ProjectRecommendationGroup[] = [
+  {
+    projectId: 'PRJ-CUSTOMER-360',
+    projectName: 'Customer 360 Copilot',
+    ownerName: 'Michael Yaacoub',
+    ownerEmail: CURRENT_USER_EMAIL,
+    recommendations: [
+      { id: 'customer-360-token-limit', title: 'High token growth detected on customer-summary APIs', category: 'rate-limit', mockAction: 'Update token limit in APIM' },
+      { id: 'customer-360-model-switch', title: 'GPT-5 workload can use a lower-cost model tier', category: 'model-switch', mockAction: 'Switch model in Foundry' },
+      { id: 'customer-360-budget', title: 'Monthly inference budget is projected to exceed target', category: 'throttle-guardrail', mockAction: 'Apply budget guardrail' },
+    ],
+  },
+  {
+    projectId: 'PRJ-SERVICE-DESK',
+    projectName: 'Service Desk Agent',
+    ownerName: 'Michael Yaacoub',
+    ownerEmail: CURRENT_USER_EMAIL,
+    recommendations: [
+      { id: 'service-desk-quota', title: 'Peak-hour quota is undersized for agent demand', category: 'quota-increase', mockAction: 'Increase Foundry quota' },
+      { id: 'service-desk-prompt', title: 'Prompt context contains repeated grounding instructions', category: 'prompt-efficiency', mockAction: 'Optimize prompt in Foundry' },
+    ],
+  },
+  {
+    projectId: 'PRJ-SUPPLY-CHAIN',
+    projectName: 'Supply Chain Forecasting',
+    ownerName: 'Michael Yaacoub',
+    ownerEmail: CURRENT_USER_EMAIL,
+    recommendations: [
+      { id: 'supply-chain-reallocate', title: 'Unused quota can be reassigned to forecast batch jobs', category: 'reallocation', mockAction: 'Reallocate model quota' },
+      { id: 'supply-chain-cache', title: 'Repeated forecast context is eligible for prompt caching', category: 'prompt-efficiency', mockAction: 'Enable prompt caching' },
+    ],
+  },
+  {
+    projectId: 'PRJ-LEGAL-REVIEW',
+    projectName: 'Legal Document Review',
+    ownerName: 'Avery Johnson',
+    ownerEmail: 'avery.johnson@Caldova37587778.onmicrosoft.com',
+    recommendations: [
+      { id: 'legal-governance', title: 'Model deployment requires an updated governance approval', category: 'governance', mockAction: 'Open governance review' },
+    ],
+  },
+];
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -180,6 +241,7 @@ export class App implements OnInit {
   readonly pricingCatalog = signal<ModelPriceItem[]>([]);
   readonly pricingSearch = signal('');
   readonly pricingProviderFilter = signal<string>('all');
+  readonly pricingCostModel = signal<'tokens' | 'ai-credits'>('tokens');
   readonly calculatorInputTokens = signal(10); // Millions of input tokens
   readonly calculatorOutputTokens = signal(5);  // Millions of output tokens
 
@@ -194,6 +256,27 @@ export class App implements OnInit {
   readonly actionsError = signal('');
   readonly actionsErrorInfo = signal<ApiErrorInfo | null>(null);
   readonly actionCategoryFilter = signal<ActionCategory | 'all'>('all');
+
+  // Header recommendation notifications
+  readonly notificationsOpen = signal(false);
+  readonly notificationTab = signal<'all' | 'assigned'>('all');
+  readonly selectedNotificationProject = signal<ProjectRecommendationGroup | null>(null);
+  readonly executedRecommendationIds = signal<ReadonlySet<string>>(new Set());
+  readonly recommendationFeedback = signal('');
+  readonly projectRecommendations = PROJECT_RECOMMENDATIONS;
+  readonly visibleProjectRecommendations = computed(() => {
+    const groups = this.notificationTab() === 'assigned'
+      ? this.projectRecommendations.filter(group => group.ownerEmail.toLowerCase() === CURRENT_USER_EMAIL.toLowerCase())
+      : this.projectRecommendations;
+    return groups.filter(group => group.recommendations.some(item => !this.executedRecommendationIds().has(item.id)));
+  });
+  readonly recommendationCount = computed(() => this.projectRecommendations.reduce(
+    (count, group) => count + group.recommendations.filter(item => !this.executedRecommendationIds().has(item.id)).length,
+    0
+  ));
+  readonly assignedRecommendationCount = computed(() => this.projectRecommendations
+    .filter(group => group.ownerEmail.toLowerCase() === CURRENT_USER_EMAIL.toLowerCase())
+    .reduce((count, group) => count + group.recommendations.filter(item => !this.executedRecommendationIds().has(item.id)).length, 0));
 
   readonly showcaseVisits = signal<ShowcaseVisitsReport | null>(null);
   readonly showcaseVisitsLoading = signal(false);
@@ -492,9 +575,11 @@ export class App implements OnInit {
         item.modelFamily.toLowerCase().includes(search) ||
         item.providerName.toLowerCase().includes(search);
       const matchesProvider = provider === 'all' || item.provider === provider;
-      return matchesSearch && matchesProvider;
+      return item.provider !== 'cps' && matchesSearch && matchesProvider;
     });
   });
+
+  readonly tokenPricingProviderOptions = computed(() => this.providerOptions.filter(option => option.id !== 'cps'));
 
   readonly topConsumers = computed<UserConsumptionItem[]>(() => {
     return (this.userConsumption()?.users ?? []).slice(0, 5);
@@ -570,6 +655,7 @@ export class App implements OnInit {
       gitBranchOutline,
       constructOutline,
       mailOutline,
+      notificationsOutline,
       optionsOutline,
       alertCircleOutline,
       analyticsOutline,
@@ -586,6 +672,7 @@ export class App implements OnInit {
       pieChartOutline,
       ellipseOutline,
       flashOutline,
+      folderOpenOutline,
       gridOutline,
       informationCircleOutline,
       logInOutline,
@@ -824,6 +911,40 @@ export class App implements OnInit {
     this.actionCategoryFilter.set(category);
   }
 
+  toggleNotifications(): void {
+    this.notificationsOpen.update(open => !open);
+    this.selectedNotificationProject.set(null);
+    this.recommendationFeedback.set('');
+  }
+
+  closeNotifications(): void {
+    this.notificationsOpen.set(false);
+    this.selectedNotificationProject.set(null);
+    this.recommendationFeedback.set('');
+  }
+
+  setNotificationTab(tab: 'all' | 'assigned'): void {
+    this.notificationTab.set(tab);
+    this.selectedNotificationProject.set(null);
+    this.recommendationFeedback.set('');
+  }
+
+  selectNotificationProject(group: ProjectRecommendationGroup): void {
+    this.selectedNotificationProject.set(group);
+    this.recommendationFeedback.set('');
+  }
+
+  executeRecommendation(recommendation: RecommendationNotification): void {
+    this.executedRecommendationIds.update(ids => new Set([...ids, recommendation.id]));
+    this.recommendationFeedback.set(`${recommendation.mockAction} started successfully.`);
+  }
+
+  openRecommendationInActionCenter(recommendation: RecommendationNotification): void {
+    this.setActionCategoryFilter(recommendation.category);
+    this.closeNotifications();
+    this.setView('actions');
+  }
+
   private readonly actionCategoryLabels: Record<string, string> = {
     'model-switch': 'Model Switching',
     'rate-limit': 'Token & Rate Limits',
@@ -989,6 +1110,16 @@ export class App implements OnInit {
   setPricingProviderFilter(provider: string): void {
     this.pricingProviderFilter.set(provider);
     this.selectedProvider.set(provider);
+  }
+
+  setPricingCostModel(model: 'tokens' | 'ai-credits'): void {
+    this.pricingCostModel.set(model);
+    this.pricingSearch.set('');
+    if (model === 'ai-credits') {
+      this.setProvider('cps');
+    } else {
+      this.setProvider('all');
+    }
   }
 
   setPowerBiProvider(provider: string): void {

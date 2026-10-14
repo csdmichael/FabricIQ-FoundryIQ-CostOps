@@ -21,17 +21,17 @@
         <button type="button" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')">
           <ion-icon name="pricetag-outline"></ion-icon><span>Model Pricing</span>
         </button>
-        <button type="button" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')">
-          <ion-icon name="bar-chart-outline"></ion-icon><span>Power BI Reports</span>
-        </button>
-        <button type="button" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')">
-          <ion-icon name="sparkles-outline"></ion-icon><span>12 ML Insights</span>
-        </button>
         <button type="button" [class.active]="activeView() === 'user-consumption'" (click)="setView('user-consumption')">
           <ion-icon name="person-circle-outline"></ion-icon><span>User Consumption</span>
         </button>
         <button type="button" [class.active]="activeView() === 'user-segmentation'" (click)="setView('user-segmentation')">
           <ion-icon name="pie-chart-outline"></ion-icon><span>User Clusters</span>
+        </button>
+        <button type="button" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')">
+          <ion-icon name="bar-chart-outline"></ion-icon><span>Power BI Reports</span>
+        </button>
+        <button type="button" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')">
+          <ion-icon name="sparkles-outline"></ion-icon><span>12 ML Insights</span>
         </button>
         <button type="button" [class.active]="activeView() === 'actions'" (click)="setView('actions')">
           <ion-icon name="bulb-outline"></ion-icon><span>Action Center</span>
@@ -62,10 +62,10 @@
       <button type="button" title="Overview" [class.active]="activeView() === 'overview'" (click)="setView('overview')"><ion-icon name="grid-outline"></ion-icon></button>
       <button type="button" title="Allocation" [class.active]="activeView() === 'allocation'" (click)="setView('allocation')"><ion-icon name="people-outline"></ion-icon></button>
       <button type="button" title="Model Pricing" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')"><ion-icon name="pricetag-outline"></ion-icon></button>
-      <button type="button" title="Power BI Reports" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon></button>
-      <button type="button" title="12 ML Insights" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon></button>
       <button type="button" title="User Consumption" [class.active]="activeView() === 'user-consumption'" (click)="setView('user-consumption')"><ion-icon name="person-circle-outline"></ion-icon></button>
       <button type="button" title="User Clusters" [class.active]="activeView() === 'user-segmentation'" (click)="setView('user-segmentation')"><ion-icon name="pie-chart-outline"></ion-icon></button>
+      <button type="button" title="Power BI Reports" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon></button>
+      <button type="button" title="12 ML Insights" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon></button>
       <button type="button" title="Action Center" [class.active]="activeView() === 'actions'" (click)="setView('actions')"><ion-icon name="bulb-outline"></ion-icon></button>
       <button type="button" title="Foundry Agent Chat" [class.active]="activeView() === 'data-agent'" (click)="setView('data-agent')"><ion-icon name="chatbubbles-outline"></ion-icon></button>
       <button type="button" title="ML Guide" [class.active]="activeView() === 'ml-guide'" (click)="setView('ml-guide')"><ion-icon name="help-circle-outline"></ion-icon></button>
@@ -75,9 +75,9 @@
     <!-- Mobile Phone Bottom Tabs -->
     <nav class="phone-tabs" aria-label="Mobile navigation">
       <button type="button" [class.active]="activeView() === 'overview'" (click)="setView('overview')"><ion-icon name="grid-outline"></ion-icon><span>Overview</span></button>
+      <button type="button" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')"><ion-icon name="pricetag-outline"></ion-icon><span>Pricing</span></button>
       <button type="button" [class.active]="activeView() === 'user-consumption'" (click)="setView('user-consumption')"><ion-icon name="person-circle-outline"></ion-icon><span>Users</span></button>
       <button type="button" [class.active]="activeView() === 'user-segmentation'" (click)="setView('user-segmentation')"><ion-icon name="pie-chart-outline"></ion-icon><span>Clusters</span></button>
-      <button type="button" [class.active]="activeView() === 'pricing'" (click)="setView('pricing')"><ion-icon name="pricetag-outline"></ion-icon><span>Pricing</span></button>
       <button type="button" [class.active]="activeView() === 'powerbi'" (click)="setView('powerbi')"><ion-icon name="bar-chart-outline"></ion-icon><span>Power BI</span></button>
       <button type="button" [class.active]="activeView() === 'ml-insights'" (click)="setView('ml-insights')"><ion-icon name="sparkles-outline"></ion-icon><span>ML</span></button>
       <button type="button" [class.active]="activeView() === 'actions'" (click)="setView('actions')"><ion-icon name="bulb-outline"></ion-icon><span>Actions</span></button>
@@ -111,6 +111,94 @@
           </h1>
         </div>
         <div class="top-actions">
+          <div class="notification-control">
+            <button
+              type="button"
+              class="notification-trigger"
+              [class.active]="notificationsOpen()"
+              (click)="toggleNotifications()"
+              aria-label="Recommendation notifications"
+              [attr.aria-expanded]="notificationsOpen()">
+              <ion-icon name="notifications-outline"></ion-icon>
+              @if (recommendationCount() > 0) {
+                <span class="notification-badge">{{ recommendationCount() }}</span>
+              }
+            </button>
+            @if (notificationsOpen()) {
+              <div class="notification-panel" role="dialog" aria-label="Recommendation notifications">
+                <header>
+                  <div>
+                    <span class="eyebrow">Action Center</span>
+                    <h2>Recommendations</h2>
+                  </div>
+                  <button type="button" class="notification-close" (click)="closeNotifications()" aria-label="Close notifications">
+                    <ion-icon name="close-outline"></ion-icon>
+                  </button>
+                </header>
+                <div class="notification-tabs" role="tablist" aria-label="Notification filters">
+                  <button type="button" role="tab" [class.active]="notificationTab() === 'all'" (click)="setNotificationTab('all')">
+                    All <span>{{ recommendationCount() }}</span>
+                  </button>
+                  <button type="button" role="tab" [class.active]="notificationTab() === 'assigned'" (click)="setNotificationTab('assigned')">
+                    Assigned to me <span>{{ assignedRecommendationCount() }}</span>
+                  </button>
+                </div>
+
+                @if (selectedNotificationProject(); as project) {
+                  <div class="notification-project-detail">
+                    <button type="button" class="notification-back" (click)="selectedNotificationProject.set(null); recommendationFeedback.set('')">
+                      <ion-icon name="arrow-back-outline"></ion-icon> Projects
+                    </button>
+                    <div class="notification-project-heading">
+                      <div>
+                        <strong>{{ project.projectName }}</strong>
+                        <small>{{ project.projectId }}</small>
+                      </div>
+                      <span>{{ project.ownerName }}</span>
+                    </div>
+                    @if (recommendationFeedback()) {
+                      <p class="notification-feedback"><ion-icon name="checkmark-circle-outline"></ion-icon>{{ recommendationFeedback() }}</p>
+                    }
+                    <div class="notification-action-list">
+                      @for (recommendation of project.recommendations; track recommendation.id) {
+                        <article [class.completed]="executedRecommendationIds().has(recommendation.id)">
+                          <div>
+                            <span class="ac-cat"><ion-icon [name]="categoryIcon(recommendation.category)"></ion-icon>{{ categoryLabel(recommendation.category) }}</span>
+                            <h3>{{ recommendation.title }}</h3>
+                          </div>
+                          <div class="notification-action-buttons">
+                            <button type="button" class="mock-action-btn" [disabled]="executedRecommendationIds().has(recommendation.id)" (click)="executeRecommendation(recommendation)">
+                              {{ executedRecommendationIds().has(recommendation.id) ? 'Action started' : recommendation.mockAction }}
+                            </button>
+                            <button type="button" class="action-center-link" (click)="openRecommendationInActionCenter(recommendation)">View in Action Center</button>
+                          </div>
+                        </article>
+                      }
+                    </div>
+                  </div>
+                } @else {
+                  <div class="notification-project-list">
+                    @for (project of visibleProjectRecommendations(); track project.projectId) {
+                      <button type="button" (click)="selectNotificationProject(project)">
+                        <span class="notification-project-icon"><ion-icon name="folder-open-outline"></ion-icon></span>
+                        <span class="notification-project-copy">
+                          <strong>{{ project.projectName }}</strong>
+                          <small>Owner: {{ project.ownerName }}</small>
+                        </span>
+                        <span class="notification-project-count">{{ project.recommendations.length }}</span>
+                        <ion-icon name="arrow-forward"></ion-icon>
+                      </button>
+                    } @empty {
+                      <div class="notification-empty">
+                        <ion-icon name="checkmark-circle-outline"></ion-icon>
+                        <p>No pending recommendations.</p>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
           <span class="source-chip" [class.live]="tokenomics.isLiveMode() || auth.account()">
             <span></span>{{ auth.account() ? (tokenomics.isLiveMode() ? 'Live Telemetry' : 'Tenant Connected') : 'Governed Lakehouse Data' }}
           </span>
@@ -623,6 +711,19 @@
                 <p>Synced with published pricing APIs and SHA-256 provenance hashes</p>
               </div>
 
+              <div class="cost-model-control" role="tablist" aria-label="Cost model">
+                <span>Cost Model</span>
+                <button type="button" role="tab" [class.active]="pricingCostModel() === 'tokens'" (click)="setPricingCostModel('tokens')">
+                  <ion-icon name="pricetag-outline"></ion-icon>
+                  Tokens
+                </button>
+                <button type="button" role="tab" [class.active]="pricingCostModel() === 'ai-credits'" (click)="setPricingCostModel('ai-credits')">
+                  <ion-icon name="sparkles-outline"></ion-icon>
+                  AI Credits
+                </button>
+              </div>
+
+              @if (pricingCostModel() === 'tokens') {
               <!-- Interactive Savings & Cost Calculator -->
               <div class="calculator-card">
                 <div class="calc-header">
@@ -644,52 +745,6 @@
                 </div>
               </div>
 
-              <!-- Microsoft Copilot Studio: AI-credit rate card (credits are converted to USD) -->
-              <section class="cps-rate-card" aria-label="Microsoft Copilot Studio AI credit rate card">
-                <header>
-                  <div>
-                    <span class="eyebrow">Microsoft Copilot Studio</span>
-                    <h3>Copilot Studio AI Credits</h3>
-                    <p>Billed in AI credits with no token telemetry. Each credit is converted to USD at the rates below.</p>
-                  </div>
-                  <span class="provider-pill cps">{{ integer(copilotStudio().aiCredits) }} credits in window</span>
-                </header>
-                <div class="cps-rate-grid">
-                  <article>
-                    <span>List (pay-as-you-go)</span>
-                    <strong>{{ money(copilotRateCard.listUsdPerCredit, 4) }}</strong>
-                    <small>per AI credit</small>
-                  </article>
-                  <article>
-                    <span>Negotiated ({{ copilotRateCard.negotiatedDiscountPct }}% off list)</span>
-                    <strong>{{ money(copilotRateCard.negotiatedUsdPerCredit, 4) }}</strong>
-                    <small>per AI credit, enterprise rate</small>
-                  </article>
-                  <article>
-                    <span>Prepaid pack, effective</span>
-                    <strong>{{ money(copilotRateCard.prepaidPack.effectiveUsdPerCredit, 4) }}</strong>
-                    <small>{{ money(copilotRateCard.prepaidPack.usdPerMonth) }} for {{ integer(copilotRateCard.prepaidPack.credits) }} credits per month</small>
-                  </article>
-                  <article>
-                    <span>Effective from ledger rows</span>
-                    <strong>{{ usdPerCredit(copilotStudio().effectiveNegotiatedUsdPerCredit) }}</strong>
-                    <small>Negotiated USD ÷ AI credits · list {{ usdPerCredit(copilotStudio().effectiveListUsdPerCredit) }}</small>
-                  </article>
-                </div>
-                <div class="pricing-table-wrap">
-                  <table class="pricing-table">
-                    <thead>
-                      <tr><th>Copilot Studio feature</th><th>AI credit rate</th></tr>
-                    </thead>
-                    <tbody>
-                      @for (rate of copilotRateCard.featureRates; track rate.feature) {
-                        <tr><td>{{ rate.feature }}</td><td><strong>{{ rate.credits }}</strong> credits {{ rate.unit }}</td></tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
               <!-- Search and Provider Filter Pills -->
               <div class="pricing-filter-bar">
                 <div class="search-box">
@@ -697,7 +752,7 @@
                   <input type="text" placeholder="Search model name, family, or provider..." [value]="pricingSearch()" (input)="pricingSearch.set($any($event.target).value)">
                 </div>
                 <div class="filter-pills">
-                  @for (opt of providerOptions; track opt.id) {
+                  @for (opt of tokenPricingProviderOptions(); track opt.id) {
                     <button
                       type="button"
                       class="{{ opt.code }}-pill"
@@ -751,6 +806,53 @@
                   </tbody>
                 </table>
               </div>
+              } @else {
+              <!-- Microsoft Copilot Studio: AI-credit rate card (credits are converted to USD) -->
+              <section class="cps-rate-card" aria-label="Microsoft Copilot Studio AI credit rate card">
+                <header>
+                  <div>
+                    <span class="eyebrow">Microsoft Copilot Studio</span>
+                    <h3>Copilot Studio AI Credits</h3>
+                    <p>Billed in AI credits with no token telemetry. Each credit is converted to USD at the rates below.</p>
+                  </div>
+                  <span class="provider-pill cps">{{ integer(copilotStudio().aiCredits) }} credits in window</span>
+                </header>
+                <div class="cps-rate-grid">
+                  <article>
+                    <span>List (pay-as-you-go)</span>
+                    <strong>{{ money(copilotRateCard.listUsdPerCredit, 4) }}</strong>
+                    <small>per AI credit</small>
+                  </article>
+                  <article>
+                    <span>Negotiated ({{ copilotRateCard.negotiatedDiscountPct }}% off list)</span>
+                    <strong>{{ money(copilotRateCard.negotiatedUsdPerCredit, 4) }}</strong>
+                    <small>per AI credit, enterprise rate</small>
+                  </article>
+                  <article>
+                    <span>Prepaid pack, effective</span>
+                    <strong>{{ money(copilotRateCard.prepaidPack.effectiveUsdPerCredit, 4) }}</strong>
+                    <small>{{ money(copilotRateCard.prepaidPack.usdPerMonth) }} for {{ integer(copilotRateCard.prepaidPack.credits) }} credits per month</small>
+                  </article>
+                  <article>
+                    <span>Effective from ledger rows</span>
+                    <strong>{{ usdPerCredit(copilotStudio().effectiveNegotiatedUsdPerCredit) }}</strong>
+                    <small>Negotiated USD ÷ AI credits · list {{ usdPerCredit(copilotStudio().effectiveListUsdPerCredit) }}</small>
+                  </article>
+                </div>
+                <div class="pricing-table-wrap">
+                  <table class="pricing-table">
+                    <thead>
+                      <tr><th>Copilot Studio feature</th><th>AI credit rate</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (rate of copilotRateCard.featureRates; track rate.feature) {
+                        <tr><td>{{ rate.feature }}</td><td><strong>{{ rate.credits }}</strong> credits {{ rate.unit }}</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+              }
             </section>
           }
 
