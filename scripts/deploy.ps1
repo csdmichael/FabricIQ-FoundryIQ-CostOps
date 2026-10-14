@@ -769,6 +769,16 @@ if (Test-Step 'tokenomics-data') {
     $tokenomicsDataOutputs = Invoke-GroupDeployment -Name $tokenomicsDataDeploymentName -SubscriptionId $config.azure.subscriptionId -ResourceGroup $config.azure.resourceGroup -TemplateFile (Join-Path $fabricRoot 'bicep/tokenomics-data/main.bicep') -ParametersFile ''
     if (-not $WhatIf) {
         $mapsClientId = Get-OutputValue -Outputs $tokenomicsDataOutputs -Name 'mapsClientId'
+        az appservice plan update --subscription $config.azure.subscriptionId --resource-group $config.azure.resourceGroup `
+            --name $config.dashboardApi.existingPlanName --sku $config.dashboardApi.planSku --only-show-errors -o none
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to enforce the dashboard API App Service plan SKU.' }
+        $dashboardApiWebConfigId = "/subscriptions/$($config.azure.subscriptionId)/resourceGroups/$($config.azure.resourceGroup)/providers/Microsoft.Web/sites/$($config.dashboardApi.appName)/config/web"
+        az resource update --ids $dashboardApiWebConfigId --api-version 2023-12-01 --set `
+            properties.alwaysOn=true `
+            properties.healthCheckPath=/live `
+            properties.healthCheckEvictionTimeInMin=5 `
+            --only-show-errors -o none
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to configure dashboard API reliability settings.' }
         az webapp config appsettings set --subscription $config.azure.subscriptionId --resource-group $config.azure.resourceGroup --name $config.dashboardApi.appName --settings `
             "SHOWCASE_COSMOS_ENDPOINT=https://$($config.tokenomicsPlatform.cosmos.accountName).documents.azure.com:443/" `
             "SHOWCASE_COSMOS_DATABASE=$($config.tokenomicsPlatform.cosmos.databaseName)" `

@@ -162,17 +162,36 @@ describe('App', () => {
     expect(app.copilotStudio().effectiveListUsdPerCredit).toBeCloseTo(0.01, 6);
     expect(app.copilotStudio().effectiveNegotiatedUsdPerCredit).toBeCloseTo(0.0088, 6);
 
-    app.setProvider('cps');
+    app.setAllocationMetric('ai-credits');
     expect(app.filteredSummary()?.aiCredits).toBe(1000);
     expect(app.filteredSummary()?.totalTokens).toBe(0);
     expect(app.filteredSummary()?.tokenizedRequests).toBe(0);
     expect(app.topAllocations().map(row => row.Provider)).toEqual(['Microsoft Copilot Studio']);
     expect(app.allocationShare(app.topAllocations()[0])).toBe(100);
 
+    app.setAllocationMetric('tokens');
     app.setProvider('msft');
     expect(app.filteredSummary()?.totalTokens).toBe(1000);
     expect(app.topAllocations().map(row => row.Provider)).toEqual(['Azure AI Foundry']);
     app.setProvider('all');
+  });
+
+  it('defaults allocation to tokens and scopes AI credits to Copilot Studio', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.dashboard.set(dashboardWith([foundryRow, copilotRow]));
+
+    expect(app.allocationMetric()).toBe('tokens');
+    expect(app.topAllocations()).toEqual([foundryRow]);
+    expect(app.allocationProviderOptions().some(option => option.id === 'cps')).toBe(false);
+
+    app.setAllocationMetric('ai-credits');
+    expect(app.selectedProvider()).toBe('cps');
+    expect(app.topAllocations()).toEqual([copilotRow]);
+    expect(app.allocationProviderOptions().map(option => option.id)).toEqual(['cps']);
+
+    app.setAllocationMetric('tokens');
+    expect(app.selectedProvider()).toBe('all');
+    expect(app.topAllocations()).toEqual([foundryRow]);
   });
 
   it('guards effective USD per credit against zero credits', () => {

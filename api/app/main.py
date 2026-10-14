@@ -1,7 +1,8 @@
 """FastAPI application exposing live Microsoft Fabric tokenomics data.
 
 Endpoints:
-    GET /health          - liveness + Fabric connectivity probe
+    GET /live            - lightweight App Service liveness probe
+    GET /health          - Fabric dependency readiness probe
     GET /summary         - TokenomicsDashboard for a window (?days=1|7|30|90)
     GET /pricing         - current multi-cloud model rate cards
     GET /actions         - data-driven FinOps action plans (closed feedback loop)
@@ -89,7 +90,7 @@ def _load_prompts() -> dict:
 
 @app.get("/health")
 def health() -> dict:
-    """Liveness + classified Fabric connectivity (surfaces capacity-paused, auth, etc.)."""
+    """Classified Fabric connectivity readiness probe."""
     probe = _client.diagnose()
     return {
         "status": "ok" if probe.get("ok") else "degraded",
@@ -100,6 +101,12 @@ def health() -> dict:
         "remediation": probe.get("remediation", ""),
         "category": probe.get("category", "unknown"),
     }
+
+
+@app.get("/live")
+def live() -> dict:
+    """Fast liveness probe that does not call downstream services."""
+    return {"status": "ok"}
 
 
 @app.get("/summary", response_model=TokenomicsDashboard)

@@ -236,6 +236,7 @@ export class App implements OnInit {
   readonly copilotRateCard = COPILOT_STUDIO_RATE_CARD;
   readonly selectedProvider = signal<string>('all');
   readonly allocationSearch = signal<string>('');
+  readonly allocationMetric = signal<'tokens' | 'ai-credits'>('tokens');
 
   // Multi-Cloud Pricing State
   readonly pricingCatalog = signal<ModelPriceItem[]>([]);
@@ -420,9 +421,13 @@ export class App implements OnInit {
   readonly filteredAllocations = computed(() => {
     const filter = this.selectedProvider();
     const search = this.allocationSearch().toLowerCase().trim();
+    const metric = this.allocationMetric();
     const rows = this.dashboard()?.allocations ?? [];
 
     return rows.filter(row => {
+      const matchesMetric = metric === 'ai-credits'
+        ? this.isCopilotStudioRow(row)
+        : !this.isCopilotStudioRow(row);
       const matchesP = this.matchesProvider(row.Provider, row.Model, filter);
       const matchesS = !search ||
         (row.ApplicationId || '').toLowerCase().includes(search) ||
@@ -432,7 +437,7 @@ export class App implements OnInit {
         (row.ProjectId || '').toLowerCase().includes(search) ||
         (row.Model || '').toLowerCase().includes(search) ||
         (row.Provider || '').toLowerCase().includes(search);
-      return matchesP && matchesS;
+      return matchesMetric && matchesP && matchesS;
     });
   });
 
@@ -580,6 +585,11 @@ export class App implements OnInit {
   });
 
   readonly tokenPricingProviderOptions = computed(() => this.providerOptions.filter(option => option.id !== 'cps'));
+  readonly allocationProviderOptions = computed(() => (
+    this.allocationMetric() === 'ai-credits'
+      ? this.providerOptions.filter(option => option.id === 'cps')
+      : this.providerOptions.filter(option => option.id !== 'cps')
+  ));
 
   readonly topConsumers = computed<UserConsumptionItem[]>(() => {
     return (this.userConsumption()?.users ?? []).slice(0, 5);
@@ -1120,6 +1130,12 @@ export class App implements OnInit {
     } else {
       this.setProvider('all');
     }
+  }
+
+  setAllocationMetric(metric: 'tokens' | 'ai-credits'): void {
+    this.allocationMetric.set(metric);
+    this.allocationSearch.set('');
+    this.setProvider(metric === 'ai-credits' ? 'cps' : 'all');
   }
 
   setPowerBiProvider(provider: string): void {

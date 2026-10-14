@@ -620,7 +620,19 @@
                   <span class="eyebrow">Attribution & Chargeback</span>
                   <h2>Department & Application FinOps Ledger</h2>
                 </div>
-                <p>99.4% tokens mapped to Cost Centers and Projects</p>
+                <p>{{ allocationMetric() === 'tokens' ? '99.4% tokens mapped to Cost Centers and Projects' : 'Copilot Studio AI credits mapped to Cost Centers and Projects' }}</p>
+              </div>
+
+              <div class="cost-model-control" role="tablist" aria-label="Allocation metric">
+                <span>Allocation Metric</span>
+                <button type="button" role="tab" [attr.aria-selected]="allocationMetric() === 'tokens'" [class.active]="allocationMetric() === 'tokens'" (click)="setAllocationMetric('tokens')">
+                  <ion-icon name="pricetag-outline"></ion-icon>
+                  Tokens
+                </button>
+                <button type="button" role="tab" [attr.aria-selected]="allocationMetric() === 'ai-credits'" [class.active]="allocationMetric() === 'ai-credits'" (click)="setAllocationMetric('ai-credits')">
+                  <ion-icon name="sparkles-outline"></ion-icon>
+                  AI Credits
+                </button>
               </div>
 
               <!-- Search and Provider Filter Bar -->
@@ -630,7 +642,7 @@
                   <input type="text" placeholder="Search application, team, department, cost center, model..." [value]="allocationSearch()" (input)="allocationSearch.set($any($event.target).value)">
                 </div>
                 <div class="filter-pills">
-                  @for (opt of providerOptions; track opt.id) {
+                  @for (opt of allocationProviderOptions(); track opt.id) {
                     <button
                       type="button"
                       class="{{ opt.code }}-pill"
@@ -655,7 +667,7 @@
                   <span>Application & Team</span>
                   <span>Department / Project</span>
                   <span>Provider & Model</span>
-                  <span>Tokens / AI credits</span>
+                  <span>{{ allocationMetric() === 'tokens' ? 'Tokens' : 'AI Credits' }}</span>
                   <span>Market Cost</span>
                   <span>Negotiated Cost</span>
                 </div>
@@ -677,7 +689,7 @@
                       <small>{{ row.Model }}</small>
                     </span>
                     <span class="share-cell">
-                      @if (isCopilotStudioRow(row)) {
+                      @if (allocationMetric() === 'ai-credits') {
                         <strong>{{ integer(row.AiCredits) }} credits</strong>
                       } @else {
                         <strong>{{ compact(row.TotalTokens || 0) }}</strong>

@@ -31,8 +31,11 @@ if ($config.azure.tenantId -ne $config.apim.tenantId -or
     throw 'Fabric and APIM must use the same configured tenant; Azure resources must use one subscription and resource group.'
 }
 
-foreach ($path in 'apim.location', 'apim.serviceName', 'apim.skuName', 'apim.publisherEmail', 'apim.publisherName', 'apim.publicNetworkAccess', 'apim.tokenomicsApiId', 'apim.tokenomicsApiPath', 'apim.fabricProductId', 'apim.foundryProductId', 'network.apimSubnetName', 'network.apimSubnetPrefix', 'identity.allowedUserPrincipalName', 'identity.dashboardClientDisplayName', 'tokenomics.projectId', 'tokenomics.teamId', 'tokenomics.costCenter', 'tokenomics.currency', 'tokenomics.actualCost.scope', 'tokenomics.actualCost.queryApiVersion', 'ui.appName', 'ui.existingPlanName', 'ui.productionUrl', 'ui.allowedOrigin', 'ui.environment') {
+foreach ($path in 'apim.location', 'apim.serviceName', 'apim.skuName', 'apim.publisherEmail', 'apim.publisherName', 'apim.publicNetworkAccess', 'apim.tokenomicsApiId', 'apim.tokenomicsApiPath', 'apim.fabricProductId', 'apim.foundryProductId', 'network.apimSubnetName', 'network.apimSubnetPrefix', 'identity.allowedUserPrincipalName', 'identity.dashboardClientDisplayName', 'tokenomics.projectId', 'tokenomics.teamId', 'tokenomics.costCenter', 'tokenomics.currency', 'tokenomics.actualCost.scope', 'tokenomics.actualCost.queryApiVersion', 'ui.appName', 'ui.existingPlanName', 'ui.productionUrl', 'ui.allowedOrigin', 'ui.environment', 'dashboardApi.appName', 'dashboardApi.existingPlanName', 'dashboardApi.planSku') {
     $null = Get-FabricConfigValue -Config $config -Path $path
+}
+if ($config.dashboardApi.planSku -notin @('B2', 'B3', 'P1v3', 'P2v3', 'P3v3')) {
+    throw 'dashboardApi.planSku must provide at least B2 production-demo capacity.'
 }
 if ($config.apim.publicNetworkAccess -notin @('Enabled', 'Disabled')) {
     throw 'apim.publicNetworkAccess must be Enabled or Disabled.'

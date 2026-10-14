@@ -49,6 +49,17 @@ jobs:
         shell: pwsh
         run: ./scripts/build-ui-package.ps1
 
+      - name: Enforce UI reliability settings
+        shell: pwsh
+        run: |
+          $appId = "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ steps.config.outputs.resource_group }}/providers/Microsoft.Web/sites/${{ steps.config.outputs.app_name }}"
+          az resource update `
+            --ids "$appId/config/web" `
+            --api-version 2023-12-01 `
+            --set properties.alwaysOn=true properties.healthCheckPath=/health properties.healthCheckEvictionTimeInMin=5 `
+            --only-show-errors `
+            --output none
+
       - name: Publish UI
         run: |
           az webapp deploy \

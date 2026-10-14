@@ -108,6 +108,20 @@ def test_powerbi_embed_endpoint():
     assert "consumption" in keys
 
 
+def test_live_endpoint_does_not_probe_fabric(monkeypatch):
+    import app.main as main
+
+    monkeypatch.setattr(
+        main._client,
+        "diagnose",
+        lambda: pytest.fail("The liveness endpoint must not call Fabric."),
+    )
+    client = TestClient(main.app)
+    response = client.get("/live")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_summary_endpoint_uses_service(monkeypatch):
     import app.main as main
 
