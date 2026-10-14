@@ -175,6 +175,8 @@ def users_consumption(
     sortBy: str = Query(default="cost", description="Sort by 'cost', 'tokens', 'requests', or 'name'"),
     page: int = Query(default=1, ge=1, description="Page number"),
     pageSize: int = Query(default=20, ge=1, le=100, description="Page size"),
+    provider: str = Query(default="all", description="Filter by cloud provider ('all', 'aws', 'gcp', 'msft', 'cps', 'oai', 'cld')"),
+    metric: str = Query(default="tokens", description="Filter by metric: 'tokens' or 'ai-credits'"),
 ) -> UserConsumptionResponse:
     window = settings.resolve_window(days)
     try:
@@ -187,6 +189,8 @@ def users_consumption(
             sort_by=sortBy,
             page=page,
             page_size=pageSize,
+            provider=provider,
+            metric=metric,
         )
     except FabricError:
         raise
@@ -197,11 +201,13 @@ def users_consumption(
 
 @app.get("/users/segmentation", response_model=UserSegmentationResponse)
 def users_segmentation(
-    days: int = Query(default=None, description="Observation window in days")
+    days: int = Query(default=None, description="Observation window in days"),
+    provider: str = Query(default="all", description="Filter by cloud provider ('all', 'aws', 'gcp', 'msft', 'cps', 'oai', 'cld')"),
+    metric: str = Query(default="tokens", description="Filter by metric: 'tokens' or 'ai-credits'"),
 ) -> UserSegmentationResponse:
     window = settings.resolve_window(days)
     try:
-        return _service.user_segmentation(days=window)
+        return _service.user_segmentation(days=window, provider=provider, metric=metric)
     except FabricError:
         raise
     except Exception as exc:

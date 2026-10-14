@@ -29,6 +29,7 @@ export interface UserConsumptionResponse {
   totalTokens: number;
   totalMarketCost: number;
   totalNegotiatedCost: number;
+  totalAiCredits?: number;
   page: number;
   pageSize: number;
   totalPages: number;
@@ -42,6 +43,7 @@ export interface UserClusterSummary {
   userCount: number;
   totalTokens: number;
   totalMarketCost: number;
+  totalAiCredits?: number;
   avgTokensPerUser: number;
   avgCostPerUser: number;
   color: string;
@@ -254,6 +256,24 @@ export interface ActionCategorySummary {
   estimatedAnnualImpactUsd: number;
 }
 
+export interface RecommendationNotification {
+  id: string;
+  title: string;
+  category: ActionCategory;
+  mockAction: string;
+  entityId?: string;
+  confidence?: number | null;
+  estimatedAnnualImpactUsd?: number | null;
+}
+
+export interface ProjectRecommendationGroup {
+  projectId: string;
+  projectName: string;
+  ownerName: string;
+  ownerEmail: string;
+  recommendations: RecommendationNotification[];
+}
+
 export interface ActionRecommendationsResponse {
   generatedAt: string;
   windowDays: WindowDays;
@@ -264,6 +284,7 @@ export interface ActionRecommendationsResponse {
   totalEstimatedMonthlySavingsUsd: number;
   categories: ActionCategorySummary[];
   plans: ActionPlan[];
+  projectGroups?: ProjectRecommendationGroup[];
 }
 
 export interface SavedPrompt {

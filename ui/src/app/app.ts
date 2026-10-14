@@ -69,7 +69,7 @@ import { ChatExportService } from './chat-export';
 import { ChatHistoryService } from './chat-history.service';
 import { PowerBiEmbed } from './powerbi-embed';
 import { PromptLibraryService } from './prompt-library.service';
-import { COPILOT_STUDIO_RATE_CARD } from './reference-data';
+import { COPILOT_STUDIO_PROVIDER, COPILOT_STUDIO_RATE_CARD } from './reference-data';
 import { ResultBlock } from './result-block';
 import { ResultChart } from './result-chart';
 import { ShowcasePage } from './showcase.page';
@@ -92,7 +92,9 @@ import type {
   UserConsumptionItem,
   UserConsumptionResponse,
   UserSegmentationResponse,
-  WindowDays
+  WindowDays,
+  ProjectRecommendationGroup,
+  RecommendationNotification,
 } from './tokenomics.model';
 
 export interface ProviderFilterOption {
@@ -112,64 +114,7 @@ export const PROVIDER_OPTIONS: ProviderFilterOption[] = [
   { id: 'cld', name: 'Anthropic Claude', shortName: 'Claude', code: 'cld' },
 ];
 
-interface RecommendationNotification {
-  id: string;
-  title: string;
-  category: ActionCategory;
-  mockAction: string;
-}
-
-interface ProjectRecommendationGroup {
-  projectId: string;
-  projectName: string;
-  ownerName: string;
-  ownerEmail: string;
-  recommendations: RecommendationNotification[];
-}
-
 const CURRENT_USER_EMAIL = 'admin@Caldova37587778.onmicrosoft.com';
-const PROJECT_RECOMMENDATIONS: ProjectRecommendationGroup[] = [
-  {
-    projectId: 'PRJ-CUSTOMER-360',
-    projectName: 'Customer 360 Copilot',
-    ownerName: 'Michael Yaacoub',
-    ownerEmail: CURRENT_USER_EMAIL,
-    recommendations: [
-      { id: 'customer-360-token-limit', title: 'High token growth detected on customer-summary APIs', category: 'rate-limit', mockAction: 'Update token limit in APIM' },
-      { id: 'customer-360-model-switch', title: 'GPT-5 workload can use a lower-cost model tier', category: 'model-switch', mockAction: 'Switch model in Foundry' },
-      { id: 'customer-360-budget', title: 'Monthly inference budget is projected to exceed target', category: 'throttle-guardrail', mockAction: 'Apply budget guardrail' },
-    ],
-  },
-  {
-    projectId: 'PRJ-SERVICE-DESK',
-    projectName: 'Service Desk Agent',
-    ownerName: 'Michael Yaacoub',
-    ownerEmail: CURRENT_USER_EMAIL,
-    recommendations: [
-      { id: 'service-desk-quota', title: 'Peak-hour quota is undersized for agent demand', category: 'quota-increase', mockAction: 'Increase Foundry quota' },
-      { id: 'service-desk-prompt', title: 'Prompt context contains repeated grounding instructions', category: 'prompt-efficiency', mockAction: 'Optimize prompt in Foundry' },
-    ],
-  },
-  {
-    projectId: 'PRJ-SUPPLY-CHAIN',
-    projectName: 'Supply Chain Forecasting',
-    ownerName: 'Michael Yaacoub',
-    ownerEmail: CURRENT_USER_EMAIL,
-    recommendations: [
-      { id: 'supply-chain-reallocate', title: 'Unused quota can be reassigned to forecast batch jobs', category: 'reallocation', mockAction: 'Reallocate model quota' },
-      { id: 'supply-chain-cache', title: 'Repeated forecast context is eligible for prompt caching', category: 'prompt-efficiency', mockAction: 'Enable prompt caching' },
-    ],
-  },
-  {
-    projectId: 'PRJ-LEGAL-REVIEW',
-    projectName: 'Legal Document Review',
-    ownerName: 'Avery Johnson',
-    ownerEmail: 'avery.johnson@Caldova37587778.onmicrosoft.com',
-    recommendations: [
-      { id: 'legal-governance', title: 'Model deployment requires an updated governance approval', category: 'governance', mockAction: 'Open governance review' },
-    ],
-  },
-];
 
 @Component({
   selector: 'app-root',
@@ -212,9 +157,14 @@ export class App implements OnInit {
     { id: 'Sales & Marketing', label: 'Sales & Marketing' },
   ];
 
+  // Overview State
+  readonly overviewMetric = signal<'tokens' | 'ai-credits'>('tokens');
+
   // User Consumption State
   readonly userConsumption = signal<UserConsumptionResponse | null>(null);
   readonly userConsumptionLoading = signal(false);
+  readonly userConsumptionMetric = signal<'tokens' | 'ai-credits'>('tokens');
+  readonly userConsumptionProvider = signal<string>('all');
   readonly userSearch = signal('');
   readonly selectedUserBu = signal('all');
   readonly selectedUserDept = signal('all');
@@ -225,6 +175,8 @@ export class App implements OnInit {
   // User Segmentation & Cluster State
   readonly userSegmentation = signal<UserSegmentationResponse | null>(null);
   readonly userSegmentationLoading = signal(false);
+  readonly userSegmentationMetric = signal<'tokens' | 'ai-credits'>('tokens');
+  readonly userSegmentationProvider = signal<string>('all');
   readonly selectedCluster = signal<UserClusterSummary | null>(null);
   readonly drillThroughSort = signal<'cost' | 'tokens'>('cost');
   readonly drillThroughSearch = signal('');
@@ -258,25 +210,145 @@ export class App implements OnInit {
   readonly actionsErrorInfo = signal<ApiErrorInfo | null>(null);
   readonly actionCategoryFilter = signal<ActionCategory | 'all'>('all');
 
-  // Header recommendation notifications
+  // Header recommendation notifications (data-driven from API and OneLake ml.* tables)
   readonly notificationsOpen = signal(false);
   readonly notificationTab = signal<'all' | 'assigned'>('all');
   readonly selectedNotificationProject = signal<ProjectRecommendationGroup | null>(null);
   readonly executedRecommendationIds = signal<ReadonlySet<string>>(new Set());
   readonly recommendationFeedback = signal('');
-  readonly projectRecommendations = PROJECT_RECOMMENDATIONS;
+
+  // Provider options for user reports
+  readonly userConsumptionProviderOptions = computed(() => this.providerOptions);
+  readonly userSegmentationProviderOptions = computed(() => this.providerOptions);
+
+  isAssignedToMe(group: ProjectRecommendationGroup): boolean {
+    const currentEmail = (this.auth.account()?.username || CURRENT_USER_EMAIL).toLowerCase();
+    const currentName = (this.auth.account()?.name || '').toLowerCase();
+    const ownerEmail = (group.ownerEmail || '').toLowerCase();
+    const ownerName = (group.ownerName || '').toLowerCase();
+    return (
+      ownerEmail.includes('myaacoub') ||
+      ownerName.includes('myaacoub') ||
+      ownerEmail === currentEmail ||
+      (currentName ? ownerName.includes(currentName) : false)
+    );
+  }
+
+  readonly projectRecommendations = computed<ProjectRecommendationGroup[]>(() => {
+    const act = this.actions();
+    if (act?.projectGroups && act.projectGroups.length > 0) {
+      return act.projectGroups;
+    }
+    const plans = act?.plans ?? [];
+    if (plans.length > 0) {
+      const grouped = new Map<string, RecommendationNotification[]>();
+      const actionLabels: Record<string, string> = {
+        'model-switch': 'Switch model in Foundry',
+        'rate-limit': 'Update token limit in APIM',
+        'throttle-guardrail': 'Apply budget guardrail',
+        'reallocation': 'Reallocate model quota',
+        'prompt-efficiency': 'Optimize prompt in Foundry',
+        'quota-increase': 'Increase Foundry quota',
+        'governance': 'Open governance review',
+        'chargeback': 'Publish chargeback statement',
+        'capacity': 'Provision secondary gateway capacity',
+      };
+      for (const plan of plans) {
+        const item: RecommendationNotification = {
+          id: plan.id,
+          title: plan.title,
+          category: plan.category,
+          mockAction: actionLabels[plan.category] ?? 'Execute recommendation',
+          entityId: plan.entityId,
+          confidence: plan.confidence,
+          estimatedAnnualImpactUsd: plan.estimatedAnnualImpactUsd,
+        };
+        const list = grouped.get(plan.entityId) ?? [];
+        list.push(item);
+        grouped.set(plan.entityId, list);
+      }
+
+      const groups: ProjectRecommendationGroup[] = [];
+      for (const [entityId, recs] of grouped.entries()) {
+        const projName = entityId.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const projId = entityId.toUpperCase().startsWith('PRJ-') ? entityId.toUpperCase() : `PRJ-${entityId.toUpperCase()}`;
+        const hasMultiple = recs.length > 1;
+        const hasKeyActions = recs.some(r => ['model-switch', 'rate-limit', 'throttle-guardrail', 'reallocation', 'prompt-efficiency'].includes(r.category));
+        const ownerName = hasMultiple && hasKeyActions ? 'Michael Yaacoub (myaacoub)' : 'Avery Johnson';
+        const ownerEmail = hasMultiple && hasKeyActions ? 'myaacoub@microsoft.com' : 'avery.johnson@Caldova37587778.onmicrosoft.com';
+
+        groups.push({
+          projectId: projId,
+          projectName: projName,
+          ownerName,
+          ownerEmail,
+          recommendations: recs,
+        });
+      }
+
+      return groups.sort((a, b) => {
+        const aMine = this.isAssignedToMe(a) ? 0 : 1;
+        const bMine = this.isAssignedToMe(b) ? 0 : 1;
+        return aMine !== bMine ? aMine - bMine : b.recommendations.length - a.recommendations.length;
+      });
+    }
+
+    return [
+      {
+        projectId: 'PRJ-HR-SERVICE-AGENT',
+        projectName: 'HR Service Agent',
+        ownerName: 'Michael Yaacoub (myaacoub)',
+        ownerEmail: 'myaacoub@microsoft.com',
+        recommendations: [
+          { id: 'hr-token-limit', title: 'High token growth detected on HR assistant APIs', category: 'rate-limit', mockAction: 'Update token limit in APIM' },
+          { id: 'hr-model-switch', title: 'Workload eligible for efficient model tier', category: 'model-switch', mockAction: 'Switch model in Foundry' },
+          { id: 'hr-prompt', title: 'Prompt context contains repetitive grounding instructions', category: 'prompt-efficiency', mockAction: 'Optimize prompt in Foundry' },
+        ],
+      },
+      {
+        projectId: 'PRJ-PREDICTIVE-MAINTENANCE',
+        projectName: 'Predictive Maintenance',
+        ownerName: 'Michael Yaacoub (myaacoub)',
+        ownerEmail: 'myaacoub@microsoft.com',
+        recommendations: [
+          { id: 'pm-model-switch', title: 'Frontier model downgrade for telemetry parsing', category: 'model-switch', mockAction: 'Switch model in Foundry' },
+          { id: 'pm-rate-limit', title: 'Adjust batch APIM TPM limit ahead of scheduled run', category: 'rate-limit', mockAction: 'Update token limit in APIM' },
+        ],
+      },
+      {
+        projectId: 'PRJ-FINANCE-CLOSE-COPILOT',
+        projectName: 'Finance Close Copilot',
+        ownerName: 'Michael Yaacoub (myaacoub)',
+        ownerEmail: 'myaacoub@microsoft.com',
+        recommendations: [
+          { id: 'fin-quota', title: 'Peak-hour quota undersized for month-end reconciliation', category: 'quota-increase', mockAction: 'Increase Foundry quota' },
+          { id: 'fin-cache', title: 'Financial statement context is eligible for prompt caching', category: 'prompt-efficiency', mockAction: 'Enable prompt caching' },
+        ],
+      },
+      {
+        projectId: 'PRJ-LEGAL-REVIEW',
+        projectName: 'Legal Document Review',
+        ownerName: 'Avery Johnson',
+        ownerEmail: 'avery.johnson@Caldova37587778.onmicrosoft.com',
+        recommendations: [
+          { id: 'legal-governance', title: 'Model deployment requires an updated governance approval', category: 'governance', mockAction: 'Open governance review' },
+        ],
+      },
+    ];
+  });
+
   readonly visibleProjectRecommendations = computed(() => {
     const groups = this.notificationTab() === 'assigned'
-      ? this.projectRecommendations.filter(group => group.ownerEmail.toLowerCase() === CURRENT_USER_EMAIL.toLowerCase())
-      : this.projectRecommendations;
+      ? this.projectRecommendations().filter(group => this.isAssignedToMe(group))
+      : this.projectRecommendations();
     return groups.filter(group => group.recommendations.some(item => !this.executedRecommendationIds().has(item.id)));
   });
-  readonly recommendationCount = computed(() => this.projectRecommendations.reduce(
+  readonly recommendationCount = computed(() => this.projectRecommendations().reduce(
     (count, group) => count + group.recommendations.filter(item => !this.executedRecommendationIds().has(item.id)).length,
     0
   ));
-  readonly assignedRecommendationCount = computed(() => this.projectRecommendations
-    .filter(group => group.ownerEmail.toLowerCase() === CURRENT_USER_EMAIL.toLowerCase())
+  readonly assignedRecommendationCount = computed(() => this.projectRecommendations()
+    .filter(group => this.isAssignedToMe(group))
     .reduce((count, group) => count + group.recommendations.filter(item => !this.executedRecommendationIds().has(item.id)).length, 0));
 
   readonly showcaseVisits = signal<ShowcaseVisitsReport | null>(null);
@@ -443,28 +515,107 @@ export class App implements OnInit {
 
   readonly filteredModels = computed(() => {
     const filter = this.selectedProvider();
+    const isCredits = this.overviewMetric() === 'ai-credits' || filter === 'cps';
     const models = this.dashboard()?.models ?? [];
-    if (filter === 'all') return models;
-    return models.filter(m => this.matchesProvider(m.Provider, m.Model, filter));
+    if (isCredits) {
+      const cpsModels = models.filter(m => this.isCopilotStudioRow(m));
+      return cpsModels.length > 0 ? cpsModels : [{
+        Model: 'Microsoft Copilot Studio',
+        ModelFamily: 'Copilot Studio',
+        Provider: COPILOT_STUDIO_PROVIDER,
+        TotalTokens: 0,
+        Requests: this.copilotStudio().aiCredits > 0 ? 120 : 0,
+        AiCredits: this.copilotStudio().aiCredits,
+        MarketCost: this.copilotStudio().marketCost,
+        NegotiatedCost: this.copilotStudio().negotiatedCost,
+        ActualCost: this.copilotStudio().negotiatedCost,
+        ServiceCode: 'copilot-studio',
+        ConsumptionUnit: 'ai_credits',
+      } as TokenomicsRow];
+    }
+    const tokenModels = models.filter(m => !this.isCopilotStudioRow(m));
+    if (filter === 'all') return tokenModels;
+    return tokenModels.filter(m => this.matchesProvider(m.Provider, m.Model, filter));
   });
 
   readonly filteredSummary = computed(() => {
     const data = this.dashboard();
     if (!data) return null;
     const filter = this.selectedProvider();
+    const isCredits = this.overviewMetric() === 'ai-credits' || filter === 'cps';
+
+    if (isCredits) {
+      const copilot = this.copilotStudio();
+      const allocations = (data.allocations ?? []).filter(r => this.isCopilotStudioRow(r));
+      const models = this.filteredModels();
+      const requests = allocations.reduce((sum, r) => sum + (r.Requests ?? 0), 0);
+      const successfulRequests = requests;
+      const failedRequests = 0;
+      const marketCost = copilot.marketCost;
+      const negotiatedCost = copilot.negotiatedCost;
+      const savings = Number((marketCost - negotiatedCost).toFixed(2));
+      const dedicatedModelCost = negotiatedCost;
+
+      return {
+        requests,
+        successfulRequests,
+        failedRequests,
+        tokenizedRequests: 0,
+        tokenCoveragePct: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        aiCredits: copilot.aiCredits,
+        p95LatencyMs: 350,
+        marketCost,
+        negotiatedCost,
+        savings,
+        pricingCoveragePct: 100,
+        dedicatedModelCost,
+        scopeCost: Number((dedicatedModelCost * 1.25).toFixed(2)),
+        activeModelsCount: models.length,
+        providerCount: 1,
+        billedThrough: data.actualCost.billedThrough,
+      };
+    }
+
     if (filter === 'all') {
+      const tokenAllocations = (data.allocations ?? []).filter(r => !this.isCopilotStudioRow(r));
+      const totalTokens = tokenAllocations.reduce((sum, r) => sum + (r.TotalTokens ?? 0), 0);
+      const marketCost = Number(tokenAllocations.reduce((sum, r) => sum + (r.MarketCost ?? 0), 0).toFixed(2));
+      const negotiatedCost = Number(tokenAllocations.reduce((sum, r) => sum + (r.NegotiatedCost ?? 0), 0).toFixed(2));
+      const dedicatedModelCost = Number(tokenAllocations.reduce((sum, r) => sum + (r.ActualCost ?? r.NegotiatedCost ?? 0), 0).toFixed(2));
+      const savings = Number((marketCost - negotiatedCost).toFixed(2));
+      const requests = tokenAllocations.reduce((sum, r) => sum + (r.Requests ?? 0), 0);
+      const successfulRequests = Math.round(requests * 0.994);
+      const failedRequests = requests - successfulRequests;
+      const models = this.filteredModels();
+
       return {
         ...data.summary,
-        aiCredits: this.copilotStudio().aiCredits,
-        dedicatedModelCost: data.actualCost.dedicatedModelCost,
-        scopeCost: data.actualCost.scopeCost,
-        activeModelsCount: data.models.length,
+        requests,
+        successfulRequests,
+        failedRequests,
+        tokenizedRequests: requests,
+        tokenCoveragePct: 100,
+        totalTokens,
+        inputTokens: Math.round(totalTokens * 0.72),
+        outputTokens: Math.round(totalTokens * 0.28),
+        aiCredits: 0,
+        marketCost,
+        negotiatedCost,
+        savings,
+        dedicatedModelCost,
+        scopeCost: Number((dedicatedModelCost * 1.25).toFixed(2)),
+        activeModelsCount: models.length,
         providerCount: 5,
         billedThrough: data.actualCost.billedThrough,
       };
     }
 
-    const allocations = this.dashboard()?.allocations.filter(r => this.matchesProvider(r.Provider, r.Model, filter)) ?? [];
+    const allocations = (data.allocations ?? [])
+      .filter(r => !this.isCopilotStudioRow(r))
+      .filter(r => this.matchesProvider(r.Provider, r.Model, filter));
     const models = this.filteredModels();
     const totalTokens = allocations.reduce((sum, r) => sum + (r.TotalTokens ?? 0), 0);
     const requests = allocations.reduce((sum, r) => sum + (r.Requests ?? 0), 0);
@@ -474,21 +625,19 @@ export class App implements OnInit {
     const negotiatedCost = Number(allocations.reduce((sum, r) => sum + (r.NegotiatedCost ?? 0), 0).toFixed(2));
     const dedicatedModelCost = Number(allocations.reduce((sum, r) => sum + (r.ActualCost ?? r.NegotiatedCost ?? 0), 0).toFixed(2));
     const savings = Number((marketCost - negotiatedCost).toFixed(2));
-    const aiCredits = allocations.reduce((sum, r) => sum + (r.AiCredits ?? 0), 0);
-    const isCopilot = filter === 'cps';
 
-    const p95Latency = filter === 'gcp' ? 260 : filter === 'aws' ? 290 : filter === 'msft' ? 310 : filter === 'cps' ? 350 : filter === 'cld' ? 340 : 380;
+    const p95Latency = filter === 'gcp' ? 260 : filter === 'aws' ? 290 : filter === 'msft' ? 310 : filter === 'cld' ? 340 : 380;
 
     return {
       requests,
       successfulRequests,
       failedRequests,
-      tokenizedRequests: isCopilot ? 0 : requests,
-      tokenCoveragePct: isCopilot ? 0 : 100,
+      tokenizedRequests: requests,
+      tokenCoveragePct: 100,
       inputTokens: Math.round(totalTokens * 0.72),
       outputTokens: Math.round(totalTokens * 0.28),
       totalTokens,
-      aiCredits,
+      aiCredits: 0,
       p95LatencyMs: p95Latency,
       marketCost,
       negotiatedCost,
@@ -506,22 +655,60 @@ export class App implements OnInit {
     const data = this.dashboard();
     if (!data) return [];
     const filter = this.selectedProvider();
+    const isCredits = this.overviewMetric() === 'ai-credits' || filter === 'cps';
     const fullTrend = data.trend;
-    if (filter === 'all') return fullTrend;
 
-    // Copilot Studio has no token telemetry, so its share is measured in list USD and shown as AI credits.
-    const isCopilot = filter === 'cps';
-    const basis = (r: TokenomicsRow): number => (isCopilot ? (r.MarketCost ?? 0) : (r.TotalTokens ?? 0));
-    const totalBasis = data.allocations.reduce((acc, r) => acc + basis(r), 0) || 1;
+    if (isCredits) {
+      // Copilot Studio has no token telemetry, so its share is measured in list USD and shown as AI credits.
+      const totalBasis = data.allocations.reduce((acc, r) => acc + (r.MarketCost ?? 0), 0) || 1;
+      const copilotBasis = data.allocations
+        .filter(r => this.isCopilotStudioRow(r))
+        .reduce((acc, r) => acc + (r.MarketCost ?? 0), 0);
+      const ratio = copilotBasis > 0 ? (copilotBasis / totalBasis) : 1;
+
+      return fullTrend.map(row => ({
+        ...row,
+        TotalTokens: 0,
+        AiCredits: Math.round(((row.MarketCost ?? 0) * ratio) / COPILOT_STUDIO_RATE_CARD.listUsdPerCredit),
+        MarketCost: Number(((row.MarketCost ?? 0) * ratio).toFixed(2)),
+        NegotiatedCost: Number(((row.NegotiatedCost ?? 0) * ratio).toFixed(2)),
+        ActualCost: Number(((row.ActualCost ?? 0) * ratio).toFixed(2)),
+        Requests: Math.round((row.Requests ?? 0) * ratio),
+        Successes: Math.round((row.Successes ?? 0) * ratio),
+        Errors: 0,
+      }));
+    }
+
+    if (filter === 'all') {
+      const totalBasis = data.allocations.reduce((acc, r) => acc + (r.TotalTokens ?? 0), 0) || 1;
+      const tokenBasis = data.allocations
+        .filter(r => !this.isCopilotStudioRow(r))
+        .reduce((acc, r) => acc + (r.TotalTokens ?? 0), 0);
+      const ratio = totalBasis > 0 ? (tokenBasis / totalBasis) : 1;
+
+      return fullTrend.map(row => ({
+        ...row,
+        TotalTokens: Math.round((row.TotalTokens ?? 0) * ratio),
+        AiCredits: 0,
+        MarketCost: Number(((row.MarketCost ?? 0) * ratio).toFixed(2)),
+        NegotiatedCost: Number(((row.NegotiatedCost ?? 0) * ratio).toFixed(2)),
+        ActualCost: Number(((row.ActualCost ?? 0) * ratio).toFixed(2)),
+        Requests: Math.round((row.Requests ?? 0) * ratio),
+        Successes: Math.round((row.Successes ?? 0) * ratio),
+        Errors: Math.round((row.Errors ?? 0) * ratio),
+      }));
+    }
+
+    const totalBasis = data.allocations.reduce((acc, r) => acc + (r.TotalTokens ?? 0), 0) || 1;
     const providerBasis = data.allocations
-      .filter(r => this.matchesProvider(r.Provider, r.Model, filter))
-      .reduce((acc, r) => acc + basis(r), 0);
-    const ratio = providerBasis / totalBasis;
+      .filter(r => !this.isCopilotStudioRow(r) && this.matchesProvider(r.Provider, r.Model, filter))
+      .reduce((acc, r) => acc + (r.TotalTokens ?? 0), 0);
+    const ratio = totalBasis > 0 ? (providerBasis / totalBasis) : 0;
 
     return fullTrend.map(row => ({
       ...row,
-      TotalTokens: isCopilot ? 0 : Math.round((row.TotalTokens ?? 0) * ratio),
-      AiCredits: isCopilot ? Math.round(((row.MarketCost ?? 0) * ratio) / COPILOT_STUDIO_RATE_CARD.listUsdPerCredit) : 0,
+      TotalTokens: Math.round((row.TotalTokens ?? 0) * ratio),
+      AiCredits: 0,
       MarketCost: Number(((row.MarketCost ?? 0) * ratio).toFixed(2)),
       NegotiatedCost: Number(((row.NegotiatedCost ?? 0) * ratio).toFixed(2)),
       ActualCost: Number(((row.ActualCost ?? 0) * ratio).toFixed(2)),
@@ -629,7 +816,11 @@ export class App implements OnInit {
     }
     const sort = this.drillThroughSort();
     if (sort === 'tokens') {
-      users.sort((a, b) => b.totalTokens - a.totalTokens);
+      if (this.userSegmentationMetric() === 'ai-credits') {
+        users.sort((a, b) => (b.aiCredits ?? 0) - (a.aiCredits ?? 0));
+      } else {
+        users.sort((a, b) => b.totalTokens - a.totalTokens);
+      }
     } else {
       users.sort((a, b) => b.marketCost - a.marketCost);
     }
@@ -771,6 +962,49 @@ export class App implements OnInit {
     this.promptLibrary.setServerPrompts(await this.tokenomics.getSamplePrompts());
   }
 
+  setOverviewMetric(metric: 'tokens' | 'ai-credits'): void {
+    this.overviewMetric.set(metric);
+    if (metric === 'ai-credits') {
+      if (this.selectedProvider() !== 'cps' && this.selectedProvider() !== 'all') {
+        this.selectedProvider.set('cps');
+      }
+    } else {
+      if (this.selectedProvider() === 'cps') {
+        this.selectedProvider.set('all');
+      }
+    }
+  }
+
+  setUserConsumptionMetric(metric: 'tokens' | 'ai-credits'): void {
+    this.userConsumptionMetric.set(metric);
+    this.userPage.set(1);
+    if (metric === 'ai-credits' && this.userConsumptionProvider() !== 'cps' && this.userConsumptionProvider() !== 'all') {
+      this.userConsumptionProvider.set('cps');
+    }
+    void this.loadUserConsumption();
+  }
+
+  setUserConsumptionProvider(provider: string): void {
+    this.userConsumptionProvider.set(provider);
+    this.userPage.set(1);
+    void this.loadUserConsumption();
+  }
+
+  setUserSegmentationMetric(metric: 'tokens' | 'ai-credits'): void {
+    this.userSegmentationMetric.set(metric);
+    this.drillThroughPage.set(1);
+    if (metric === 'ai-credits' && this.userSegmentationProvider() !== 'cps' && this.userSegmentationProvider() !== 'all') {
+      this.userSegmentationProvider.set('cps');
+    }
+    void this.loadUserSegmentation();
+  }
+
+  setUserSegmentationProvider(provider: string): void {
+    this.userSegmentationProvider.set(provider);
+    this.drillThroughPage.set(1);
+    void this.loadUserSegmentation();
+  }
+
   async loadUserConsumption(): Promise<void> {
     this.userConsumptionLoading.set(true);
     try {
@@ -782,7 +1016,9 @@ export class App implements OnInit {
         undefined,
         this.selectedUserSort(),
         this.userPage(),
-        this.userPageSize()
+        this.userPageSize(),
+        this.userConsumptionProvider(),
+        this.userConsumptionMetric()
       );
       this.userConsumption.set(data);
     } catch (e) {
@@ -795,10 +1031,18 @@ export class App implements OnInit {
   async loadUserSegmentation(): Promise<void> {
     this.userSegmentationLoading.set(true);
     try {
-      const data = await this.tokenomics.getUserSegmentation(this.windowDays());
+      const data = await this.tokenomics.getUserSegmentation(
+        this.windowDays(),
+        this.userSegmentationProvider(),
+        this.userSegmentationMetric()
+      );
       this.userSegmentation.set(data);
       if (!this.selectedCluster() && data.clusters.length > 0) {
         this.selectedCluster.set(data.clusters[0]);
+      } else if (this.selectedCluster() && data.clusters.length > 0) {
+        const currentId = this.selectedCluster()!.clusterId;
+        const updated = data.clusters.find(c => c.clusterId === currentId) ?? data.clusters[0];
+        this.selectedCluster.set(updated);
       }
     } catch (e) {
       console.error('Failed to load user segmentation', e);
@@ -1115,6 +1359,13 @@ export class App implements OnInit {
     this.pricingProviderFilter.set(providerId);
     this.selectedPowerBiProvider.set(providerId);
     this.mlFilterProvider.set(providerId);
+    this.userConsumptionProvider.set(providerId);
+    this.userSegmentationProvider.set(providerId);
+    if (this.activeView() === 'user-consumption') {
+      void this.loadUserConsumption();
+    } else if (this.activeView() === 'user-segmentation') {
+      void this.loadUserSegmentation();
+    }
   }
 
   setPricingProviderFilter(provider: string): void {

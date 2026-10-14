@@ -492,13 +492,36 @@
               <section class="overview-view">
                 <div class="section-intro">
                   <div>
-                    <span class="eyebrow">{{ windowDays() }} Day {{ activeProviderName() }} Portfolio</span>
-                    <h2>{{ selectedProvider() === 'all' ? 'Multi-Cloud Outcome Economics' : activeProviderName() + ' Economics' }}</h2>
+                    <span class="eyebrow">{{ windowDays() }} Day {{ overviewMetric() === 'ai-credits' ? 'Microsoft Copilot Studio' : activeProviderName() }} Portfolio</span>
+                    <h2>{{ overviewMetric() === 'ai-credits' ? 'Copilot Studio AI Credits Economics' : (selectedProvider() === 'all' ? 'Multi-Cloud Outcome Economics' : activeProviderName() + ' Economics') }}</h2>
                   </div>
-                  <p>{{ integer(summary.successfulRequests) }} governed requests • {{ activeProviderName() }}</p>
+                  <p>{{ integer(summary.successfulRequests) }} governed requests • {{ overviewMetric() === 'ai-credits' ? 'Copilot Studio AI Credits' : activeProviderName() }}</p>
                 </div>
 
-                @if (selectedProvider() !== 'all') {
+                <!-- Token vs AI Credits Metric Filter -->
+                <div class="cost-model-control" role="tablist" aria-label="Overview metric filter">
+                  <span>Metric View</span>
+                  <button
+                    type="button"
+                    role="tab"
+                    [attr.aria-selected]="overviewMetric() === 'tokens'"
+                    [class.active]="overviewMetric() === 'tokens'"
+                    (click)="setOverviewMetric('tokens')">
+                    <ion-icon name="pricetag-outline"></ion-icon>
+                    Tokens
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    [attr.aria-selected]="overviewMetric() === 'ai-credits'"
+                    [class.active]="overviewMetric() === 'ai-credits'"
+                    (click)="setOverviewMetric('ai-credits')">
+                    <ion-icon name="sparkles-outline"></ion-icon>
+                    AI Credits
+                  </button>
+                </div>
+
+                @if (selectedProvider() !== 'all' && overviewMetric() === 'tokens') {
                   <div class="filter-active-indicator">
                     <ion-icon name="information-circle-outline"></ion-icon>
                     <span>Filtered to <strong>{{ activeProviderName() }}</strong>. Showing provider-specific volume, spend, and models.</span>
@@ -508,7 +531,7 @@
 
                 <!-- 5 Hero KPIs -->
                 <div class="kpi-grid">
-                  @if (selectedProvider() === 'cps') {
+                  @if (overviewMetric() === 'ai-credits' || selectedProvider() === 'cps') {
                     <article class="kpi primary">
                       <div class="kpi-icon"><ion-icon name="sparkles-outline"></ion-icon></div>
                       <span>AI Credits</span><strong>{{ compact(summary.aiCredits) }}</strong>
@@ -536,7 +559,7 @@
                     <span>P95 Latency</span><strong>{{ compact(summary.p95LatencyMs) }}<em> ms</em></strong>
                     <small>{{ percent(successRate()) }} request success</small>
                   </article>
-                  @if (selectedProvider() === 'cps') {
+                  @if (overviewMetric() === 'ai-credits' || selectedProvider() === 'cps') {
                     <article class="kpi purple">
                       <div class="kpi-icon"><ion-icon name="flash-outline"></ion-icon></div>
                       <span>Effective USD / Credit</span><strong>{{ usdPerCredit(copilotStudio().effectiveNegotiatedUsdPerCredit) }}</strong>
@@ -555,10 +578,10 @@
                 <div class="insight-grid">
                   <section class="chart-panel trend-panel">
                     <header>
-                      <div><span class="eyebrow">{{ activeProviderName() }} Volume</span><h3>{{ selectedProvider() === 'cps' ? 'AI Credits & Cost over Time' : 'Tokens & Cost over Time' }}</h3></div>
+                      <div><span class="eyebrow">{{ (overviewMetric() === 'ai-credits' || selectedProvider() === 'cps') ? 'Copilot Studio' : activeProviderName() }} Volume</span><h3>{{ (overviewMetric() === 'ai-credits' || selectedProvider() === 'cps') ? 'AI Credits & Cost over Time' : 'Tokens & Cost over Time' }}</h3></div>
                       <span class="panel-tag">{{ data.currency }}</span>
                     </header>
-                    <app-tokenomics-chart mode="trend" [rows]="filteredTrend()" [currency]="data.currency" [volumeUnit]="selectedProvider() === 'cps' ? 'credits' : 'tokens'" label="Volume and model cost over time"></app-tokenomics-chart>
+                    <app-tokenomics-chart mode="trend" [rows]="filteredTrend()" [currency]="data.currency" [volumeUnit]="(overviewMetric() === 'ai-credits' || selectedProvider() === 'cps') ? 'credits' : 'tokens'" label="Volume and model cost over time"></app-tokenomics-chart>
                   </section>
                   <section class="chart-panel allocation-panel">
                     <header>
@@ -1051,13 +1074,36 @@
               <div class="section-intro">
                 <div>
                   <span class="eyebrow">Enterprise Person Telemetry</span>
-                  <h2>Token Consumption by User (Person)</h2>
-                  <p class="section-desc">Auditable per-person token intensity, model allocations, and spend tracking across Micron-scale business units and fab operations.</p>
+                  <h2>{{ userConsumptionMetric() === 'ai-credits' ? 'AI Credits Consumption by User (Person)' : 'Token Consumption by User (Person)' }}</h2>
+                  <p class="section-desc">Auditable per-person {{ userConsumptionMetric() === 'ai-credits' ? 'Copilot Studio AI credits' : 'token intensity' }}, model allocations, and spend tracking across Micron-scale business units and fab operations.</p>
                 </div>
                 <div class="view-header-stats">
                   <span class="stat-pill"><ion-icon name="people-outline"></ion-icon> {{ userConsumption()?.totalUsers ?? 2400 | number }} People Tracked</span>
                   <span class="stat-pill highlight"><ion-icon name="cash-outline"></ion-icon> {{ userConsumption()?.totalMarketCost ?? 0 | currency:'USD':'symbol':'1.0-0' }} Period Spend</span>
                 </div>
+              </div>
+
+              <!-- Metric Filter: Tokens vs AI Credits -->
+              <div class="cost-model-control" role="tablist" aria-label="User consumption metric filter">
+                <span>Consumption Metric</span>
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-selected]="userConsumptionMetric() === 'tokens'"
+                  [class.active]="userConsumptionMetric() === 'tokens'"
+                  (click)="setUserConsumptionMetric('tokens')">
+                  <ion-icon name="pricetag-outline"></ion-icon>
+                  Tokens
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-selected]="userConsumptionMetric() === 'ai-credits'"
+                  [class.active]="userConsumptionMetric() === 'ai-credits'"
+                  (click)="setUserConsumptionMetric('ai-credits')">
+                  <ion-icon name="sparkles-outline"></ion-icon>
+                  AI Credits
+                </button>
               </div>
 
               <!-- Top KPI Summary Cards -->
@@ -1068,9 +1114,9 @@
                   <div class="metric-footnote"><span class="trend-optimal">100% Attributed</span> across 5 Business Units</div>
                 </div>
                 <div class="metric-card">
-                  <span class="metric-label">Total Tokens Consumed</span>
-                  <div class="metric-value">{{ (userConsumption()?.totalTokens ?? 0) | number }}</div>
-                  <div class="metric-footnote">Input/Output multi-cloud tokens</div>
+                  <span class="metric-label">{{ userConsumptionMetric() === 'ai-credits' ? 'Total AI Credits Consumed' : 'Total Tokens Consumed' }}</span>
+                  <div class="metric-value">{{ (userConsumptionMetric() === 'ai-credits' ? (userConsumption()?.totalAiCredits ?? 0) : (userConsumption()?.totalTokens ?? 0)) | number }}</div>
+                  <div class="metric-footnote">{{ userConsumptionMetric() === 'ai-credits' ? 'Copilot Studio AI credits' : 'Input/Output multi-cloud tokens' }}</div>
                 </div>
                 <div class="metric-card">
                   <span class="metric-label">Total Market Spend</span>
@@ -1101,7 +1147,7 @@
                     <ion-icon name="trophy-outline" class="panel-icon gold"></ion-icon>
                     <div>
                       <h3>Top Corporate AI Consumers</h3>
-                      <p>Highest-consuming individuals by token volume and dollar impact</p>
+                      <p>Highest-consuming individuals by {{ userConsumptionMetric() === 'ai-credits' ? 'AI credit' : 'token' }} volume and dollar impact</p>
                     </div>
                   </div>
                   <span class="leaderboard-tag">Ranked by Market Spend</span>
@@ -1123,8 +1169,8 @@
                           <span class="lbl">Market Spend</span>
                         </div>
                         <div class="token-metric">
-                          <span class="num">{{ person.totalTokens | number }}</span>
-                          <span class="lbl">Tokens</span>
+                          <span class="num">{{ (userConsumptionMetric() === 'ai-credits' ? person.aiCredits : person.totalTokens) | number }}</span>
+                          <span class="lbl">{{ userConsumptionMetric() === 'ai-credits' ? 'Credits' : 'Tokens' }}</span>
                         </div>
                         <div class="model-metric">
                           <span class="model-tag">{{ person.primaryModel }}</span>
@@ -1146,6 +1192,14 @@
                 </div>
                 <div class="filter-dropdowns">
                   <div class="select-wrap">
+                    <label>Cloud Provider</label>
+                    <select [ngModel]="userConsumptionProvider()" (ngModelChange)="setUserConsumptionProvider($event)" aria-label="Filter by cloud provider">
+                      @for (opt of userConsumptionProviderOptions(); track opt.id) {
+                        <option [value]="opt.id">{{ opt.name }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="select-wrap">
                     <label>Business Unit</label>
                     <select [ngModel]="selectedUserBu()" (ngModelChange)="setUserBuFilter($event)" aria-label="Filter by business unit">
                       @for (bu of businessUnitOptions; track bu.id) {
@@ -1165,7 +1219,7 @@
                     <label>Sort By</label>
                     <select [ngModel]="selectedUserSort()" (ngModelChange)="setUserSort($event)" aria-label="Sort users by">
                       <option value="cost">Highest Spend ($)</option>
-                      <option value="tokens">Highest Tokens</option>
+                      <option value="tokens">{{ userConsumptionMetric() === 'ai-credits' ? 'Highest Credits' : 'Highest Tokens' }}</option>
                       <option value="requests">Most Requests</option>
                       <option value="name">Name (A-Z)</option>
                     </select>
@@ -1203,8 +1257,10 @@
                         <th>Role & Title</th>
                         <th>Business Unit & Dept</th>
                         <th>Team & Project</th>
-                        <th class="num-col">Total Tokens</th>
-                        <th class="num-col">Token Split (In / Out)</th>
+                        <th class="num-col">{{ userConsumptionMetric() === 'ai-credits' ? 'Total AI Credits' : 'Total Tokens' }}</th>
+                        @if (userConsumptionMetric() === 'tokens') {
+                          <th class="num-col">Token Split (In / Out)</th>
+                        }
                         <th class="num-col">Market Cost</th>
                         <th class="num-col">Negotiated Cost</th>
                         <th class="num-col">Requests</th>
@@ -1240,12 +1296,14 @@
                             </div>
                           </td>
                           <td class="num-col highlight-cell">
-                            <strong>{{ user.totalTokens | number }}</strong>
+                            <strong>{{ (userConsumptionMetric() === 'ai-credits' ? user.aiCredits : user.totalTokens) | number }}</strong>
                           </td>
-                          <td class="num-col split-cell">
-                            <span class="inp-tok">{{ user.inputTokens | number }} in</span>
-                            <span class="out-tok">{{ user.outputTokens | number }} out</span>
-                          </td>
+                          @if (userConsumptionMetric() === 'tokens') {
+                            <td class="num-col split-cell">
+                              <span class="inp-tok">{{ user.inputTokens | number }} in</span>
+                              <span class="out-tok">{{ user.outputTokens | number }} out</span>
+                            </td>
+                          }
                           <td class="num-col cost-cell">
                             <strong>{{ user.marketCost | currency:'USD' }}</strong>
                           </td>
@@ -1295,11 +1353,48 @@
                 <div>
                   <span class="eyebrow">PySpark ML Algorithm 04</span>
                   <h2>User Segmentation into Clusters</h2>
-                  <p class="section-desc">K-Means and DBSCAN behavioral clustering across 2,400 enterprise people. Displays clusters as circles sized by employee count, with interactive drill-through into top consumers.</p>
+                  <p class="section-desc">K-Means and DBSCAN behavioral clustering across 2,400 enterprise people. Displays clusters as circles sized by employee count, reflecting {{ userSegmentationMetric() === 'ai-credits' ? 'AI credit' : 'token' }} intensity and multi-cloud providers.</p>
                 </div>
                 <div class="view-header-stats">
                   <span class="stat-pill highlight"><ion-icon name="pie-chart-outline"></ion-icon> 5 Behavioral Cohorts</span>
                   <span class="stat-pill success"><ion-icon name="sparkles-outline"></ion-icon> Governed Lakehouse ML</span>
+                </div>
+              </div>
+
+              <!-- Metric Filter: Tokens vs AI Credits -->
+              <div class="cost-model-control" role="tablist" aria-label="User segmentation metric filter">
+                <span>Cluster Metric</span>
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-selected]="userSegmentationMetric() === 'tokens'"
+                  [class.active]="userSegmentationMetric() === 'tokens'"
+                  (click)="setUserSegmentationMetric('tokens')">
+                  <ion-icon name="pricetag-outline"></ion-icon>
+                  Tokens
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-selected]="userSegmentationMetric() === 'ai-credits'"
+                  [class.active]="userSegmentationMetric() === 'ai-credits'"
+                  (click)="setUserSegmentationMetric('ai-credits')">
+                  <ion-icon name="sparkles-outline"></ion-icon>
+                  AI Credits
+                </button>
+              </div>
+
+              <!-- Cloud Provider Filter Bar -->
+              <div class="user-filter-toolbar" style="margin-bottom: 16px;">
+                <div class="filter-dropdowns">
+                  <div class="select-wrap">
+                    <label>Cloud Provider</label>
+                    <select [ngModel]="userSegmentationProvider()" (ngModelChange)="setUserSegmentationProvider($event)" aria-label="Filter clusters by provider">
+                      @for (opt of userSegmentationProviderOptions(); track opt.id) {
+                        <option [value]="opt.id">{{ opt.name }}</option>
+                      }
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -1321,7 +1416,7 @@
                   <div class="metric-footnote">EDA & Silicon Design workflows</div>
                 </div>
                 <div class="metric-card">
-                  <span class="metric-label">Highest Token Intensity</span>
+                  <span class="metric-label">{{ userSegmentationMetric() === 'ai-credits' ? 'Highest Credit Intensity' : 'Highest Token Intensity' }}</span>
                   <div class="metric-value highlight">Agent Builders</div>
                   <div class="metric-footnote">Multi-tool orchestration workflows</div>
                 </div>
@@ -1368,7 +1463,11 @@
                           </div>
                           <div class="bubble-stats">
                             <span class="b-spend">{{ circle.totalMarketCost | currency:'USD':'symbol':'1.0-0' }}</span>
-                            <span class="b-tok">{{ (circle.totalTokens / 1000000000) | number:'1.1-1' }}B tok</span>
+                            @if (userSegmentationMetric() === 'ai-credits') {
+                              <span class="b-tok">{{ (circle.totalAiCredits | number) }} credits</span>
+                            } @else {
+                              <span class="b-tok">{{ (circle.totalTokens / 1000000000) | number:'1.1-1' }}B tok</span>
+                            }
                           </div>
                           <span class="drill-prompt"><ion-icon name="arrow-down-outline"></ion-icon> Drill Through</span>
                         </div>
@@ -1428,7 +1527,7 @@
                           <ion-icon name="cash-outline"></ion-icon> Top Dollars ($) on Top
                         </button>
                         <button type="button" class="sort-toggle-btn" [class.active]="drillThroughSort() === 'tokens'" (click)="setDrillThroughSort('tokens')">
-                          <ion-icon name="layers-outline"></ion-icon> Top Tokens on Top
+                          <ion-icon name="layers-outline"></ion-icon> {{ userSegmentationMetric() === 'ai-credits' ? 'Top AI Credits on Top' : 'Top Tokens on Top' }}
                         </button>
                       </div>
                     </div>
@@ -1446,8 +1545,10 @@
                           <th>Department & Team</th>
                           <th class="num-col">Market Cost ($)</th>
                           <th class="num-col">Negotiated Cost</th>
-                          <th class="num-col">Total Tokens</th>
-                          <th class="num-col">Input / Output</th>
+                          <th class="num-col">{{ userSegmentationMetric() === 'ai-credits' ? 'Total AI Credits' : 'Total Tokens' }}</th>
+                          @if (userSegmentationMetric() === 'tokens') {
+                            <th class="num-col">Input / Output</th>
+                          }
                           <th class="num-col">Requests</th>
                           <th>Primary Model</th>
                         </tr>
@@ -1488,12 +1589,14 @@
                               {{ person.negotiatedCost | currency:'USD' }}
                             </td>
                             <td class="num-col highlight-cell">
-                              <span class="token-high">{{ person.totalTokens | number }}</span>
+                              <span class="token-high">{{ (userSegmentationMetric() === 'ai-credits' ? person.aiCredits : person.totalTokens) | number }}</span>
                             </td>
-                            <td class="num-col split-cell">
-                              <span class="inp-tok">{{ person.inputTokens | number }} in</span>
-                              <span class="out-tok">{{ person.outputTokens | number }} out</span>
-                            </td>
+                            @if (userSegmentationMetric() === 'tokens') {
+                              <td class="num-col split-cell">
+                                <span class="inp-tok">{{ person.inputTokens | number }} in</span>
+                                <span class="out-tok">{{ person.outputTokens | number }} out</span>
+                              </td>
+                            }
                             <td class="num-col req-cell">
                               {{ person.requestCount | number }}
                             </td>

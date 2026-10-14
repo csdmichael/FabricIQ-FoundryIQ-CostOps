@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { AuthService } from './auth.service';
 import { configApiError, networkApiError, toApiError } from './api-error';
 import { formatAgentReply } from './chat-format';
-import { ML_USE_CASES, MOCK_USER_CLUSTERS, generateCorporateUsers } from './mock-data';
+import { COPILOT_STUDIO_PROVIDER, ML_USE_CASES, MOCK_USER_CLUSTERS, generateCorporateUsers } from './reference-data';
 import { RuntimeConfigService } from './runtime-config.service';
 import type {
   ActionRecommendationsResponse,
@@ -171,7 +171,9 @@ export class TokenomicsService {
     clusterId?: number,
     sortBy: 'cost' | 'tokens' | 'requests' | 'name' = 'cost',
     page: number = 1,
-    pageSize: number = 20
+    pageSize: number = 20,
+    provider: string = 'all',
+    metric: 'tokens' | 'ai-credits' = 'tokens'
   ): Promise<UserConsumptionResponse> {
     if (!this.config) await this.initialize();
     try {
@@ -180,6 +182,8 @@ export class TokenomicsService {
         sortBy,
         page: String(page),
         pageSize: String(pageSize),
+        provider,
+        metric,
       });
       if (search) params.set('search', search);
       if (businessUnit && businessUnit !== 'all') params.set('businessUnit', businessUnit);
@@ -195,6 +199,24 @@ export class TokenomicsService {
     }
 
     let items = generateCorporateUsers();
+    if (metric === 'ai-credits') {
+      items = items.filter(u => u.primaryProvider === COPILOT_STUDIO_PROVIDER || (u.aiCredits ?? 0) > 0);
+    } else if (metric === 'tokens') {
+      items = items.filter(u => u.primaryProvider !== COPILOT_STUDIO_PROVIDER && (u.totalTokens ?? 0) > 0);
+    }
+    if (provider && provider !== 'all') {
+      const p = provider.toLowerCase();
+      items = items.filter(u => {
+        const prov = (u.primaryProvider || '').toLowerCase();
+        if (p === 'cps') return prov.includes('copilot');
+        if (p === 'msft') return prov.includes('azure') || prov.includes('foundry');
+        if (p === 'aws') return prov.includes('aws') || prov.includes('bedrock');
+        if (p === 'gcp') return prov.includes('gcp') || prov.includes('vertex') || prov.includes('google');
+        if (p === 'oai') return prov.includes('openai');
+        if (p === 'cld') return prov.includes('anthropic') || prov.includes('claude');
+        return prov.includes(p);
+      });
+    }
     if (businessUnit && businessUnit !== 'all') {
       items = items.filter(u => u.businessUnit === businessUnit);
     }
@@ -215,8 +237,13 @@ export class TokenomicsService {
         u.businessUnit.toLowerCase().includes(s)
       );
     }
-    if (sortBy === 'tokens') items.sort((a, b) => b.totalTokens - a.totalTokens);
-    else if (sortBy === 'requests') items.sort((a, b) => b.requestCount - a.requestCount);
+    if (sortBy === 'tokens') {
+      if (metric === 'ai-credits') {
+        items.sort((a, b) => (b.aiCredits ?? 0) - (a.aiCredits ?? 0));
+      } else {
+        items.sort((a, b) => b.totalTokens - a.totalTokens);
+      }
+    } else if (sortBy === 'requests') items.sort((a, b) => b.requestCount - a.requestCount);
     else if (sortBy === 'name') items.sort((a, b) => a.userName.localeCompare(b.userName));
     else items.sort((a, b) => b.marketCost - a.marketCost);
 
@@ -224,6 +251,7 @@ export class TokenomicsService {
     const totalTokens = items.reduce((acc, u) => acc + u.totalTokens, 0);
     const totalMarketCost = Number(items.reduce((acc, u) => acc + u.marketCost, 0).toFixed(2));
     const totalNegotiatedCost = Number(items.reduce((acc, u) => acc + u.negotiatedCost, 0).toFixed(2));
+    const totalAiCredits = Number(items.reduce((acc, u) => acc + (u.aiCredits ?? 0), 0).toFixed(2));
     const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
     const clampedPage = Math.max(1, Math.min(page, totalPages));
     const startIdx = (clampedPage - 1) * pageSize;
@@ -234,6 +262,7 @@ export class TokenomicsService {
       totalTokens,
       totalMarketCost,
       totalNegotiatedCost,
+      totalAiCredits,
       page: clampedPage,
       pageSize,
       totalPages,
@@ -241,10 +270,19 @@ export class TokenomicsService {
     };
   }
 
-  async getUserSegmentation(days: WindowDays): Promise<UserSegmentationResponse> {
+  async getUserSegmentation(
+    days: WindowDays,
+    provider: string = 'all',
+    metric: 'tokens' | 'ai-credits' = 'tokens'
+  ): Promise<UserSegmentationResponse> {
     if (!this.config) await this.initialize();
     try {
-      const response = await this.authorizedFetch(`/users/segmentation?days=${days}`);
+      const params = new URLSearchParams({
+        days: String(days),
+        provider,
+        metric,
+      });
+      const response = await this.authorizedFetch(`/users/segmentation?${params.toString()}`);
       if (response.ok) {
         return await response.json() as UserSegmentationResponse;
       }
@@ -252,13 +290,33 @@ export class TokenomicsService {
       console.warn('Live user segmentation query unavailable, falling back to corporate lakehouse dataset:', error);
     }
 
-    const allUsers = generateCorporateUsers();
+    let allUsers = generateCorporateUsers();
+    if (metric === 'ai-credits') {
+      allUsers = allUsers.filter(u => u.primaryProvider === COPILOT_STUDIO_PROVIDER || (u.aiCredits ?? 0) > 0);
+    } else if (metric === 'tokens') {
+      allUsers = allUsers.filter(u => u.primaryProvider !== COPILOT_STUDIO_PROVIDER && (u.totalTokens ?? 0) > 0);
+    }
+    if (provider && provider !== 'all') {
+      const p = provider.toLowerCase();
+      allUsers = allUsers.filter(u => {
+        const prov = (u.primaryProvider || '').toLowerCase();
+        if (p === 'cps') return prov.includes('copilot');
+        if (p === 'msft') return prov.includes('azure') || prov.includes('foundry');
+        if (p === 'aws') return prov.includes('aws') || prov.includes('bedrock');
+        if (p === 'gcp') return prov.includes('gcp') || prov.includes('vertex') || prov.includes('google');
+        if (p === 'oai') return prov.includes('openai');
+        if (p === 'cld') return prov.includes('anthropic') || prov.includes('claude');
+        return prov.includes(p);
+      });
+    }
+
     const clusters: UserClusterSummary[] = MOCK_USER_CLUSTERS.map(c => {
       const clusterUsers = allUsers.filter(u => u.clusterId === c.id);
       clusterUsers.sort((a, b) => b.marketCost - a.marketCost);
       const uCount = clusterUsers.length;
       const cTokens = clusterUsers.reduce((acc, u) => acc + u.totalTokens, 0);
       const cCost = Number(clusterUsers.reduce((acc, u) => acc + u.marketCost, 0).toFixed(2));
+      const cCredits = Number(clusterUsers.reduce((acc, u) => acc + (u.aiCredits ?? 0), 0).toFixed(2));
       const avgTok = uCount ? Math.round(cTokens / uCount) : 0;
       const avgCost = uCount ? Number((cCost / uCount).toFixed(2)) : 0;
 
@@ -269,6 +327,7 @@ export class TokenomicsService {
         userCount: uCount,
         totalTokens: cTokens,
         totalMarketCost: cCost,
+        totalAiCredits: cCredits,
         avgTokensPerUser: avgTok,
         avgCostPerUser: avgCost,
         color: c.color,

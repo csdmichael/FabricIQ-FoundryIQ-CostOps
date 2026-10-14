@@ -267,18 +267,114 @@ describe('App', () => {
     expect(app.selectedProvider()).toBe('all');
   });
 
-  it('groups recommendation notifications and exposes assignments for Michael Yaacoub', () => {
+  it('groups recommendation notifications and exposes assignments for Michael Yaacoub with bname myaacoub', () => {
     const app = TestBed.createComponent(App).componentInstance;
 
     expect(app.recommendationCount()).toBe(8);
     app.setNotificationTab('assigned');
     expect(app.visibleProjectRecommendations().length).toBe(3);
-    expect(app.visibleProjectRecommendations().every(group => group.ownerName === 'Michael Yaacoub')).toBe(true);
+    expect(app.visibleProjectRecommendations().every(group => group.ownerName.includes('myaacoub'))).toBe(true);
     expect(app.assignedRecommendationCount()).toBe(7);
 
     const recommendation = app.visibleProjectRecommendations()[0].recommendations[0];
     app.executeRecommendation(recommendation);
     expect(app.executedRecommendationIds().has(recommendation.id)).toBe(true);
     expect(app.recommendationCount()).toBe(7);
+  });
+
+  it('toggles Overview filter between Token and AI Credits', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.dashboard.set(dashboardWith([foundryRow, copilotRow]));
+
+    expect(app.overviewMetric()).toBe('tokens');
+    expect(app.filteredSummary()?.totalTokens).toBe(1000);
+    expect(app.filteredSummary()?.aiCredits).toBe(0);
+
+    app.setOverviewMetric('ai-credits');
+    expect(app.overviewMetric()).toBe('ai-credits');
+    expect(app.filteredSummary()?.aiCredits).toBe(1000);
+    expect(app.filteredSummary()?.totalTokens).toBe(0);
+    expect(app.filteredModels().every(m => m.Provider === COPILOT_STUDIO_PROVIDER)).toBe(true);
+
+    app.setOverviewMetric('tokens');
+    expect(app.overviewMetric()).toBe('tokens');
+    expect(app.filteredSummary()?.totalTokens).toBe(1000);
+  });
+
+  it('updates user consumption and cluster segmentation with provider and metric filters', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+
+    expect(app.userConsumptionMetric()).toBe('tokens');
+    expect(app.userConsumptionProvider()).toBe('all');
+
+    app.setUserConsumptionMetric('ai-credits');
+    expect(app.userConsumptionMetric()).toBe('ai-credits');
+
+    app.setUserConsumptionProvider('cps');
+    expect(app.userConsumptionProvider()).toBe('cps');
+
+    app.setUserSegmentationMetric('ai-credits');
+    expect(app.userSegmentationMetric()).toBe('ai-credits');
+
+    app.setUserSegmentationProvider('cps');
+    expect(app.userSegmentationProvider()).toBe('cps');
+  });
+
+  it('derives notifications from live actions data when actions are loaded', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.actions.set({
+      generatedAt: new Date().toISOString(),
+      windowDays: 30,
+      currency: 'USD',
+      status: 'available',
+      detail: 'ok',
+      totalEstimatedAnnualSavingsUsd: 10000,
+      totalEstimatedMonthlySavingsUsd: 833,
+      categories: [],
+      plans: [
+        {
+          id: 'p1',
+          category: 'model-switch',
+          title: 'Switch model for App-X',
+          sourceUseCaseKey: 'model-optimization',
+          sourceUseCaseTitle: 'Model Optimization',
+          sourceTable: 'ml.model_optimization_output',
+          severity: 'optimal',
+          entityType: 'application',
+          entityId: 'app-x',
+          rationale: 'Downgrade to mini',
+          estimatedMonthlyImpactUsd: 100,
+          estimatedAnnualImpactUsd: 1200,
+          impactKind: 'savings',
+          confidence: 0.9,
+          changes: [],
+          metrics: [],
+        },
+        {
+          id: 'p2',
+          category: 'rate-limit',
+          title: 'Update TPM for App-X',
+          sourceUseCaseKey: 'quota-management',
+          sourceUseCaseTitle: 'Quota Management',
+          sourceTable: 'ml.quota_management_output',
+          severity: 'warning',
+          entityType: 'application',
+          entityId: 'app-x',
+          rationale: 'Adjust APIM TPM',
+          estimatedMonthlyImpactUsd: 50,
+          estimatedAnnualImpactUsd: 600,
+          impactKind: 'reliability',
+          confidence: 0.85,
+          changes: [],
+          metrics: [],
+        },
+      ],
+    });
+
+    const groups = app.projectRecommendations();
+    expect(groups.length).toBe(1);
+    expect(groups[0].projectName).toBe('App X');
+    expect(groups[0].recommendations.length).toBe(2);
+    expect(groups[0].ownerName).toContain('myaacoub');
   });
 });

@@ -410,6 +410,88 @@ def test_cps_alias_filters_ai_credit_rates_to_copilot_studio():
     assert rate["prepaidEffectiveUsdPerCredit"] == 0.008
 
 
+def test_recommendations_service_builds_project_groups_with_myaacoub_owner():
+    from app.recommendations_service import RecommendationsService
+
+    settings = get_settings()
+
+    class FakeClient:
+        def query(self, sql, params=()):
+            if "INFORMATION_SCHEMA" in sql:
+                return [
+                    {"TABLE_NAME": "model_optimization_output"},
+                    {"TABLE_NAME": "quota_management_output"},
+                ]
+            # Return rows for both model optimization and quota management for 'hr-service-agent'
+            if "model_optimization_output" in sql:
+                return [{
+                    "entity_type": "application", "entity_id": "hr-service-agent",
+                    "team_id": "corporate-it", "project_id": "hr-service-agent",
+                    "department_id": "IT", "cost_center_id": "CC-101",
+                    "model_family": "GPT-5", "model_name": "gpt-5",
+                    "source_code": "oai", "probability": 0.88, "risk_score": 10.0,
+                    "estimated_savings_usd": 400.0, "predicted_cost_usd": 150.0,
+                    "recommendation": "Switch model to GPT-4.1-mini.",
+                }]
+            if "quota_management_output" in sql:
+                return [{
+                    "entity_type": "application", "entity_id": "hr-service-agent",
+                    "team_id": "corporate-it", "project_id": "hr-service-agent",
+                    "department_id": "IT", "cost_center_id": "CC-101",
+                    "model_family": "GPT-5", "model_name": "gpt-5",
+                    "source_code": "oai", "probability": 0.82, "risk_score": 8.0,
+                    "estimated_savings_usd": 200.0, "predicted_cost_usd": 100.0,
+                    "recommendation": "Adjust token rate limit in APIM.",
+                }]
+            return []
+
+    service = RecommendationsService(settings, FakeClient())
+    res = service.build(30)
+    assert res.status == "available"
+    assert len(res.projectGroups) >= 1
+    hr_group = next(g for g in res.projectGroups if "hr-service-agent" in g.projectId.lower())
+    assert len(hr_group.recommendations) == 2
+    assert "myaacoub" in hr_group.ownerName.lower()
+    assert "myaacoub" in hr_group.ownerEmail.lower()
+
+
+def test_user_consumption_and_segmentation_with_provider_and_metric_filters():
+    from app.dashboard_service import DashboardService
+
+    settings = get_settings()
+    sample_user_rows = [
+        {
+            "user_id_hash": "u1", "user_name": "Alice Developer", "user_email": "alice@test.com",
+            "job_title": "Developer", "department_id": "Engineering", "business_unit_id": "Mobile BU",
+            "team_id": "eda-design", "project_id": "eda-assistant", "cost_center_id": "CC-101",
+            "total_tokens": 1000000, "input_tokens": 700000, "output_tokens": 300000,
+            "market_cost": 25.0, "negotiated_cost": 22.0, "request_count": 50,
+            "ai_credits": 0, "primary_model": "gpt-5", "primary_provider": "msft", "primary_service": None
+        },
+        {
+            "user_id_hash": "u2", "user_name": "Bob Copilot", "user_email": "bob@test.com",
+            "job_title": "Specialist", "department_id": "HR", "business_unit_id": "Corporate",
+            "team_id": "corporate-it", "project_id": "hr-service-agent", "cost_center_id": "CC-102",
+            "total_tokens": 0, "input_tokens": 0, "output_tokens": 0,
+            "market_cost": 15.0, "negotiated_cost": 13.2, "request_count": 100,
+            "ai_credits": 1500, "primary_model": "Copilot Studio Agent", "primary_provider": "msft", "primary_service": "copilot-studio"
+        }
+    ]
+
+    class FakeClient:
+        def scalar(self, sql, params=()):
+            return "2026-09-30"
+        def query(self, sql, params=()):
+            return sample_user_rows
+
+    service = DashboardService(settings, FakeClient())
+    resp_tokens = service.user_consumption(days=30, provider="all", metric="tokens")
+    assert resp_tokens.totalUsers == 2
+    resp_seg = service.user_segmentation(days=30, provider="cps", metric="ai-credits")
+    assert resp_seg.totalUsers == 2
+
+
+
 def test_cps_alias_does_not_query_token_price_tables():
     fake = _FakeFabric()
     tools = TokenomicsTools(get_settings(), fake)

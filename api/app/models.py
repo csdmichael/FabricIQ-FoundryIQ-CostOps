@@ -198,6 +198,24 @@ class ActionCategorySummary(BaseModel):
     estimatedAnnualImpactUsd: float
 
 
+class RecommendationNotification(BaseModel):
+    id: str
+    title: str
+    category: str
+    mockAction: str
+    entityId: Optional[str] = None
+    confidence: Optional[float] = None
+    estimatedAnnualImpactUsd: Optional[float] = None
+
+
+class ProjectRecommendationGroup(BaseModel):
+    projectId: str
+    projectName: str
+    ownerName: str
+    ownerEmail: str
+    recommendations: list[RecommendationNotification] = []
+
+
 class ActionRecommendationsResponse(BaseModel):
     generatedAt: str
     windowDays: int
@@ -208,6 +226,7 @@ class ActionRecommendationsResponse(BaseModel):
     totalEstimatedMonthlySavingsUsd: float = 0.0
     categories: list[ActionCategorySummary] = []
     plans: list[ActionPlan] = []
+    projectGroups: list[ProjectRecommendationGroup] = []
 
 
 class ConsumptionCost(BaseModel):

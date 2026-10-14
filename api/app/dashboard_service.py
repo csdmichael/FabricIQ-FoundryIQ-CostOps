@@ -512,6 +512,8 @@ class DashboardService:
         sort_by: str = "cost",
         page: int = 1,
         page_size: int = 20,
+        provider: str | None = None,
+        metric: str | None = None,
     ) -> UserConsumptionResponse:
         start = self._window_start(days)
         try:
@@ -523,6 +525,28 @@ class DashboardService:
             if department and department != "all":
                 where_clauses.append("department_id = ?")
                 params.append(department)
+
+            if provider and provider != "all":
+                p = provider.lower()
+                if p == "cps":
+                    where_clauses.append("service_code = ?")
+                    params.append(SERVICE_COPILOT_STUDIO)
+                elif p in ("msft", "azure"):
+                    where_clauses.append("(source_code = ? AND (service_code IS NULL OR service_code <> ?))")
+                    params.extend(["msft", SERVICE_COPILOT_STUDIO])
+                else:
+                    where_clauses.append("source_code = ?")
+                    params.append(p)
+
+            if metric and metric != "all":
+                m = metric.lower()
+                if m == "ai-credits":
+                    where_clauses.append("(service_code = ? OR ISNULL(ai_credits, 0) > 0)")
+                    params.append(SERVICE_COPILOT_STUDIO)
+                elif m == "tokens":
+                    where_clauses.append("(service_code IS NULL OR service_code <> ?) AND (ISNULL(total_tokens, 0) > 0 OR ISNULL(input_tokens, 0) > 0)")
+                    params.append(SERVICE_COPILOT_STUDIO)
+
             where_sql = " AND ".join(where_clauses)
 
             rows = self._client.query(
@@ -613,7 +637,10 @@ class DashboardService:
             )
 
         if sort_by == "tokens":
-            items.sort(key=lambda x: x.totalTokens, reverse=True)
+            if (metric or "").lower() == "ai-credits":
+                items.sort(key=lambda x: (x.aiCredits, x.totalTokens), reverse=True)
+            else:
+                items.sort(key=lambda x: x.totalTokens, reverse=True)
         elif sort_by == "requests":
             items.sort(key=lambda x: x.requestCount, reverse=True)
         elif sort_by == "name":
@@ -644,8 +671,19 @@ class DashboardService:
             users=paginated_items,
         )
 
-    def user_segmentation(self, days: int) -> UserSegmentationResponse:
-        consumption_resp = self.user_consumption(days=days, page_size=10000, sort_by="cost")
+    def user_segmentation(
+        self,
+        days: int,
+        provider: str | None = None,
+        metric: str | None = None,
+    ) -> UserSegmentationResponse:
+        consumption_resp = self.user_consumption(
+            days=days,
+            page_size=10000,
+            sort_by="cost",
+            provider=provider,
+            metric=metric,
+        )
         all_users = consumption_resp.users
 
         CLUSTERS_META = [

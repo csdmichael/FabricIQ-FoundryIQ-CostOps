@@ -21,6 +21,8 @@ from .models import (
     ActionChangePreview,
     ActionPlan,
     ActionRecommendationsResponse,
+    ProjectRecommendationGroup,
+    RecommendationNotification,
 )
 
 logger = logging.getLogger("tokenomics.recommendations")
@@ -333,6 +335,66 @@ class RecommendationsService:
                 total_annual_savings += plan.estimatedAnnualImpactUsd or 0
                 total_monthly_savings += plan.estimatedMonthlyImpactUsd or 0
 
+        # Build data-driven project recommendation groups for notifications (All, Assigned to me)
+        action_label_map = {
+            "model-switch": "Switch model in Foundry",
+            "rate-limit": "Update token limit in APIM",
+            "throttle-guardrail": "Apply budget guardrail",
+            "reallocation": "Reallocate model quota",
+            "prompt-efficiency": "Optimize prompt in Foundry",
+            "quota-increase": "Increase Foundry quota",
+            "governance": "Open governance review",
+            "chargeback": "Publish chargeback statement",
+            "capacity": "Provision secondary gateway capacity",
+        }
+        groups_by_entity: dict[str, list[RecommendationNotification]] = {}
+        for plan in plans:
+            item = RecommendationNotification(
+                id=plan.id,
+                title=plan.title,
+                category=plan.category,
+                mockAction=action_label_map.get(plan.category, "Execute recommendation"),
+                entityId=plan.entityId,
+                confidence=plan.confidence,
+                estimatedAnnualImpactUsd=plan.estimatedAnnualImpactUsd,
+            )
+            groups_by_entity.setdefault(plan.entityId, []).append(item)
+
+        project_groups: list[ProjectRecommendationGroup] = []
+        for entity_id, recs in groups_by_entity.items():
+            proj_name = entity_id.replace("-", " ").replace("_", " ").title()
+            proj_id = f"PRJ-{entity_id.upper()}" if not entity_id.upper().startswith("PRJ-") else entity_id.upper()
+            # Rule: Set user's bname ("myaacoub") as Owner for applications that have multiple actions
+            # like model switching or token limit change, etc.
+            has_multiple = len(recs) > 1
+            has_multi_action_types = any(r.category in ("model-switch", "rate-limit", "throttle-guardrail", "reallocation", "prompt-efficiency") for r in recs)
+
+            if has_multiple and has_multi_action_types:
+                owner_name = "Michael Yaacoub (myaacoub)"
+                owner_email = "myaacoub@microsoft.com"
+            else:
+                owner_name = "Avery Johnson"
+                owner_email = "avery.johnson@Caldova37587778.onmicrosoft.com"
+
+            project_groups.append(
+                ProjectRecommendationGroup(
+                    projectId=proj_id,
+                    projectName=proj_name,
+                    ownerName=owner_name,
+                    ownerEmail=owner_email,
+                    recommendations=recs,
+                )
+            )
+
+        # Place applications assigned to myaacoub first
+        project_groups.sort(
+            key=lambda g: (
+                0 if "myaacoub" in g.ownerName.lower() or "myaacoub" in g.ownerEmail.lower() else 1,
+                -len(g.recommendations),
+                g.projectName,
+            )
+        )
+
         return ActionRecommendationsResponse(
             generatedAt=now,
             windowDays=days,
@@ -345,6 +407,7 @@ class RecommendationsService:
                 categories.values(), key=lambda c: c.estimatedAnnualImpactUsd, reverse=True
             ),
             plans=plans,
+            projectGroups=project_groups,
         )
 
     def _plan_metrics(self, row: dict) -> list[dict]:
